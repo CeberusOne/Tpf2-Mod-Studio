@@ -1,0 +1,61 @@
+name: Feature request
+description: Propose an improvement or future capability
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user outcome first. The current release supports Transport Fever 2 only.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or user need
+      description: What is difficult today, and who is affected?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe success without prescribing internal implementation.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority-class
+    attributes:
+      label: Release classification
+      options:
+        - Essential for first stable release
+        - Useful for a later release
+        - Experimental or long-term idea
+    validations:
+      required: true
+  - type: dropdown
+    id: game-scope
+    attributes:
+      label: Game scope
+      options:
+        - Transport Fever 2
+        - Transport Fever 1 future compatibility
+        - Transport Fever 3 future compatibility
+        - Game-independent workflow
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add mockups, examples or references that you may legally share.
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched for an existing request.
+          required: true
+        - label: I understand that classification is not a delivery commitment.
+          required: true
