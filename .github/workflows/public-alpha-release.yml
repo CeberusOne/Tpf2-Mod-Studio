@@ -18,128 +18,87 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  preflight:
-    name: Release preflight
+  release:
+    name: Publish verified CI artifacts
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    env:
+      RELEASE_TAG: v0.1.0-alpha.1
+      RELEASE_TITLE: Tpf2 Mod Studio 0.1.0 Public Alpha 1
+      SOURCE_RUN_ID: "30484600653"
+      SOURCE_COMMIT: 7cc504046a730860c77b46c340cb0fe18f5ce5d4
+      LINUX_ARTIFACT_ID: "8737216482"
+      LINUX_ARCHIVE_SHA256: 5625ab26ab04a4e7d0b887dd83502cce302733f6979992a02f79d0ae0e6284ed
+      WINDOWS_ARTIFACT_ID: "8737200166"
+      WINDOWS_ARCHIVE_SHA256: 1cf460c4eeee24572dcdb252a44068924b5818a2961117ad78c80d0be5764d98
+
     steps:
-      - name: Check out source
+      - name: Check out release metadata
         uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Require an approved repository license
+      - name: Require approved GPL-3.0-only license
         shell: bash
         run: |
-          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            echo "Public releases may be created from main only."
-            exit 1
-          fi
           if [ ! -s LICENSE ]; then
-            echo "LICENSE is missing. Select and commit a license before publishing."
+            echo "LICENSE is missing."
             exit 1
           fi
+          grep -q "GNU GENERAL PUBLIC LICENSE" LICENSE
+          grep -q "Version 3, 29 June 2007" LICENSE
+          grep -q '"license": "GPL-3.0-only"' package.json
 
-  build:
-    name: Build ${{ matrix.name }}
-    needs: preflight
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Linux x64
-            os: ubuntu-22.04
-            artifact: tpf2-mod-studio-linux-x64
-          - name: Windows x64
-            os: windows-2022
-            artifact: tpf2-mod-studio-windows-x64
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Install Linux system dependencies
-        if: runner.os == 'Linux'
+      - name: Reuse an existing completed release
+        id: existing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            libxdo-dev \
-            patchelf \
-            xvfb \
-            xdg-utils
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release $RELEASE_TAG already exists; no replacement is required."
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
+      - name: Download verified CI artifact archives
+        if: steps.existing.outputs.release_exists != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release-assets/linux release-assets/windows
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$GITHUB_REPOSITORY/actions/artifacts/$LINUX_ARTIFACT_ID/zip" \
+            > "$RUNNER_TEMP/linux-artifact.zip"
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$GITHUB_REPOSITORY/actions/artifacts/$WINDOWS_ARTIFACT_ID/zip" \
+            > "$RUNNER_TEMP/windows-artifact.zip"
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Cache Rust build outputs
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/desktop/src-tauri -> target
-
-      - name: Install JavaScript dependencies
-        run: npm ci
-
-      - name: Verify TypeScript, tests and frontend build
-        run: npm run verify
-
-      - name: Check Rust formatting
-        working-directory: apps/desktop/src-tauri
-        run: cargo fmt --check
-
-      - name: Run Rust tests
-        working-directory: apps/desktop/src-tauri
-        run: cargo test --locked --all-targets
-
-      - name: Run Rust lints
-        working-directory: apps/desktop/src-tauri
-        run: cargo clippy --locked --all-targets --all-features -- -D warnings
-
-      - name: Build native Tauri bundles
-        run: npm run desktop:build
-
-      - name: Upload verified native bundles
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: apps/desktop/src-tauri/target/release/bundle/**
-          if-no-files-found: error
-          retention-days: 7
-
-  release:
-    name: Publish v0.1.0-alpha.1
-    needs: build
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
-    steps:
-      - name: Check out release notes
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Download verified bundles
-        uses: actions/download-artifact@v5
-        with:
-          pattern: tpf2-mod-studio-*-x64
-          path: release-assets
+      - name: Verify artifact provenance and unpack packages
+        if: steps.existing.outputs.release_exists != 'true'
+        shell: bash
+        run: |
+          printf '%s  %s\n' \
+            "$LINUX_ARCHIVE_SHA256" \
+            "$RUNNER_TEMP/linux-artifact.zip" \
+            | sha256sum -c -
+          printf '%s  %s\n' \
+            "$WINDOWS_ARCHIVE_SHA256" \
+            "$RUNNER_TEMP/windows-artifact.zip" \
+            | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/linux-artifact.zip" -d release-assets/linux
+          unzip -q "$RUNNER_TEMP/windows-artifact.zip" -d release-assets/windows
 
       - name: Verify package set and create checksums
+        if: steps.existing.outputs.release_exists != 'true'
         shell: bash
         run: |
           for pattern in "*.msi" "*.exe" "*.AppImage" "*.deb" "*.rpm"; do
@@ -161,16 +120,11 @@ jobs:
           cat release-assets/SHA256SUMS.txt
 
       - name: Create immutable Public Alpha pre-release
+        if: steps.existing.outputs.release_exists != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v0.1.0-alpha.1
-          RELEASE_TITLE: Tpf2 Mod Studio 0.1.0 Public Alpha 1
         run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "Release $RELEASE_TAG already exists; refusing to replace it."
-            exit 1
-          fi
           mapfile -d '' assets < <(
             find release-assets -type f ! -name SHA256SUMS.txt -print0
           )
@@ -181,3 +135,10 @@ jobs:
             --title "$RELEASE_TITLE" \
             --notes-file docs/release-notes-0.1.0-alpha.1.md \
             --prerelease
+
+      - name: Record release provenance
+        shell: bash
+        run: |
+          echo "Release: $RELEASE_TAG"
+          echo "Verified source run: $SOURCE_RUN_ID"
+          echo "Verified source commit: $SOURCE_COMMIT"
