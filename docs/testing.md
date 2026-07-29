@@ -38,20 +38,21 @@ performance benchmark.
 
 ## Native gate
 
-With the platform prerequisites installed:
+The CI pipeline runs:
 
 ```bash
 cd apps/desktop/src-tauri
 cargo fmt --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test
+cargo clippy --locked --all-targets --all-features -- -D warnings
+cargo test --locked --all-targets
 cd ../../..
 npm run desktop:build
 ```
 
-These commands are mandatory before calling either Windows or Linux native
-support verified. They could not run in the recorded environment because
-Rust/Cargo and Linux WebKitGTK development libraries were absent.
+On 2026-07-29 all commands passed on GitHub-hosted Ubuntu 22.04 and Windows
+Server 2022. Five Rust tests passed on each operating system. After packaging,
+the pipeline also starts the compiled desktop process for at least ten seconds;
+Linux runs under Xvfb and Windows starts the release EXE directly.
 
 ## Manual native workflow
 
@@ -82,6 +83,7 @@ required:
 - full dependency and load-order conflicts;
 - incompatible CommonAPI2 installations;
 - native Windows and Linux path, case and installer behavior;
+- interactive clean-machine install, startup and uninstall;
 - measured CPU, elapsed time and memory baselines.
 
 No performance number is claimed until those measurements exist.
