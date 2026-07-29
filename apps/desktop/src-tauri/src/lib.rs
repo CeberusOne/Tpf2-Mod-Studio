@@ -771,7 +771,7 @@ mod tests {
 
     #[test]
     fn project_ids_require_a_positive_major_version() {
-        assert!(is_valid_project_id("mike_train_mod_1"));
+        assert!(is_valid_project_id("test_author_train_mod_1"));
         assert!(is_valid_project_id("mod-collection_12"));
         assert!(!is_valid_project_id("MissingCase_1"));
         assert!(!is_valid_project_id("missing_version"));
@@ -795,7 +795,7 @@ mod tests {
             parent_directory: path_string(workspace.path()),
             project_id: "native_test_mod_1".into(),
             display_name: "Native Test Mod".into(),
-            author: "Mike".into(),
+            author: "Test Author".into(),
             mode: ProjectMode::Vanilla,
         })
         .expect("project should be created");
