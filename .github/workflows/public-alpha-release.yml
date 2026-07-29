@@ -66,6 +66,25 @@ jobs:
             echo "release_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Remove incomplete draft releases from failed attempts
+        if: steps.existing.outputs.release_exists != 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while IFS= read -r release_id; do
+            [ -n "$release_id" ] || continue
+            echo "Removing incomplete draft release $release_id for $RELEASE_TAG."
+            gh api \
+              --method DELETE \
+              "/repos/$GITHUB_REPOSITORY/releases/$release_id"
+          done < <(
+            gh api \
+              --paginate \
+              "/repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+              --jq ".[] | select(.draft == true and .tag_name == \"$RELEASE_TAG\") | .id"
+          )
+
       - name: Download verified CI artifact archives
         if: steps.existing.outputs.release_exists != 'true'
         shell: bash
@@ -97,27 +116,40 @@ jobs:
           unzip -q "$RUNNER_TEMP/linux-artifact.zip" -d release-assets/linux
           unzip -q "$RUNNER_TEMP/windows-artifact.zip" -d release-assets/windows
 
-      - name: Verify package set and create checksums
+      - name: Stage the five distributable packages
         if: steps.existing.outputs.release_exists != 'true'
         shell: bash
         run: |
+          mkdir -p release-packages
           for pattern in "*.msi" "*.exe" "*.AppImage" "*.deb" "*.rpm"; do
-            if ! find release-assets -type f -name "$pattern" -print -quit | grep -q .; then
-              echo "Required release package is missing: $pattern"
+            mapfile -d '' matches < <(
+              find release-assets -type f -name "$pattern" -print0
+            )
+            if [ "${#matches[@]}" -ne 1 ]; then
+              echo "Expected exactly one release package matching $pattern; found ${#matches[@]}."
               exit 1
             fi
+            package_name="$(basename "${matches[0]}")"
+            if [ -e "release-packages/$package_name" ]; then
+              echo "Duplicate release asset name: $package_name"
+              exit 1
+            fi
+            cp "${matches[0]}" "release-packages/$package_name"
           done
-          : > release-assets/SHA256SUMS.txt
-          while IFS= read -r -d '' package; do
-            checksum="$(sha256sum "$package" | cut -d ' ' -f 1)"
-            printf '%s  %s\n' \
-              "$checksum" \
-              "$(basename "$package")" \
-              >> release-assets/SHA256SUMS.txt
-          done < <(
-            find release-assets -type f ! -name SHA256SUMS.txt -print0 | sort -z
-          )
-          cat release-assets/SHA256SUMS.txt
+
+      - name: Create package checksums
+        if: steps.existing.outputs.release_exists != 'true'
+        shell: bash
+        working-directory: release-packages
+        run: |
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  \./#  #' \
+            > SHA256SUMS.txt
+          test "$(wc -l < SHA256SUMS.txt)" -eq 5
+          sha256sum -c SHA256SUMS.txt
+          cat SHA256SUMS.txt
 
       - name: Create immutable Public Alpha pre-release
         if: steps.existing.outputs.release_exists != 'true'
@@ -126,12 +158,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mapfile -d '' assets < <(
-            find release-assets -type f ! -name SHA256SUMS.txt -print0
+            find release-packages \
+              -maxdepth 1 \
+              -type f \
+              ! -name SHA256SUMS.txt \
+              -print0 \
+              | sort -z
           )
+          test "${#assets[@]}" -eq 5
           gh release create "$RELEASE_TAG" \
             "${assets[@]}" \
-            release-assets/SHA256SUMS.txt \
-            --target "$GITHUB_SHA" \
+            release-packages/SHA256SUMS.txt \
+            --target "$SOURCE_COMMIT" \
             --title "$RELEASE_TITLE" \
             --notes-file docs/release-notes-0.1.0-alpha.1.md \
             --prerelease
