@@ -12,7 +12,7 @@ import type {
 export interface DesktopBridge {
   readonly isNative: boolean;
   chooseDirectory(title: string): Promise<string | null>;
-  chooseLogFile(): Promise<string | null>;
+  chooseLogFile(title: string, filterName: string): Promise<string | null>;
   detectInstallations(): Promise<InstallationCandidate[]>;
   createProject(request: CreateProjectRequest): Promise<CreatedProject>;
   scanProject(rootPath: string): Promise<ProjectSnapshot>;
@@ -50,13 +50,13 @@ export const tauriBridge: DesktopBridge = {
     return typeof selected === "string" ? selected : null;
   },
 
-  async chooseLogFile() {
+  async chooseLogFile(title, filterName) {
     requireNative();
     const selected = await open({
       directory: false,
       multiple: false,
-      title: "Transport Fever 2 stdout.txt auswählen",
-      filters: [{ name: "TF2-Protokolle", extensions: ["txt", "log"] }]
+      title,
+      filters: [{ name: filterName, extensions: ["txt", "log"] }]
     });
     return typeof selected === "string" ? selected : null;
   },

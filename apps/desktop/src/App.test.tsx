@@ -7,7 +7,7 @@ import {
   screen,
   waitFor
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   CreatedProject,
@@ -25,8 +25,17 @@ vi.mock("./MonacoEditor", () => ({
   )
 }));
 
+beforeEach(() => {
+  window.localStorage.clear();
+  Object.defineProperty(window.navigator, "language", {
+    configurable: true,
+    value: "en-US"
+  });
+});
+
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
 });
 
 const MOD_LUA = `function data()
@@ -97,13 +106,13 @@ describe("desktop workbench", () => {
     render(<App bridge={bridge(false)} />);
 
     expect(
-      screen.getByText("Von der ersten Datei bis zum echten Testlauf.")
+      screen.getByText("From the first file to a real test run.")
     ).toBeTruthy();
-    expect(screen.getByText("UI-Vorschau")).toBeTruthy();
+    expect(screen.getByText("UI preview")).toBeTruthy();
     expect(
       (
         screen.getByRole("button", {
-          name: "Vorhandenen Mod öffnen"
+          name: "Open existing mod"
         }) as HTMLButtonElement
       ).disabled
     ).toBe(true);
@@ -114,21 +123,24 @@ describe("desktop workbench", () => {
     const desktopBridge = bridge();
     render(<App bridge={desktopBridge} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Öffnen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
 
     await waitFor(() => {
+      expect(desktopBridge.chooseDirectory).toHaveBeenCalledWith(
+        "Select a Transport Fever 2 mod project"
+      );
       expect(desktopBridge.scanProject).toHaveBeenCalledWith(
         "/real/project/test_mod_1"
       );
     });
     expect(screen.getByText("test_mod_1")).toBeTruthy();
     expect(screen.getByText("mod.lua")).toBeTruthy();
-    expect(screen.getByText(/2 reale Dateien geladen/u)).toBeTruthy();
+    expect(screen.getByText(/2 real files loaded/u)).toBeTruthy();
   });
 
   it("opens a text file and exposes the validation installation gate", async () => {
     render(<App bridge={bridge()} />);
-    fireEvent.click(screen.getByRole("button", { name: "Öffnen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByText("mod.lua");
 
     fireEvent.click(screen.getByText("mod.lua"));
@@ -137,8 +149,39 @@ describe("desktop workbench", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Build & Installation" })
+      screen.getByRole("button", { name: "Build & installation" })
     );
-    expect(screen.getByText("Freigegeben")).toBeTruthy();
+    expect(screen.getByText("Approved")).toBeTruthy();
+  });
+
+  it("passes translated labels into the native log picker", () => {
+    const desktopBridge = bridge();
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Logs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select log" }));
+
+    expect(desktopBridge.chooseLogFile).toHaveBeenCalledWith(
+      "Select Transport Fever 2 stdout.txt",
+      "TF2 logs"
+    );
+  });
+
+  it("switches to German and persists the explicit language selection", () => {
+    const firstRender = render(<App bridge={bridge(false)} />);
+
+    expect(document.documentElement.lang).toBe("en");
+    fireEvent.click(screen.getByRole("button", { name: "German" }));
+    expect(
+      screen.getByText("Von der ersten Datei bis zum echten Testlauf.")
+    ).toBeTruthy();
+    expect(document.documentElement.lang).toBe("de");
+    expect(
+      window.localStorage.getItem("tpf2-mod-studio.language.v1")
+    ).toBe("de");
+
+    firstRender.unmount();
+    render(<App bridge={bridge(false)} />);
+    expect(screen.getByText("UI-Vorschau")).toBeTruthy();
   });
 });

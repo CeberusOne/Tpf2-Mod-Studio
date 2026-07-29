@@ -350,6 +350,15 @@ nav {
   background: var(--surface-hover);
 }
 
+.language-switch {
+  flex: 0 0 auto;
+}
+
+.language-switch button {
+  min-width: 31px;
+  padding-inline: 7px;
+}
+
 .primary-button,
 .secondary-button,
 .icon-button,
@@ -1430,7 +1439,7 @@ nav {
     padding: 0 16px;
   }
 
-  .topbar-actions .segmented {
+  .topbar-actions .segmented:not(.language-switch) {
     display: none;
   }
 

@@ -52,6 +52,14 @@ import {
 
 import type { DesktopBridge } from "./bridge";
 import { tauriBridge } from "./bridge";
+import {
+  I18nProvider,
+  localizedCertainty,
+  localizedInstallationReason,
+  localizedInstallationSource,
+  localizedSeverity,
+  useI18n
+} from "./i18n";
 
 const MonacoEditor = lazy(() => import("./MonacoEditor"));
 
@@ -110,10 +118,11 @@ function severityIcon(diagnostic: Diagnostic): ReactNode {
 }
 
 function NativeBadge({ native }: { native: boolean }) {
+  const { t } = useI18n();
   return (
     <span className={`native-badge ${native ? "is-ready" : "is-preview"}`}>
       <span className="native-dot" />
-      {native ? "Desktop-Bridge bereit" : "UI-Vorschau"}
+      {native ? t("nativeReady") : t("uiPreview")}
     </span>
   );
 }
@@ -136,7 +145,16 @@ function EmptyState({
   );
 }
 
-export default function App({ bridge = tauriBridge }: AppProps) {
+export default function App(props: AppProps) {
+  return (
+    <I18nProvider>
+      <Workbench {...props} />
+    </I18nProvider>
+  );
+}
+
+function Workbench({ bridge = tauriBridge }: AppProps) {
+  const { language, setLanguage, t } = useI18n();
   const [theme, setTheme] = useState<Theme>("dark");
   const [experience, setExperience] =
     useState<ExperienceMode>("beginner");
@@ -196,7 +214,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
   }
 
   async function loadProject(rootPath: string): Promise<void> {
-    const scanned = await withBusy("Projekt wird indexiert", () =>
+    const scanned = await withBusy(t("busyIndexProject"), () =>
       bridge.scanProject(rootPath)
     );
     if (scanned === undefined) return;
@@ -207,20 +225,20 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     setView("workspace");
     setNotice({
       tone: "success",
-      message: `${scanned.files.length} reale Dateien geladen.`
+      message: t("noticeFilesLoaded", { count: scanned.files.length })
     });
   }
 
   async function chooseAndOpenProject(): Promise<void> {
-    const selected = await withBusy("Ordnerauswahl wird geöffnet", () =>
-      bridge.chooseDirectory("Transport-Fever-2-Modprojekt auswählen")
+    const selected = await withBusy(t("busyOpenFolderPicker"), () =>
+      bridge.chooseDirectory(t("dialogSelectProject"))
     );
     if (selected !== undefined && selected !== null) await loadProject(selected);
   }
 
   async function chooseCreateParent(): Promise<void> {
-    const selected = await withBusy("Ordnerauswahl wird geöffnet", () =>
-      bridge.chooseDirectory("Übergeordneten Projektordner auswählen")
+    const selected = await withBusy(t("busyOpenFolderPicker"), () =>
+      bridge.chooseDirectory(t("dialogSelectParent"))
     );
     if (selected !== undefined && selected !== null) {
       setCreateRequest((current) => ({
@@ -232,7 +250,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
 
   async function submitCreate(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const created = await withBusy("Projekt wird sicher angelegt", () =>
+    const created = await withBusy(t("busyCreateProject"), () =>
       bridge.createProject(createRequest)
     );
     if (created === undefined) return;
@@ -245,7 +263,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     if (!file.text) {
       setNotice({
         tone: "neutral",
-        message: "Binärdateien werden indexiert, aber in diesem Slice nicht als Text geöffnet."
+        message: t("noticeBinaryFile")
       });
       return;
     }
@@ -257,7 +275,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     if (snapshot === undefined) return;
     const content =
       file.content ??
-      (await withBusy("Datei wird gelesen", () =>
+      (await withBusy(t("busyReadFile"), () =>
         bridge.readProjectFile(snapshot.rootPath, file.relativePath)
       ));
     if (content === undefined) return;
@@ -289,7 +307,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     ) {
       return;
     }
-    const saved = await withBusy("Datei wird atomar gespeichert", async () => {
+    const saved = await withBusy(t("busySaveFile"), async () => {
       await bridge.saveProjectFile(
         snapshot.rootPath,
         activeTab.path,
@@ -309,7 +327,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     setSnapshot(scanned);
     setNotice({
       tone: "success",
-      message: `${activeTab.path} gespeichert; Sicherung wurde angelegt.`
+      message: t("noticeFileSaved", { path: activeTab.path })
     });
   }
 
@@ -318,7 +336,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     if (
       tab !== undefined &&
       tab.content !== tab.savedContent &&
-      !window.confirm(`Ungespeicherte Änderungen an ${path} verwerfen?`)
+      !window.confirm(t("confirmDiscardChanges", { path }))
     ) {
       return;
     }
@@ -331,9 +349,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     if (snapshot === undefined) return;
     if (
       dirtyCount > 0 &&
-      !window.confirm(
-        "Es gibt ungespeicherte Änderungen. Trotzdem neu vom Datenträger einlesen?"
-      )
+      !window.confirm(t("confirmRescan"))
     ) {
       return;
     }
@@ -341,8 +357,8 @@ export default function App({ bridge = tauriBridge }: AppProps) {
   }
 
   async function chooseModsDirectory(): Promise<void> {
-    const selected = await withBusy("Ordnerauswahl wird geöffnet", () =>
-      bridge.chooseDirectory("Lokales Transport-Fever-2-Modverzeichnis auswählen")
+    const selected = await withBusy(t("busyOpenFolderPicker"), () =>
+      bridge.chooseDirectory(t("dialogSelectModsDirectory"))
     );
     if (selected !== undefined && selected !== null) setModsDirectory(selected);
   }
@@ -351,18 +367,18 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     if (snapshot === undefined || validation?.canInstall !== true) {
       setNotice({
         tone: "error",
-        message: "Installation ist blockiert, solange bestätigte Fehler offen sind."
+        message: t("noticeInstallBlocked")
       });
       return;
     }
     if (modsDirectory.length === 0) {
       setNotice({
         tone: "error",
-        message: "Wähle zuerst ein lokales Modverzeichnis."
+        message: t("noticeChooseModsDirectory")
       });
       return;
     }
-    const result = await withBusy("Mod wird verifiziert und installiert", () =>
+    const result = await withBusy(t("busyInstall"), () =>
       bridge.installProject(
         snapshot.rootPath,
         modsDirectory,
@@ -373,16 +389,16 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     setInstallResult(result.installedPath);
     setNotice({
       tone: "success",
-      message: `${result.fileCount} Dateien installiert und mod.lua verifiziert.`
+      message: t("noticeFilesInstalled", { count: result.fileCount })
     });
   }
 
   async function chooseAndReadLog(): Promise<void> {
-    const selected = await withBusy("Protokollauswahl wird geöffnet", () =>
-      bridge.chooseLogFile()
+    const selected = await withBusy(t("busyOpenLogPicker"), () =>
+      bridge.chooseLogFile(t("dialogSelectLog"), t("dialogLogFilter"))
     );
     if (selected === undefined || selected === null) return;
-    const content = await withBusy("stdout.txt wird analysiert", () =>
+    const content = await withBusy(t("busyAnalyzeLog"), () =>
       bridge.readLog(selected)
     );
     if (content === undefined) return;
@@ -391,7 +407,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
   }
 
   async function detectInstallations(): Promise<void> {
-    const candidates = await withBusy("Installationen werden gesucht", () =>
+    const candidates = await withBusy(t("busyDetectInstallations"), () =>
       bridge.detectInstallations()
     );
     if (candidates === undefined) return;
@@ -400,26 +416,24 @@ export default function App({ bridge = tauriBridge }: AppProps) {
       tone: candidates.length === 0 ? "neutral" : "success",
       message:
         candidates.length === 0
-          ? "Keine Installation an den bekannten Standardpfaden erkannt."
-          : `${candidates.length} Installation(en) erkannt.`
+          ? t("noticeNoInstallation")
+          : t("noticeInstallationsDetected", { count: candidates.length })
     });
   }
 
   async function launchGame(executablePath: string): Promise<void> {
     if (
-      !window.confirm(
-        "Transport Fever 2 jetzt für einen manuellen Testlauf starten?"
-      )
+      !window.confirm(t("confirmLaunch"))
     ) {
       return;
     }
-    const processId = await withBusy("Transport Fever 2 wird gestartet", () =>
+    const processId = await withBusy(t("busyLaunchGame"), () =>
       bridge.launchGame(executablePath)
     );
     if (processId === undefined) return;
     setNotice({
       tone: "success",
-      message: `Transport Fever 2 wurde als Prozess ${processId} gestartet.`
+      message: t("noticeGameLaunched", { processId })
     });
   }
 
@@ -440,18 +454,18 @@ export default function App({ bridge = tauriBridge }: AppProps) {
     icon: ReactNode;
     count?: number;
   }> = [
-    { id: "workspace", label: "Arbeitsbereich", icon: <Code2 size={18} /> },
+    { id: "workspace", label: t("navWorkspace"), icon: <Code2 size={18} /> },
     {
       id: "diagnostics",
-      label: "Diagnosen",
+      label: t("navDiagnostics"),
       icon: <ShieldCheck size={18} />,
       ...(validation === undefined
         ? {}
         : { count: validation.errorCount + validation.warningCount })
     },
-    { id: "install", label: "Build & Installation", icon: <Box size={18} /> },
-    { id: "logs", label: "Protokolle", icon: <ScrollText size={18} /> },
-    { id: "settings", label: "TF2-Einrichtung", icon: <Settings size={18} /> }
+    { id: "install", label: t("navInstall"), icon: <Box size={18} /> },
+    { id: "logs", label: t("navLogs"), icon: <ScrollText size={18} /> },
+    { id: "settings", label: t("navSetup"), icon: <Settings size={18} /> }
   ];
 
   return (
@@ -465,7 +479,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
           </div>
         </div>
 
-        <nav aria-label="Hauptnavigation">
+        <nav aria-label={t("mainNavigation")}>
           {navigation.map((item) => (
             <button
               className={`nav-item ${view === item.id ? "is-active" : ""}`}
@@ -483,9 +497,9 @@ export default function App({ bridge = tauriBridge }: AppProps) {
         </nav>
 
         <div className="sidebar-project">
-          <span className="eyebrow">Aktives Projekt</span>
+          <span className="eyebrow">{t("activeProject")}</span>
           {snapshot === undefined ? (
-            <p>Noch kein Projekt geöffnet.</p>
+            <p>{t("noProjectOpen")}</p>
           ) : (
             <>
               <div className="project-name">
@@ -502,7 +516,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
 
         <div className="sidebar-footer">
           <NativeBadge native={bridge.isNative} />
-          <span>Keine Telemetrie · lokale Daten</span>
+          <span>{t("noTelemetry")}</span>
         </div>
       </aside>
 
@@ -513,24 +527,49 @@ export default function App({ bridge = tauriBridge }: AppProps) {
             <h1>{navigation.find((item) => item.id === view)?.label}</h1>
           </div>
           <div className="topbar-actions">
-            <div className="segmented" aria-label="Bedienebene">
+            <div
+              className="segmented language-switch"
+              aria-label={t("languageControl")}
+            >
+              <button
+                aria-label={t("german")}
+                aria-pressed={language === "de"}
+                className={language === "de" ? "is-selected" : ""}
+                onClick={() => setLanguage("de")}
+                type="button"
+              >
+                DE
+              </button>
+              <button
+                aria-label={t("english")}
+                aria-pressed={language === "en"}
+                className={language === "en" ? "is-selected" : ""}
+                onClick={() => setLanguage("en")}
+                type="button"
+              >
+                EN
+              </button>
+            </div>
+            <div className="segmented" aria-label={t("operationLevel")}>
               <button
                 className={experience === "beginner" ? "is-selected" : ""}
                 onClick={() => setExperience("beginner")}
                 type="button"
               >
-                Einsteiger
+                {t("beginner")}
               </button>
               <button
                 className={experience === "expert" ? "is-selected" : ""}
                 onClick={() => setExperience("expert")}
                 type="button"
               >
-                Experte
+                {t("expert")}
               </button>
             </div>
             <button
-              aria-label={theme === "dark" ? "Helles Design" : "Dunkles Design"}
+              aria-label={
+                theme === "dark" ? t("lightTheme") : t("darkTheme")
+              }
               className="icon-button"
               onClick={() =>
                 setTheme((current) => (current === "dark" ? "light" : "dark"))
@@ -546,7 +585,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
               type="button"
             >
               <FolderOpen size={17} />
-              Öffnen
+              {t("open")}
             </button>
             <button
               className="primary-button"
@@ -555,7 +594,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
               type="button"
             >
               <FilePlus2 size={17} />
-              Neues Modprojekt
+              {t("newModProject")}
             </button>
           </div>
         </header>
@@ -580,11 +619,13 @@ export default function App({ bridge = tauriBridge }: AppProps) {
                 <section className="file-panel panel">
                   <div className="panel-heading">
                     <div>
-                      <span className="eyebrow">Projektdateien</span>
-                      <strong>{snapshot.files.length} Dateien</strong>
+                      <span className="eyebrow">{t("projectFiles")}</span>
+                      <strong>
+                        {t("filesCount", { count: snapshot.files.length })}
+                      </strong>
                     </div>
                     <button
-                      aria-label="Projekt neu einlesen"
+                      aria-label={t("rescanProject")}
                       className="ghost-icon"
                       onClick={() => void rescanProject()}
                       type="button"
@@ -612,7 +653,9 @@ export default function App({ bridge = tauriBridge }: AppProps) {
                   <div className="index-summary">
                     <Database size={15} />
                     <span>
-                      {formatBytes(resourceIndex?.totalBytes ?? 0)} indexiert
+                      {t("indexed", {
+                        size: formatBytes(resourceIndex?.totalBytes ?? 0)
+                      })}
                     </span>
                   </div>
                 </section>
@@ -636,7 +679,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
                           />
                           {fileName(tab.path)}
                           <span
-                            aria-label={`${tab.path} schließen`}
+                            aria-label={t("closeTab", { path: tab.path })}
                             className="tab-close"
                             onClick={(event) => {
                               event.stopPropagation();
@@ -659,7 +702,7 @@ export default function App({ bridge = tauriBridge }: AppProps) {
                         type="button"
                       >
                         <Save size={15} />
-                        Speichern
+                        {t("save")}
                       </button>
                     </div>
                   ) : null}
@@ -667,17 +710,16 @@ export default function App({ bridge = tauriBridge }: AppProps) {
                     {activeTab === undefined ? (
                       <EmptyState
                         icon={<TerminalSquare size={26} />}
-                        title="Datei auswählen"
+                        title={t("selectFile")}
                       >
-                        Öffne links eine Lua-, Konfigurations- oder Textdatei.
-                        Binärressourcen bleiben unverändert.
+                        {t("selectFileDescription")}
                       </EmptyState>
                     ) : (
                       <Suspense
                         fallback={
                           <div className="editor-loading">
                             <LoaderCircle className="spin" size={18} />
-                            Editor wird geladen
+                            {t("editorLoading")}
                           </div>
                         }
                       >
@@ -693,11 +735,11 @@ export default function App({ bridge = tauriBridge }: AppProps) {
                     )}
                   </div>
                   <div className="editor-status">
-                    <span>{activeTab?.path ?? "Keine Datei geöffnet"}</span>
+                    <span>{activeTab?.path ?? t("noFileOpen")}</span>
                     <span>
                       {dirtyCount > 0
-                        ? `${dirtyCount} ungespeichert`
-                        : "Datenträgerstand"}
+                        ? t("unsavedCount", { count: dirtyCount })
+                        : t("diskState")}
                     </span>
                   </div>
                 </section>
@@ -706,19 +748,19 @@ export default function App({ bridge = tauriBridge }: AppProps) {
                   <div className="rail-stat">
                     <span className="status-orb error" />
                     <strong>{validation?.errorCount ?? 0}</strong>
-                    <small>Fehler</small>
+                    <small>{t("errors")}</small>
                   </div>
                   <div className="rail-stat">
                     <span className="status-orb warning" />
                     <strong>{validation?.warningCount ?? 0}</strong>
-                    <small>Warnungen</small>
+                    <small>{t("warnings")}</small>
                   </div>
                   <button
                     className="rail-link"
                     onClick={() => setView("diagnostics")}
                     type="button"
                   >
-                    Alle Diagnosen
+                    {t("allDiagnostics")}
                     <ChevronRight size={15} />
                   </button>
                 </section>
@@ -807,16 +849,25 @@ function Welcome({
   onCreate: () => void;
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
+  const workflow = [
+    ["01", t("workflowProject"), t("workflowProjectDescription")],
+    ["02", t("workflowValidation"), t("workflowValidationDescription")],
+    [
+      "03",
+      t("workflowInstallation"),
+      t("workflowInstallationDescription")
+    ],
+    ["04", t("workflowTestRun"), t("workflowTestRunDescription")],
+    ["05", t("workflowLog"), t("workflowLogDescription")]
+  ];
+
   return (
     <div className="welcome">
       <section className="welcome-copy">
-        <span className="eyebrow">Eigenständige TF2-Entwicklungsumgebung</span>
-        <h2>Von der ersten Datei bis zum echten Testlauf.</h2>
-        <p>
-          Arbeite direkt mit deinen lokalen Transport-Fever-2-Mods. Das Studio
-          liest keine Beispieldaten ein und verändert keine Basisressourcen des
-          Spiels.
-        </p>
+        <span className="eyebrow">{t("welcomeEyebrow")}</span>
+        <h2>{t("welcomeTitle")}</h2>
+        <p>{t("welcomeDescription")}</p>
         <div className="welcome-actions">
           <button
             className="primary-button large"
@@ -825,7 +876,7 @@ function Welcome({
             type="button"
           >
             <FilePlus2 size={18} />
-            Modprojekt anlegen
+            {t("createModProject")}
           </button>
           <button
             className="secondary-button large"
@@ -834,26 +885,19 @@ function Welcome({
             type="button"
           >
             <FolderOpen size={18} />
-            Vorhandenen Mod öffnen
+            {t("openExistingMod")}
           </button>
         </div>
         {!native ? (
           <div className="preview-explanation">
             <HardDrive size={18} />
-            Diese Browser-Vorschau zeigt ausschließlich die Oberfläche. Starte
-            das Tauri-Desktopfenster, um lokale Ordner auszuwählen.
+            {t("previewExplanation")}
           </div>
         ) : null}
       </section>
       <section className="workflow-card">
-        <span className="eyebrow">Aktiver Vertikalschnitt</span>
-        {[
-          ["01", "Projekt", "TF2-konforme Grundstruktur"],
-          ["02", "Prüfung", "Lua, Pfade und Großschreibung"],
-          ["03", "Installation", "Sicher kopieren und verifizieren"],
-          ["04", "Testlauf", "Spielstart nur auf deine Aktion"],
-          ["05", "Protokoll", "stdout.txt gruppieren und zuordnen"]
-        ].map(([number, title, description]) => (
+        <span className="eyebrow">{t("workflowEyebrow")}</span>
+        {workflow.map(([number, title, description]) => (
           <div className="workflow-step" key={number}>
             <span>{number}</span>
             <div>
@@ -879,19 +923,22 @@ function DiagnosticsView({
   hasProject: boolean;
   onJump: (diagnostic: Diagnostic) => void;
 }) {
+  const { t } = useI18n();
+
   if (!hasProject) {
     return (
-      <EmptyState icon={<ShieldCheck size={26} />} title="Keine Prüfbasis">
-        Öffne ein echtes Modprojekt, um Struktur, Lua und Ressourcenreferenzen
-        statisch zu prüfen.
+      <EmptyState
+        icon={<ShieldCheck size={26} />}
+        title={t("noValidationBase")}
+      >
+        {t("noValidationBaseDescription")}
       </EmptyState>
     );
   }
   if (diagnostics.length === 0) {
     return (
-      <EmptyState icon={<CheckCircle2 size={26} />} title="Keine Befunde">
-        Die implementierten Prüfregeln haben im aktuellen Projektstand keine
-        Fehler oder Warnungen gefunden.
+      <EmptyState icon={<CheckCircle2 size={26} />} title={t("noFindings")}>
+        {t("noFindingsDescription")}
       </EmptyState>
     );
   }
@@ -899,13 +946,10 @@ function DiagnosticsView({
     <div className="diagnostics-page">
       <div className="section-intro">
         <div>
-          <span className="eyebrow">Statische Analyse</span>
-          <h2>Belegte Befunde statt pauschaler Vermutungen</h2>
+          <span className="eyebrow">{t("staticAnalysis")}</span>
+          <h2>{t("diagnosticsTitle")}</h2>
         </div>
-        <p>
-          Jeder Befund weist aus, ob er bestätigt, offiziell empfohlen oder
-          heuristisch ist.
-        </p>
+        <p>{t("diagnosticsDescription")}</p>
       </div>
       <div className="diagnostic-list">
         {diagnostics.map((item) => (
@@ -919,20 +963,22 @@ function DiagnosticsView({
             <div className="diagnostic-body">
               <div className="diagnostic-title">
                 <strong>{item.title}</strong>
-                <span>{item.certainty}</span>
+                <span>{localizedCertainty(item.certainty, t)}</span>
               </div>
               <p>{item.description}</p>
               <small>
-                {item.file ?? "Projekt"}
-                {item.line === undefined ? "" : ` · Zeile ${item.line}`}
+                {item.file ?? t("project")}
+                {item.line === undefined
+                  ? ""
+                  : ` · ${t("line", { line: item.line })}`}
               </small>
               {experience === "expert" ? (
                 <div className="expert-detail">
                   <span>
-                    <b>Ursache:</b> {item.technicalCause}
+                    <b>{t("cause")}</b> {item.technicalCause}
                   </span>
                   <span>
-                    <b>Korrektur:</b> {item.recommendedFix}
+                    <b>{t("correction")}</b> {item.recommendedFix}
                   </span>
                   <code>{item.code}</code>
                 </div>
@@ -969,20 +1015,19 @@ function InstallView({
   onInstall: () => void;
   onOverwriteChange: (value: boolean) => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="two-column-page">
       <section className="task-card">
-        <span className="eyebrow">Lokale Installation</span>
-        <h2>Validieren, sichern, kopieren, verifizieren.</h2>
-        <p>
-          Das Ziel wird nie stillschweigend überschrieben. Entwicklungsdateien
-          und interne Backups werden ausgeschlossen.
-        </p>
+        <span className="eyebrow">{t("localInstallation")}</span>
+        <h2>{t("installTitle")}</h2>
+        <p>{t("installDescription")}</p>
         <label className="field">
-          <span>Lokales TF2-Modverzeichnis</span>
+          <span>{t("localModsDirectory")}</span>
           <div className="path-picker">
             <input
-              placeholder="Noch kein Ziel ausgewählt"
+              placeholder={t("noTargetSelected")}
               readOnly
               value={modsDirectory}
             />
@@ -992,7 +1037,7 @@ function InstallView({
               type="button"
             >
               <FolderOpen size={16} />
-              Auswählen
+              {t("select")}
             </button>
           </div>
         </label>
@@ -1002,9 +1047,7 @@ function InstallView({
             onChange={(event) => onOverwriteChange(event.target.checked)}
             type="checkbox"
           />
-          <span>
-            Vorhandene Version ausdrücklich ersetzen und vorher sichern
-          </span>
+          <span>{t("overwriteExisting")}</span>
         </label>
         <button
           className="primary-button large full"
@@ -1015,13 +1058,13 @@ function InstallView({
           type="button"
         >
           <PackageCheck size={18} />
-          Mod lokal installieren
+          {t("installModLocally")}
         </button>
         {installResult === undefined ? null : (
           <div className="success-box">
             <CheckCircle2 size={18} />
             <div>
-              <strong>Installation verifiziert</strong>
+              <strong>{t("installationVerified")}</strong>
               <span>{installResult}</span>
             </div>
           </div>
@@ -1031,20 +1074,20 @@ function InstallView({
         <div className={`gate-ring ${canInstall ? "pass" : "blocked"}`}>
           {canInstall ? <CheckCircle2 size={34} /> : <ShieldCheck size={34} />}
         </div>
-        <span className="eyebrow">Installations-Gate</span>
-        <h3>{canInstall ? "Freigegeben" : "Blockiert"}</h3>
+        <span className="eyebrow">{t("installationGate")}</span>
+        <h3>{canInstall ? t("approved") : t("blocked")}</h3>
         <p>
           {!hasProject
-            ? "Es ist kein Projekt geöffnet."
+            ? t("gateNoProject")
             : canInstall
-              ? "Keine bestätigten Fehler in den implementierten Prüfregeln."
-              : `${errorCount} bestätigte Fehler müssen zuerst behoben werden.`}
+              ? t("gateApproved")
+              : t("gateBlocked", { count: errorCount })}
         </p>
         <ul>
-          <li>Root-mod.lua vorhanden</li>
-          <li>Lua statisch parsbar</li>
-          <li>Keine portable Pfadkollision</li>
-          <li>Ressourcen-Großschreibung konsistent</li>
+          <li>{t("checkRootModLua")}</li>
+          <li>{t("checkLuaParsable")}</li>
+          <li>{t("checkPathCollision")}</li>
+          <li>{t("checkResourceCase")}</li>
         </ul>
       </section>
     </div>
@@ -1064,12 +1107,14 @@ function LogView({
   native: boolean;
   onChooseLog: () => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="logs-page">
       <div className="section-intro">
         <div>
-          <span className="eyebrow">Reale Spielprotokolle</span>
-          <h2>stdout.txt ohne erfundene Ursachen</h2>
+          <span className="eyebrow">{t("realGameLogs")}</span>
+          <h2>{t("logsTitle")}</h2>
         </div>
         <button
           className="primary-button"
@@ -1078,14 +1123,16 @@ function LogView({
           type="button"
         >
           <Search size={17} />
-          Protokoll auswählen
+          {t("selectLog")}
         </button>
       </div>
       {logPath.length > 0 ? <div className="selected-path">{logPath}</div> : null}
       {groups.length === 0 ? (
-        <EmptyState icon={<ScrollText size={26} />} title="Kein Protokoll geladen">
-          Wähle die aktuelle oder eine gespeicherte `stdout.txt`. Unbekannte
-          Meldungen bleiben ausdrücklich unklassifiziert.
+        <EmptyState
+          icon={<ScrollText size={26} />}
+          title={t("noLogLoaded")}
+        >
+          {t("noLogLoadedDescription")}
         </EmptyState>
       ) : (
         <div className="log-list">
@@ -1095,23 +1142,27 @@ function LogView({
               <div>
                 <strong>{group.message}</strong>
                 <small>
-                  Protokollzeile {group.firstLine}
+                  {t("logLine", { line: group.firstLine })}
                   {group.lastLine === group.firstLine
                     ? ""
                     : `–${group.lastLine}`}
-                  {group.modId === undefined ? "" : ` · Mod ${group.modId}`}
+                  {group.modId === undefined
+                    ? ""
+                    : ` · ${t("modReference", { modId: group.modId })}`}
                 </small>
                 {experience === "expert" ? (
                   <code>
-                    {group.file ?? "Keine Datei zugeordnet"}
+                    {group.file ?? t("noFileAssigned")}
                     {group.sourceLine === undefined
                       ? ""
                       : `:${group.sourceLine}`}{" "}
-                    · Ursache unklassifiziert
+                    · {t("causeUnclassified")}
                   </code>
                 ) : null}
               </div>
-              <span className="severity-label">{group.severity}</span>
+              <span className="severity-label">
+                {localizedSeverity(group.severity, t)}
+              </span>
             </article>
           ))}
         </div>
@@ -1131,12 +1182,14 @@ function SetupView({
   onDetect: () => void;
   onLaunch: (executablePath: string) => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="setup-page">
       <div className="section-intro">
         <div>
-          <span className="eyebrow">Plattformadapter</span>
-          <h2>Transport-Fever-2-Installation</h2>
+          <span className="eyebrow">{t("platformAdapter")}</span>
+          <h2>{t("setupTitle")}</h2>
         </div>
         <button
           className="primary-button"
@@ -1145,13 +1198,15 @@ function SetupView({
           type="button"
         >
           <Search size={17} />
-          Standardpfade prüfen
+          {t("checkDefaultPaths")}
         </button>
       </div>
       {installations.length === 0 ? (
-        <EmptyState icon={<HardDrive size={26} />} title="Noch keine Installation erkannt">
-          Die Erkennung prüft nur reale Standardpfade. Manuell ausgewählte
-          Installationen werden in einem folgenden Slice dauerhaft gespeichert.
+        <EmptyState
+          icon={<HardDrive size={26} />}
+          title={t("noInstallationDetected")}
+        >
+          {t("noInstallationDetectedDescription")}
         </EmptyState>
       ) : (
         <div className="installation-grid">
@@ -1163,14 +1218,16 @@ function SetupView({
                 </div>
                 <div>
                   <strong>Transport Fever 2</strong>
-                  <span>{candidate.source}</span>
+                  <span>{localizedInstallationSource(candidate.source, t)}</span>
                 </div>
                 <span className={candidate.valid ? "valid" : "invalid"}>
-                  {candidate.valid ? "gültig" : "ungültig"}
+                  {candidate.valid ? t("valid") : t("invalid")}
                 </span>
               </div>
               <code>{candidate.rootPath}</code>
-              {candidate.reason === undefined ? null : <p>{candidate.reason}</p>}
+              {candidate.reason === undefined ? null : (
+                <p>{localizedInstallationReason(candidate.reason, t)}</p>
+              )}
               <button
                 className="secondary-button full"
                 disabled={!candidate.valid}
@@ -1178,7 +1235,7 @@ function SetupView({
                 type="button"
               >
                 <Play size={16} />
-                Testlauf ausdrücklich starten
+                {t("launchTestRun")}
               </button>
             </article>
           ))}
@@ -1203,6 +1260,8 @@ function CreateDialog({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   request: CreateProjectRequest;
 }) {
+  const { t } = useI18n();
+
   function setField<K extends keyof CreateProjectRequest>(
     key: K,
     value: CreateProjectRequest[K]
@@ -1215,11 +1274,11 @@ function CreateDialog({
       <form className="modal" onSubmit={onSubmit}>
         <div className="modal-heading">
           <div>
-            <span className="eyebrow">Geführte Projektanlage</span>
-            <h2>Neues TF2-Modprojekt</h2>
+            <span className="eyebrow">{t("guidedProjectCreation")}</span>
+            <h2>{t("createDialogTitle")}</h2>
           </div>
           <button
-            aria-label="Dialog schließen"
+            aria-label={t("closeDialog")}
             className="icon-button"
             onClick={onCancel}
             type="button"
@@ -1228,10 +1287,10 @@ function CreateDialog({
           </button>
         </div>
         <label className="field">
-          <span>Übergeordneter Arbeitsordner</span>
+          <span>{t("parentWorkspaceFolder")}</span>
           <div className="path-picker">
             <input
-              placeholder="Ordner auswählen"
+              placeholder={t("selectFolder")}
               readOnly
               required
               value={request.parentDirectory}
@@ -1242,13 +1301,13 @@ function CreateDialog({
               type="button"
             >
               <FolderOpen size={16} />
-              Auswählen
+              {t("select")}
             </button>
           </div>
         </label>
         <div className="form-grid">
           <label className="field">
-            <span>Projekt-ID</span>
+            <span>{t("projectId")}</span>
             <input
               onChange={(event) => setField("projectId", event.target.value)}
               pattern="[a-z0-9][a-z0-9_-]*_[1-9][0-9]*"
@@ -1256,10 +1315,10 @@ function CreateDialog({
               required
               value={request.projectId}
             />
-            <small>Kleinbuchstaben, eindeutiger Name, Major-Version.</small>
+            <small>{t("projectIdHint")}</small>
           </label>
           <label className="field">
-            <span>Projektmodus</span>
+            <span>{t("projectMode")}</span>
             <select
               onChange={(event) =>
                 setField("mode", event.target.value as ProjectMode)
@@ -1267,25 +1326,25 @@ function CreateDialog({
               value={request.mode}
             >
               <option value="vanilla">Vanilla Transport Fever 2</option>
-              <option value="commonapi2">CommonAPI2 (separat markiert)</option>
+              <option value="commonapi2">{t("commonApiOption")}</option>
             </select>
           </label>
           <label className="field">
-            <span>Anzeigename</span>
+            <span>{t("displayName")}</span>
             <input
               maxLength={120}
               onChange={(event) => setField("displayName", event.target.value)}
-              placeholder="Meine neue Mod"
+              placeholder={t("displayNamePlaceholder")}
               required
               value={request.displayName}
             />
           </label>
           <label className="field">
-            <span>Autor</span>
+            <span>{t("author")}</span>
             <input
               maxLength={120}
               onChange={(event) => setField("author", event.target.value)}
-              placeholder="Name des Modders"
+              placeholder={t("authorPlaceholder")}
               required
               value={request.author}
             />
@@ -1293,12 +1352,11 @@ function CreateDialog({
         </div>
         <div className="modal-info">
           <ShieldCheck size={18} />
-          Das Studio erzeugt `mod.lua`, `strings.lua`, Dokumentation und eine
-          interne Projektkonfiguration. Vorhandene Ordner werden nicht ersetzt.
+          {t("createDialogInfo")}
         </div>
         <div className="modal-actions">
           <button className="secondary-button" onClick={onCancel} type="button">
-            Abbrechen
+            {t("cancel")}
           </button>
           <button
             className="primary-button"
@@ -1306,7 +1364,7 @@ function CreateDialog({
             type="submit"
           >
             <FilePlus2 size={17} />
-            Projekt sicher anlegen
+            {t("createProjectSafely")}
           </button>
         </div>
       </form>
