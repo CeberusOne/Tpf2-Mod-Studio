@@ -63,13 +63,13 @@ as evidence that filesystem, installation or launch commands work.
 - CommonAPI2 intelligence stays disabled unless evidence from a real,
   compatible installation and documentation is available.
 
-## Native verification still required
+## Native verification
 
-The current environment has Node.js but no Rust/Cargo or Linux WebKitGTK
-development packages. The native source therefore requires a clean follow-up
-run on:
+The repository's `Native CI` workflow verifies the locked native source on:
 
-- Windows with the current Visual C++/WebView2 prerequisites;
-- Linux with WebKitGTK 4.1 and the Tauri packaging prerequisites.
+- Windows Server 2022 with the Visual C++/WebView2 prerequisites;
+- Ubuntu 22.04 with WebKitGTK 4.1 and the Tauri packaging prerequisites.
 
+Both matrix jobs compile, test, lint, package and smoke-start the native
+application. Interactive clean-machine installer acceptance remains manual.
 See [testing.md](testing.md) for the exact gate.

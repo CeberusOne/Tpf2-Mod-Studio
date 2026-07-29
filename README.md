@@ -22,10 +22,12 @@ This repository contains the first connected workflow:
 No sample mods or fake log events are shown by the production UI. Test fixtures
 live only in automated tests.
 
-The native Tauri source is present, but the native bundle is not yet verified
-in this environment because Rust/Cargo and the Linux WebKit development
-libraries are unavailable. The TypeScript domain, real-filesystem reference
-adapter and React build are independently verifiable.
+The locked native build is verified by GitHub Actions on Ubuntu 22.04 and
+Windows Server 2022. The pipeline typechecks, runs the JavaScript and Rust test
+suites, enforces Rust formatting and Clippy warnings, builds every native
+bundle, and smoke-starts the compiled desktop process on both operating
+systems. The generated packages remain unsigned development artifacts rather
+than a published release.
 
 ## Technology
 

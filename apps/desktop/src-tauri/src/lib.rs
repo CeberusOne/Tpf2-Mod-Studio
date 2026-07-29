@@ -295,7 +295,12 @@ fn read_project_mode(root: &Path) -> ProjectMode {
     fs::read_to_string(config)
         .ok()
         .and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok())
-        .and_then(|value| value.get("mode").and_then(|mode| mode.as_str()).map(str::to_owned))
+        .and_then(|value| {
+            value
+                .get("mode")
+                .and_then(|mode| mode.as_str())
+                .map(str::to_owned)
+        })
         .filter(|mode| mode == "commonapi2")
         .map(|_| ProjectMode::Commonapi2)
         .unwrap_or(ProjectMode::Vanilla)
@@ -319,7 +324,8 @@ fn create_project(request: CreateProjectRequest) -> Result<CreatedProject, Strin
         std::process::id(),
         timestamp()
     ));
-    fs::create_dir(&temporary).map_err(|error| format!("Cannot create temporary project: {error}"))?;
+    fs::create_dir(&temporary)
+        .map_err(|error| format!("Cannot create temporary project: {error}"))?;
     let result = (|| -> Result<(), String> {
         fs::create_dir(temporary.join("res"))
             .map_err(|error| format!("Cannot create resource directory: {error}"))?;
@@ -408,8 +414,8 @@ fn read_project_file(root_path: String, relative_path: String) -> Result<String,
     if !text_extension(&candidate) {
         return Err("This file type is not editable as text.".into());
     }
-    let metadata = fs::metadata(&candidate)
-        .map_err(|error| format!("Cannot read file metadata: {error}"))?;
+    let metadata =
+        fs::metadata(&candidate).map_err(|error| format!("Cannot read file metadata: {error}"))?;
     if !metadata.is_file() || metadata.len() > MAX_EDIT_BYTES as u64 {
         return Err("The selected file is invalid or exceeds the 8 MiB editor limit.".into());
     }
@@ -471,13 +477,19 @@ fn save_project_file(
         return Err(format!("Cannot finalize atomic save: {error}"));
     }
     if displaced.exists() {
-        fs::remove_file(displaced)
-            .map_err(|error| format!("Saved, but could not remove replacement staging file: {error}"))?;
+        fs::remove_file(displaced).map_err(|error| {
+            format!("Saved, but could not remove replacement staging file: {error}")
+        })?;
     }
     Ok(())
 }
 
-fn copy_project_tree(source: &Path, target: &Path, root: &Path, count: &mut usize) -> Result<(), String> {
+fn copy_project_tree(
+    source: &Path,
+    target: &Path,
+    root: &Path,
+    count: &mut usize,
+) -> Result<(), String> {
     let excludes: HashSet<&str> =
         HashSet::from([".git", ".tpf2-studio", "node_modules", "target", "dist"]);
     fs::create_dir_all(target)
@@ -496,10 +508,13 @@ fn copy_project_tree(source: &Path, target: &Path, root: &Path, count: &mut usiz
         let relative = source_path
             .strip_prefix(root)
             .map_err(|_| "Installation source left the project root.".to_string())?;
-        let first = relative.components().next().and_then(|component| match component {
-            Component::Normal(value) => value.to_str(),
-            _ => None,
-        });
+        let first = relative
+            .components()
+            .next()
+            .and_then(|component| match component {
+                Component::Normal(value) => value.to_str(),
+                _ => None,
+            });
         if first.is_some_and(|value| excludes.contains(value)) {
             continue;
         }
@@ -566,7 +581,6 @@ fn install_project(
     if let Err(error) = fs::rename(&temporary, &destination) {
         if let Some(backup_path) = &backup {
             let _ = fs::rename(backup_path, &destination);
-            backup = None;
         }
         let _ = fs::remove_dir_all(&temporary);
         return Err(format!("Cannot finalize installation: {error}"));
@@ -673,8 +687,8 @@ fn read_tf2_log(log_path: String) -> Result<String, String> {
     if !matches!(extension.as_deref(), Some("txt" | "log")) {
         return Err("Only .txt and .log files can be opened as TF2 logs.".into());
     }
-    let metadata = fs::metadata(&path)
-        .map_err(|error| format!("Cannot read log metadata: {error}"))?;
+    let metadata =
+        fs::metadata(&path).map_err(|error| format!("Cannot read log metadata: {error}"))?;
     if metadata.len() > MAX_LOG_BYTES {
         return Err("The log exceeds the current 32 MiB analysis limit.".into());
     }
@@ -731,6 +745,30 @@ pub fn run() {
 mod tests {
     use super::*;
 
+    struct TemporaryDirectory(PathBuf);
+
+    impl TemporaryDirectory {
+        fn new(label: &str) -> Self {
+            let path = env::temp_dir().join(format!(
+                "tpf2-mod-studio-{label}-{}-{}",
+                std::process::id(),
+                timestamp()
+            ));
+            fs::create_dir(&path).expect("temporary test directory should be created");
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TemporaryDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
     #[test]
     fn project_ids_require_a_positive_major_version() {
         assert!(is_valid_project_id("mike_train_mod_1"));
@@ -745,5 +783,101 @@ mod tests {
         assert!(safe_relative_path("res/config/test.lua").is_ok());
         assert!(safe_relative_path("../secret.txt").is_err());
         assert!(safe_relative_path("/etc/passwd").is_err());
+    }
+
+    #[test]
+    fn native_filesystem_workflow_creates_saves_and_installs() {
+        let workspace = TemporaryDirectory::new("workflow with spaces");
+        let mods_directory = workspace.path().join("mods");
+        fs::create_dir(&mods_directory).expect("mods directory should be created");
+
+        let created = create_project(CreateProjectRequest {
+            parent_directory: path_string(workspace.path()),
+            project_id: "native_test_mod_1".into(),
+            display_name: "Native Test Mod".into(),
+            author: "Mike".into(),
+            mode: ProjectMode::Vanilla,
+        })
+        .expect("project should be created");
+
+        let snapshot =
+            scan_project(created.root_path.clone()).expect("created project should be scanned");
+        assert_eq!(snapshot.folder_name, "native_test_mod_1");
+        assert!(snapshot
+            .files
+            .iter()
+            .any(|file| file.relative_path == "mod.lua"));
+
+        let original = read_project_file(created.root_path.clone(), "strings.lua".into())
+            .expect("strings.lua should be readable");
+        save_project_file(
+            created.root_path.clone(),
+            "strings.lua".into(),
+            original.replace("Describe this", "A native"),
+        )
+        .expect("strings.lua should be saved atomically");
+        assert!(
+            read_project_file(created.root_path.clone(), "strings.lua".into())
+                .expect("saved strings.lua should be readable")
+                .contains("A native")
+        );
+        assert!(Path::new(&created.root_path)
+            .join(".tpf2-studio")
+            .join("backups")
+            .is_dir());
+
+        let installed = install_project(
+            created.root_path.clone(),
+            path_string(&mods_directory),
+            false,
+        )
+        .expect("project should be installed");
+        assert!(installed.file_count >= 3);
+        assert!(Path::new(&installed.installed_path)
+            .join("mod.lua")
+            .is_file());
+        assert!(installed.backup_path.is_none());
+
+        let duplicate = install_project(
+            created.root_path.clone(),
+            path_string(&mods_directory),
+            false,
+        )
+        .expect_err("an existing install should require explicit overwrite consent");
+        assert!(duplicate.contains("already exists"));
+
+        let replaced = install_project(created.root_path, path_string(&mods_directory), true)
+            .expect("explicit replacement should create a backup");
+        assert!(replaced.backup_path.is_some());
+    }
+
+    #[test]
+    fn native_file_access_rejects_traversal() {
+        let workspace = TemporaryDirectory::new("traversal");
+        let project = workspace.path().join("secure_mod_1");
+        fs::create_dir(&project).expect("project directory should be created");
+        fs::write(workspace.path().join("outside.txt"), "secret")
+            .expect("outside test file should be created");
+
+        let error = read_project_file(path_string(&project), "../outside.txt".into())
+            .expect_err("project reads must not escape the selected root");
+        assert!(error.contains("traversal"));
+    }
+
+    #[test]
+    fn native_log_reader_accepts_text_and_rejects_other_extensions() {
+        let workspace = TemporaryDirectory::new("logs");
+        let log = workspace.path().join("stdout.txt");
+        fs::write(&log, "ERROR native test").expect("test log should be created");
+        assert_eq!(
+            read_tf2_log(path_string(&log)).expect("text log should be readable"),
+            "ERROR native test"
+        );
+
+        let unsupported = workspace.path().join("stdout.bin");
+        fs::write(&unsupported, "ERROR native test").expect("binary fixture should be created");
+        let error = read_tf2_log(path_string(&unsupported))
+            .expect_err("unsupported log extension should be rejected");
+        assert!(error.contains("Only .txt and .log"));
     }
 }

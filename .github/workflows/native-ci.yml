@@ -1,0 +1,140 @@
+name: Native CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-22.04
+            artifact: tpf2-mod-studio-linux-x64
+          - name: Windows x64
+            os: windows-2022
+            artifact: tpf2-mod-studio-windows-x64
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libxdo-dev \
+            patchelf \
+            xvfb \
+            xdg-utils
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Verify TypeScript, tests and frontend build
+        run: npm run verify
+
+      - name: Check Rust formatting
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --check
+
+      - name: Run Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --all-targets
+
+      - name: Run Rust lints
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Build native Tauri bundles
+        run: npm run desktop:build
+
+      - name: Smoke-test native application on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set +e
+          timeout 12s xvfb-run -a \
+            apps/desktop/src-tauri/target/release/tpf2-mod-studio \
+            > native-smoke.log 2>&1
+          exit_code=$?
+          set -e
+          cat native-smoke.log
+          if [ "$exit_code" -ne 124 ]; then
+            echo "Expected the desktop process to remain open until timeout; exit code was $exit_code."
+            exit 1
+          fi
+
+      - name: Smoke-test native application on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process `
+            -FilePath "apps/desktop/src-tauri/target/release/tpf2-mod-studio.exe" `
+            -PassThru
+          Start-Sleep -Seconds 10
+          if ($process.HasExited) {
+            throw "Desktop process exited early with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id
+          Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
+
+      - name: Upload generated Cargo lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock-${{ runner.os }}
+          path: apps/desktop/src-tauri/Cargo.lock
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload native bundles
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: apps/desktop/src-tauri/target/release/bundle/**
+          if-no-files-found: warn
+          retention-days: 7

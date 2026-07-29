@@ -2,10 +2,11 @@
 
 ## 0.1 delivery status
 
-Version 0.1 is a tested source delivery, not a released binary installer.
-Windows and Linux bundle configuration exists, but neither native bundle has
-been produced and exercised in the current verification environment. Do not
-present a locally built package as an official release.
+Version 0.1 is a tested source delivery, not a published binary release.
+GitHub Actions produces unsigned Windows MSI/NSIS and Linux AppImage/DEB/RPM
+development artifacts. Their builds, archive integrity and compiled-process
+starts are verified, but clean-machine installation and uninstall are not.
+Do not present these artifacts as an official release.
 
 ## Developer installation
 
@@ -60,8 +61,16 @@ The web-only development preview deliberately disables filesystem and process
 actions. Those operations are available only through the native Tauri command
 boundary.
 
+## CI artifact access
+
+Open a successful **Native CI** run in the repository's **Actions** tab and
+download the Windows or Linux artifact from the **Artifacts** section. GitHub
+requires repository access for this private repository. CI artifacts expire
+after seven days.
+
 ## Uninstalling a development build
 
-No installer-specific uninstaller is verified in 0.1. A source checkout can be
-removed like any other development directory. Mods installed into Transport
-Fever 2 are separate user data and are never removed automatically.
+Installer-specific uninstall behavior is not yet accepted on a clean machine.
+A source checkout can be removed like any other development directory. Mods
+installed into Transport Fever 2 are separate user data and are never removed
+automatically.

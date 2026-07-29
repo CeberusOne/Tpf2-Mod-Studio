@@ -12,3 +12,8 @@
   installation, installation detection and explicit game launch.
 - Added the desktop workbench UI with editor tabs, diagnostics, index overview,
   installation workflow, log view, theme switch and beginner/expert views.
+- Locked the Rust dependency graph and enforced locked native release builds.
+- Added native Rust workflow, traversal and log tests.
+- Added Windows/Linux CI for formatting, tests, Clippy, packaging and
+  compiled-process smoke starts.
+- Produced Windows MSI/NSIS and Linux AppImage/DEB/RPM development artifacts.

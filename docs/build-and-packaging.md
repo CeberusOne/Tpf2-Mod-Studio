@@ -36,6 +36,20 @@ Tauri writes native build and bundle artifacts below
 `apps/desktop/src-tauri/target/release/`. Record the exact generated artifact
 names and test the installed application before publishing them.
 
+## Automated native pipeline
+
+`.github/workflows/native-ci.yml` runs the locked gate on GitHub-hosted
+Ubuntu 22.04 and Windows Server 2022. It performs JavaScript verification,
+Rust formatting/tests/lints, native packaging and a short process-start smoke
+test. Successful runs upload:
+
+- `tpf2-mod-studio-linux-x64`: AppImage, DEB and RPM;
+- `tpf2-mod-studio-windows-x64`: MSI and NSIS setup EXE;
+- one copy of the generated Cargo lockfile per operating system.
+
+Artifacts are retained for seven days. They are unsigned development artifacts,
+not an official release.
+
 ### Release gate
 
 A Windows or Linux package may be labelled verified only when all of the
@@ -45,7 +59,7 @@ following are recorded for that operating system:
 2. `npm run verify` succeeds without skipped tests;
 3. `cargo test` succeeds in `apps/desktop/src-tauri`;
 4. `cargo fmt --check` and `cargo clippy -- -D warnings` succeed;
-5. the generated `Cargo.lock` is reviewed and committed;
+5. the committed `Cargo.lock` is used with `--locked`;
 6. `npm run desktop:build` succeeds;
 7. create, open, edit, save, validate, install, log-open and explicit launch
    actions are exercised in the native application;
@@ -62,5 +76,5 @@ zip -r Tpf2_Mod_Studio_0.1_PARTIAL_Source.zip tpf2-mod-studio \
   -x '*/node_modules/*' '*/dist/*' '*/target/*' '*/bundle/*' '*/.git/*'
 ```
 
-The `PARTIAL` marker is intentional until the native release gate passes on
-both supported operating systems.
+The `PARTIAL` marker remains intentional until the interactive installer and
+full product acceptance criteria pass on both supported operating systems.

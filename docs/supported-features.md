@@ -27,6 +27,7 @@
 - complete TF2 Lua API completion database
 - process lifecycle tracking after game launch
 - streaming analysis of logs larger than the IPC cap
-- verified Windows and Linux installers
+- signed and published Windows/Linux release
+- interactive clean-machine installer and uninstall acceptance
 
 Unsupported previews are not replaced by generic models.
