@@ -66,6 +66,31 @@ jobs:
             echo "release_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Ensure existing release checksum names match downloads
+        if: steps.existing.outputs.release_exists == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          checksum_dir="$RUNNER_TEMP/existing-release-checksums"
+          mkdir -p "$checksum_dir"
+          gh release download "$RELEASE_TAG" \
+            --pattern SHA256SUMS.txt \
+            --dir "$checksum_dir"
+          checksum_file="$checksum_dir/SHA256SUMS.txt"
+          if grep -Fq "  Tpf2 Mod Studio" "$checksum_file"; then
+            sed 's/  Tpf2 Mod Studio/  Tpf2.Mod.Studio/g' \
+              "$checksum_file" \
+              > "$checksum_dir/SHA256SUMS.corrected.txt"
+            mv "$checksum_dir/SHA256SUMS.corrected.txt" "$checksum_file"
+            gh release upload "$RELEASE_TAG" "$checksum_file" --clobber
+          fi
+          test "$(wc -l < "$checksum_file")" -eq 5
+          if grep -Fq "  Tpf2 Mod Studio" "$checksum_file"; then
+            echo "Checksum names do not match the published download names."
+            exit 1
+          fi
+
       - name: Remove incomplete draft releases from failed attempts
         if: steps.existing.outputs.release_exists != 'true'
         shell: bash
@@ -129,7 +154,8 @@ jobs:
               echo "Expected exactly one release package matching $pattern; found ${#matches[@]}."
               exit 1
             fi
-            package_name="$(basename "${matches[0]}")"
+            source_name="$(basename "${matches[0]}")"
+            package_name="${source_name// /.}"
             if [ -e "release-packages/$package_name" ]; then
               echo "Duplicate release asset name: $package_name"
               exit 1
