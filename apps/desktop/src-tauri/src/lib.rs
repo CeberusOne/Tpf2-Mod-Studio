@@ -745,6 +745,30 @@ pub fn run() {
 mod tests {
     use super::*;
 
+    struct TemporaryDirectory(PathBuf);
+
+    impl TemporaryDirectory {
+        fn new(label: &str) -> Self {
+            let path = env::temp_dir().join(format!(
+                "tpf2-mod-studio-{label}-{}-{}",
+                std::process::id(),
+                timestamp()
+            ));
+            fs::create_dir(&path).expect("temporary test directory should be created");
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TemporaryDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
     #[test]
     fn project_ids_require_a_positive_major_version() {
         assert!(is_valid_project_id("mike_train_mod_1"));
@@ -759,5 +783,96 @@ mod tests {
         assert!(safe_relative_path("res/config/test.lua").is_ok());
         assert!(safe_relative_path("../secret.txt").is_err());
         assert!(safe_relative_path("/etc/passwd").is_err());
+    }
+
+    #[test]
+    fn native_filesystem_workflow_creates_saves_and_installs() {
+        let workspace = TemporaryDirectory::new("workflow with spaces");
+        let mods_directory = workspace.path().join("mods");
+        fs::create_dir(&mods_directory).expect("mods directory should be created");
+
+        let created = create_project(CreateProjectRequest {
+            parent_directory: path_string(workspace.path()),
+            project_id: "native_test_mod_1".into(),
+            display_name: "Native Test Mod".into(),
+            author: "Mike".into(),
+            mode: ProjectMode::Vanilla,
+        })
+        .expect("project should be created");
+
+        let snapshot =
+            scan_project(created.root_path.clone()).expect("created project should be scanned");
+        assert_eq!(snapshot.folder_name, "native_test_mod_1");
+        assert!(snapshot
+            .files
+            .iter()
+            .any(|file| file.relative_path == "mod.lua"));
+
+        let original = read_project_file(created.root_path.clone(), "strings.lua".into())
+            .expect("strings.lua should be readable");
+        save_project_file(
+            created.root_path.clone(),
+            "strings.lua".into(),
+            original.replace("Describe this", "A native"),
+        )
+        .expect("strings.lua should be saved atomically");
+        assert!(
+            read_project_file(created.root_path.clone(), "strings.lua".into())
+                .expect("saved strings.lua should be readable")
+                .contains("A native")
+        );
+        assert!(Path::new(&created.root_path)
+            .join(".tpf2-studio")
+            .join("backups")
+            .is_dir());
+
+        let installed = install_project(
+            created.root_path.clone(),
+            path_string(&mods_directory),
+            false,
+        )
+        .expect("project should be installed");
+        assert!(installed.file_count >= 3);
+        assert!(Path::new(&installed.installed_path).join("mod.lua").is_file());
+        assert!(installed.backup_path.is_none());
+
+        let duplicate =
+            install_project(created.root_path.clone(), path_string(&mods_directory), false)
+                .expect_err("an existing install should require explicit overwrite consent");
+        assert!(duplicate.contains("already exists"));
+
+        let replaced = install_project(created.root_path, path_string(&mods_directory), true)
+            .expect("explicit replacement should create a backup");
+        assert!(replaced.backup_path.is_some());
+    }
+
+    #[test]
+    fn native_file_access_rejects_traversal() {
+        let workspace = TemporaryDirectory::new("traversal");
+        let project = workspace.path().join("secure_mod_1");
+        fs::create_dir(&project).expect("project directory should be created");
+        fs::write(workspace.path().join("outside.txt"), "secret")
+            .expect("outside test file should be created");
+
+        let error = read_project_file(path_string(&project), "../outside.txt".into())
+            .expect_err("project reads must not escape the selected root");
+        assert!(error.contains("traversal"));
+    }
+
+    #[test]
+    fn native_log_reader_accepts_text_and_rejects_other_extensions() {
+        let workspace = TemporaryDirectory::new("logs");
+        let log = workspace.path().join("stdout.txt");
+        fs::write(&log, "ERROR native test").expect("test log should be created");
+        assert_eq!(
+            read_tf2_log(path_string(&log)).expect("text log should be readable"),
+            "ERROR native test"
+        );
+
+        let unsupported = workspace.path().join("stdout.bin");
+        fs::write(&unsupported, "ERROR native test").expect("binary fixture should be created");
+        let error = read_tf2_log(path_string(&unsupported))
+            .expect_err("unsupported log extension should be rejected");
+        assert!(error.contains("Only .txt and .log"));
     }
 }
