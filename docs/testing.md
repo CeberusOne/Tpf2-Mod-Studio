@@ -1,0 +1,87 @@
+# Test guide
+
+## Full verified JavaScript gate
+
+```bash
+npm ci
+npm run verify
+```
+
+`verify` runs, in order:
+
+1. TypeScript typechecking for the domain and desktop workspaces;
+2. all Vitest unit, integration and component tests;
+3. production builds for the domain package and React application.
+
+The recorded 2026-07-29 environment is Ubuntu 24.04 x64, Node.js 24.14.0 and
+npm 11.9.0. The endcheck result is 13 passed and 0 failed tests across two test
+files. The complete `npm run verify` process took 6.97 seconds of wall time on
+that hosted runner; this is a reproducibility observation, not a product
+performance benchmark.
+
+## Covered cases
+
+- valid and syntactically broken root `mod.lua`;
+- diagnostic source position;
+- resource case mismatch;
+- unresolved external resource kept heuristic;
+- Windows-compatible case collision;
+- deterministic index add/change/remove diff;
+- 810 resource entries without loss;
+- repeated log grouping without invented root cause;
+- real create, scan, edit, validate and install workflow in a temporary tree;
+- collision refusal and explicit replacement backup;
+- path traversal rejection;
+- production UI with no fabricated project;
+- UI rendering a bridge-provided real snapshot;
+- validation-controlled installation gate.
+
+## Native gate
+
+With the platform prerequisites installed:
+
+```bash
+cd apps/desktop/src-tauri
+cargo fmt --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test
+cd ../../..
+npm run desktop:build
+```
+
+These commands are mandatory before calling either Windows or Linux native
+support verified. They could not run in the recorded environment because
+Rust/Cargo and Linux WebKitGTK development libraries were absent.
+
+## Manual native workflow
+
+Use only disposable project and installation directories.
+
+1. Start with `npm run desktop:dev`.
+2. Create a vanilla project and confirm the generated files exist on disk.
+3. Reopen it, edit `strings.lua`, save, close and reopen.
+4. Introduce and then repair a Lua syntax error.
+5. Select a disposable `mods` directory and install.
+6. Confirm a second install is refused without overwrite consent.
+7. Consent, reinstall, and confirm the previous directory was backed up.
+8. Load a real copied `stdout.txt`; confirm repeated messages group and unknown
+   causes remain unclassified.
+9. Detect paths, inspect every candidate, and launch only an explicitly chosen
+   executable.
+
+## Outstanding load and negative tests
+
+The 810-entry index test is not a full 800-mod installation benchmark. Still
+required:
+
+- mixed 800+ mod directories with broken folders, permission failures,
+  symlinks and deep trees;
+- cancellation and restart of a persistent incremental index;
+- very large real `stdout.txt` files near and above the 32 MiB IPC cap;
+- broken encodings and supported binary resources;
+- full dependency and load-order conflicts;
+- incompatible CommonAPI2 installations;
+- native Windows and Linux path, case and installer behavior;
+- measured CPU, elapsed time and memory baselines.
+
+No performance number is claimed until those measurements exist.

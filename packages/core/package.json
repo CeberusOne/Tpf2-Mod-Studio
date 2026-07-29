@@ -1,0 +1,28 @@
+{
+  "name": "@tpf2-mod-studio/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node-service.d.ts",
+      "default": "./dist/node-service.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "luaparse": "0.3.1"
+  },
+  "devDependencies": {
+    "@types/luaparse": "0.2.13"
+  }
+}

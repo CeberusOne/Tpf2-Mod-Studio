@@ -1,0 +1,38 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Tpf2 Mod Studio",
+  "version": "0.1.0",
+  "identifier": "dev.tpf2modstudio.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "capabilities": ["desktop-main"],
+      "csp": "default-src 'self'; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self' blob:"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Tpf2 Mod Studio",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 980,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Transport Fever 2 mod development workbench",
+    "longDescription": "Create, edit, validate, index, install and diagnose Transport Fever 2 mods."
+  }
+}

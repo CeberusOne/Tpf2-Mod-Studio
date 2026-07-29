@@ -1,0 +1,37 @@
+{
+  "name": "tpf2-mod-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone desktop workbench for Transport Fever 2 mod development.",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @tpf2-mod-studio/core && npm run build -w @tpf2-mod-studio/desktop",
+    "dev": "npm run dev -w @tpf2-mod-studio/desktop",
+    "desktop:dev": "npm run tauri:dev -w @tpf2-mod-studio/desktop",
+    "desktop:build": "npm run tauri:build -w @tpf2-mod-studio/desktop",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck -w @tpf2-mod-studio/core && npm run typecheck -w @tpf2-mod-studio/desktop",
+    "verify": "npm run typecheck && npm test && npm run build"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "26.1.2",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.4",
+    "esbuild": "0.28.1",
+    "jsdom": "29.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  }
+}
