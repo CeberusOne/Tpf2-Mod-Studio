@@ -7,14 +7,14 @@ on:
     paths:
       - "LICENSE"
       - ".github/workflows/public-alpha-release.yml"
-      - "docs/release-notes-0.1.0-alpha.2.md"
+      - "docs/release-notes-0.1.0-alpha.1.md"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: public-alpha-v0.1.0-alpha.2
+  group: public-alpha-v0.1.0-alpha.1
   cancel-in-progress: false
 
 jobs:
@@ -27,8 +27,8 @@ jobs:
       actions: read
       contents: write
     env:
-      RELEASE_TAG: v0.1.0-alpha.2
-      RELEASE_TITLE: Tpf2 Mod Studio 0.1.0 Public Alpha 2
+      RELEASE_TAG: v0.1.0-alpha.1
+      RELEASE_TITLE: Tpf2 Mod Studio 0.1.0 Public Alpha 1
       SOURCE_RUN_ID: "30492768862"
       SOURCE_COMMIT: 28c0eca3a8e530190e55b225f002a1c3cd9cc5a8
       LINUX_ARTIFACT_ID: "8740463287"
@@ -61,7 +61,7 @@ jobs:
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "release_exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release $RELEASE_TAG already exists; no replacement is required."
+            echo "Release $RELEASE_TAG already exists; verified packages will be refreshed."
           else
             echo "release_exists=false" >> "$GITHUB_OUTPUT"
           fi
@@ -111,7 +111,6 @@ jobs:
           )
 
       - name: Download verified CI artifact archives
-        if: steps.existing.outputs.release_exists != 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -127,7 +126,6 @@ jobs:
             > "$RUNNER_TEMP/windows-artifact.zip"
 
       - name: Verify artifact provenance and unpack packages
-        if: steps.existing.outputs.release_exists != 'true'
         shell: bash
         run: |
           printf '%s  %s\n' \
@@ -142,7 +140,6 @@ jobs:
           unzip -q "$RUNNER_TEMP/windows-artifact.zip" -d release-assets/windows
 
       - name: Stage the five distributable packages
-        if: steps.existing.outputs.release_exists != 'true'
         shell: bash
         run: |
           mkdir -p release-packages
@@ -164,7 +161,6 @@ jobs:
           done
 
       - name: Create package checksums
-        if: steps.existing.outputs.release_exists != 'true'
         shell: bash
         working-directory: release-packages
         run: |
@@ -197,8 +193,28 @@ jobs:
             release-packages/SHA256SUMS.txt \
             --target "$SOURCE_COMMIT" \
             --title "$RELEASE_TITLE" \
-            --notes-file docs/release-notes-0.1.0-alpha.2.md \
+            --notes-file docs/release-notes-0.1.0-alpha.1.md \
             --prerelease
+
+      - name: Refresh existing Public Alpha packages
+        if: steps.existing.outputs.release_exists == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -d '' assets < <(
+            find release-packages \
+              -maxdepth 1 \
+              -type f \
+              ! -name SHA256SUMS.txt \
+              -print0 \
+              | sort -z
+          )
+          test "${#assets[@]}" -eq 5
+          gh release upload "$RELEASE_TAG" \
+            "${assets[@]}" \
+            release-packages/SHA256SUMS.txt \
+            --clobber
 
       - name: Record release provenance
         shell: bash
