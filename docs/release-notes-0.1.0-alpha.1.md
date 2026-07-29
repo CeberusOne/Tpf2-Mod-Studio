@@ -20,6 +20,9 @@ unsigned **Public Alpha** and the product remains **PARTIAL**.
 - `SHA256SUMS.txt` for every uploaded package
 
 All packages are unsigned. Verify the SHA-256 checksum before installation.
+The Tpf2 Mod Studio source code is licensed under GNU GPL version 3 only
+(`GPL-3.0-only`). Transport Fever game files and third-party mod content are not
+included in that grant.
 
 ## Known limitations
 
