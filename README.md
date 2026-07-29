@@ -6,7 +6,7 @@ and Linux.
 
 ## Current status
 
-**PARTIAL — vertical slice 0.1**
+**PARTIAL — public alpha, vertical slice 0.1**
 
 This repository contains the first connected workflow:
 
@@ -27,7 +27,22 @@ Windows Server 2022. The pipeline typechecks, runs the JavaScript and Rust test
 suites, enforces Rust formatting and Clippy warnings, builds every native
 bundle, and smoke-starts the compiled desktop process on both operating
 systems. The generated packages remain unsigned development artifacts rather
-than a published release.
+than a stable release.
+
+## Public alpha testing
+
+The repository is public so that Transport Fever modders can test the current
+workflow and help shape future development.
+
+- Published alpha packages will be available under
+  [GitHub Releases](https://github.com/CeberusOne/Tpf2-Mod-Studio/releases).
+- Bugs and feature requests belong in
+  [GitHub Issues](https://github.com/CeberusOne/Tpf2-Mod-Studio/issues).
+- Contribution guidance is available in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Please treat all current builds as unsigned development software. Reports from
+Windows and Linux systems, non-standard game installations and large mod
+projects are especially useful.
 
 ## Technology
 
@@ -80,12 +95,21 @@ Detailed setup, build and verification instructions:
 
 See [`docs/security-model.md`](docs/security-model.md) for details.
 
-## Scope
+## Scope and future support
 
-Only Transport Fever 2 is in scope. Transport Fever 1 and Transport Fever 3 are
-excluded. Vanilla projects are supported by the first slice. CommonAPI2 has a
-separate project mode but its API intelligence remains disabled until a real
-CommonAPI2 installation and documentation source are available.
+The current development and testing focus is Transport Fever 2.
+
+Transport Fever 1 support is planned as a later compatibility target after the
+Transport Fever 2 workflow has reached a stable state. Transport Fever 3
+support is planned once the game, its final modding interfaces and the
+corresponding SDK documentation are publicly available.
+
+The current 0.1 release therefore supports Transport Fever 2 only. Future game
+support is part of the long-term roadmap and is not yet implemented.
+
+Vanilla projects are supported by the first slice. CommonAPI2 has a separate
+project mode, but its API intelligence remains disabled until a real CommonAPI2
+installation and documentation source are available.
 
 ## Project documentation
 
