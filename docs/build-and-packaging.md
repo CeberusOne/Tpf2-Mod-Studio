@@ -54,18 +54,23 @@ not a durable release.
 
 `.github/workflows/public-alpha-release.yml` is a version-specific publication
 workflow. It runs when its release-critical files reach `main` and also supports
-a manual dispatch. It:
+a manual dispatch. For Alpha 1 it:
 
-1. refuses to run without a repository `LICENSE`;
-2. rebuilds and verifies the source independently on Ubuntu and Windows;
-3. collects MSI, NSIS EXE, AppImage, DEB and RPM bundles;
-4. fails if any required package type is absent;
-5. generates `SHA256SUMS.txt`;
+1. refuses to run without the approved GPL-3.0-only license metadata;
+2. downloads the Linux and Windows artifacts from final Native CI run
+   `30484600653`;
+3. verifies their GitHub-recorded SHA-256 archive digests;
+4. requires MSI, NSIS EXE, AppImage, DEB and RPM bundles;
+5. generates a package-level `SHA256SUMS.txt`;
 6. creates `v0.1.0-alpha.1` as a GitHub pre-release.
 
-The workflow uses a job-scoped `contents: write` permission only for the final
-release job. Checkout credentials are not persisted. It refuses non-`main`
-publication and refuses to replace an existing release.
+The source CI run passed the complete JavaScript, Rust, packaging and native
+process-start gates on both operating systems. Reusing those immutable
+GitHub Actions artifacts avoids an unnecessary second native compilation while
+preserving exact provenance. The workflow uses job-scoped `actions: read` and
+`contents: write` permissions. Checkout credentials are not persisted. It
+refuses non-`main` publication and treats an existing immutable release as a
+successful idempotent result.
 
 ### Release gate
 
