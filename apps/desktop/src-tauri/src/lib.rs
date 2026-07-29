@@ -833,12 +833,17 @@ mod tests {
         )
         .expect("project should be installed");
         assert!(installed.file_count >= 3);
-        assert!(Path::new(&installed.installed_path).join("mod.lua").is_file());
+        assert!(Path::new(&installed.installed_path)
+            .join("mod.lua")
+            .is_file());
         assert!(installed.backup_path.is_none());
 
-        let duplicate =
-            install_project(created.root_path.clone(), path_string(&mods_directory), false)
-                .expect_err("an existing install should require explicit overwrite consent");
+        let duplicate = install_project(
+            created.root_path.clone(),
+            path_string(&mods_directory),
+            false,
+        )
+        .expect_err("an existing install should require explicit overwrite consent");
         assert!(duplicate.contains("already exists"));
 
         let replaced = install_project(created.root_path, path_string(&mods_directory), true)
