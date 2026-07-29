@@ -295,7 +295,12 @@ fn read_project_mode(root: &Path) -> ProjectMode {
     fs::read_to_string(config)
         .ok()
         .and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok())
-        .and_then(|value| value.get("mode").and_then(|mode| mode.as_str()).map(str::to_owned))
+        .and_then(|value| {
+            value
+                .get("mode")
+                .and_then(|mode| mode.as_str())
+                .map(str::to_owned)
+        })
         .filter(|mode| mode == "commonapi2")
         .map(|_| ProjectMode::Commonapi2)
         .unwrap_or(ProjectMode::Vanilla)
@@ -319,7 +324,8 @@ fn create_project(request: CreateProjectRequest) -> Result<CreatedProject, Strin
         std::process::id(),
         timestamp()
     ));
-    fs::create_dir(&temporary).map_err(|error| format!("Cannot create temporary project: {error}"))?;
+    fs::create_dir(&temporary)
+        .map_err(|error| format!("Cannot create temporary project: {error}"))?;
     let result = (|| -> Result<(), String> {
         fs::create_dir(temporary.join("res"))
             .map_err(|error| format!("Cannot create resource directory: {error}"))?;
@@ -408,8 +414,8 @@ fn read_project_file(root_path: String, relative_path: String) -> Result<String,
     if !text_extension(&candidate) {
         return Err("This file type is not editable as text.".into());
     }
-    let metadata = fs::metadata(&candidate)
-        .map_err(|error| format!("Cannot read file metadata: {error}"))?;
+    let metadata =
+        fs::metadata(&candidate).map_err(|error| format!("Cannot read file metadata: {error}"))?;
     if !metadata.is_file() || metadata.len() > MAX_EDIT_BYTES as u64 {
         return Err("The selected file is invalid or exceeds the 8 MiB editor limit.".into());
     }
@@ -471,13 +477,19 @@ fn save_project_file(
         return Err(format!("Cannot finalize atomic save: {error}"));
     }
     if displaced.exists() {
-        fs::remove_file(displaced)
-            .map_err(|error| format!("Saved, but could not remove replacement staging file: {error}"))?;
+        fs::remove_file(displaced).map_err(|error| {
+            format!("Saved, but could not remove replacement staging file: {error}")
+        })?;
     }
     Ok(())
 }
 
-fn copy_project_tree(source: &Path, target: &Path, root: &Path, count: &mut usize) -> Result<(), String> {
+fn copy_project_tree(
+    source: &Path,
+    target: &Path,
+    root: &Path,
+    count: &mut usize,
+) -> Result<(), String> {
     let excludes: HashSet<&str> =
         HashSet::from([".git", ".tpf2-studio", "node_modules", "target", "dist"]);
     fs::create_dir_all(target)
@@ -496,10 +508,13 @@ fn copy_project_tree(source: &Path, target: &Path, root: &Path, count: &mut usiz
         let relative = source_path
             .strip_prefix(root)
             .map_err(|_| "Installation source left the project root.".to_string())?;
-        let first = relative.components().next().and_then(|component| match component {
-            Component::Normal(value) => value.to_str(),
-            _ => None,
-        });
+        let first = relative
+            .components()
+            .next()
+            .and_then(|component| match component {
+                Component::Normal(value) => value.to_str(),
+                _ => None,
+            });
         if first.is_some_and(|value| excludes.contains(value)) {
             continue;
         }
@@ -673,8 +688,8 @@ fn read_tf2_log(log_path: String) -> Result<String, String> {
     if !matches!(extension.as_deref(), Some("txt" | "log")) {
         return Err("Only .txt and .log files can be opened as TF2 logs.".into());
     }
-    let metadata = fs::metadata(&path)
-        .map_err(|error| format!("Cannot read log metadata: {error}"))?;
+    let metadata =
+        fs::metadata(&path).map_err(|error| format!("Cannot read log metadata: {error}"))?;
     if metadata.len() > MAX_LOG_BYTES {
         return Err("The log exceeds the current 32 MiB analysis limit.".into());
     }
