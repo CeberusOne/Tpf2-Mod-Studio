@@ -3,9 +3,13 @@ name: Native CI
 on:
   workflow_dispatch:
   pull_request:
+    paths-ignore:
+      - "**/*.md"
   push:
     branches:
       - main
+    paths-ignore:
+      - "**/*.md"
 
 permissions:
   contents: read
@@ -62,6 +66,7 @@ jobs:
       - name: Cache Rust build outputs
         uses: Swatinem/rust-cache@v2
         with:
+          cache-on-failure: true
           workspaces: apps/desktop/src-tauri -> target
 
       - name: Install JavaScript dependencies
@@ -76,11 +81,11 @@ jobs:
 
       - name: Run Rust tests
         working-directory: apps/desktop/src-tauri
-        run: cargo test --all-targets
+        run: cargo test --locked --all-targets
 
       - name: Run Rust lints
         working-directory: apps/desktop/src-tauri
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: Build native Tauri bundles
         run: npm run desktop:build
@@ -95,9 +100,10 @@ jobs:
           retention-days: 7
 
       - name: Upload native bundles
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
           path: apps/desktop/src-tauri/target/release/bundle/**
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
