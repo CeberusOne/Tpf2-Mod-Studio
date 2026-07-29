@@ -581,7 +581,6 @@ fn install_project(
     if let Err(error) = fs::rename(&temporary, &destination) {
         if let Some(backup_path) = &backup {
             let _ = fs::rename(backup_path, &destination);
-            backup = None;
         }
         let _ = fs::remove_dir_all(&temporary);
         return Err(format!("Cannot finalize installation: {error}"));
