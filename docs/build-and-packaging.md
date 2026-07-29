@@ -52,8 +52,9 @@ not a durable release.
 
 ## Public Alpha release pipeline
 
-`.github/workflows/public-alpha-release.yml` is a manual, version-specific
-publication workflow. It:
+`.github/workflows/public-alpha-release.yml` is a version-specific publication
+workflow. It runs when its release-critical files reach `main` and also supports
+a manual dispatch. It:
 
 1. refuses to run without a repository `LICENSE`;
 2. rebuilds and verifies the source independently on Ubuntu and Windows;
@@ -63,8 +64,8 @@ publication workflow. It:
 6. creates `v0.1.0-alpha.1` as a GitHub pre-release.
 
 The workflow uses a job-scoped `contents: write` permission only for the final
-release job. Checkout credentials are not persisted. A re-run refuses to
-replace an existing release.
+release job. Checkout credentials are not persisted. It refuses non-`main`
+publication and refuses to replace an existing release.
 
 ### Release gate
 
