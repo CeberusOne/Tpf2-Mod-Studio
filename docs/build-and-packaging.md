@@ -48,7 +48,23 @@ test. Successful runs upload:
 - one copy of the generated Cargo lockfile per operating system.
 
 Artifacts are retained for seven days. They are unsigned development artifacts,
-not an official release.
+not a durable release.
+
+## Public Alpha release pipeline
+
+`.github/workflows/public-alpha-release.yml` is a manual, version-specific
+publication workflow. It:
+
+1. refuses to run without a repository `LICENSE`;
+2. rebuilds and verifies the source independently on Ubuntu and Windows;
+3. collects MSI, NSIS EXE, AppImage, DEB and RPM bundles;
+4. fails if any required package type is absent;
+5. generates `SHA256SUMS.txt`;
+6. creates `v0.1.0-alpha.1` as a GitHub pre-release.
+
+The workflow uses a job-scoped `contents: write` permission only for the final
+release job. Checkout credentials are not persisted. A re-run refuses to
+replace an existing release.
 
 ### Release gate
 
@@ -66,6 +82,10 @@ following are recorded for that operating system:
 8. overwrite protection and backup behavior are checked in a disposable test
    directory;
 9. the package is installed, started and removed on a clean test machine.
+
+The Public Alpha records items 1–6 as automated evidence. Items 7–9 remain
+explicit community acceptance work and are therefore listed as limitations in
+the release notes.
 
 ## Source package
 
