@@ -7,14 +7,14 @@ on:
     paths:
       - "LICENSE"
       - ".github/workflows/public-alpha-release.yml"
-      - "docs/release-notes-0.1.0-alpha.1.md"
+      - "docs/release-notes-0.1.0-alpha.2.md"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: public-alpha-v0.1.0-alpha.1
+  group: public-alpha-v0.1.0-alpha.2
   cancel-in-progress: false
 
 jobs:
@@ -27,14 +27,14 @@ jobs:
       actions: read
       contents: write
     env:
-      RELEASE_TAG: v0.1.0-alpha.1
-      RELEASE_TITLE: Tpf2 Mod Studio 0.1.0 Public Alpha 1
-      SOURCE_RUN_ID: "30484600653"
-      SOURCE_COMMIT: 7cc504046a730860c77b46c340cb0fe18f5ce5d4
-      LINUX_ARTIFACT_ID: "8737216482"
-      LINUX_ARCHIVE_SHA256: 5625ab26ab04a4e7d0b887dd83502cce302733f6979992a02f79d0ae0e6284ed
-      WINDOWS_ARTIFACT_ID: "8737200166"
-      WINDOWS_ARCHIVE_SHA256: 1cf460c4eeee24572dcdb252a44068924b5818a2961117ad78c80d0be5764d98
+      RELEASE_TAG: v0.1.0-alpha.2
+      RELEASE_TITLE: Tpf2 Mod Studio 0.1.0 Public Alpha 2
+      SOURCE_RUN_ID: "30492768862"
+      SOURCE_COMMIT: 28c0eca3a8e530190e55b225f002a1c3cd9cc5a8
+      LINUX_ARTIFACT_ID: "8740463287"
+      LINUX_ARCHIVE_SHA256: a1e4c04e36b41f56c2a531129a0d6e9eca6bf8e7c1e659eea5743ecd04582af1
+      WINDOWS_ARTIFACT_ID: "8740475786"
+      WINDOWS_ARCHIVE_SHA256: ce9db9fbec0e97bb381cf314563825305b30023cfc689932187ab6e9c277bec8
 
     steps:
       - name: Check out release metadata
@@ -197,7 +197,7 @@ jobs:
             release-packages/SHA256SUMS.txt \
             --target "$SOURCE_COMMIT" \
             --title "$RELEASE_TITLE" \
-            --notes-file docs/release-notes-0.1.0-alpha.1.md \
+            --notes-file docs/release-notes-0.1.0-alpha.2.md \
             --prerelease
 
       - name: Record release provenance
