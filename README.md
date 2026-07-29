@@ -111,6 +111,14 @@ workflow on clean user systems still require community acceptance testing.
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
+## License
+
+Tpf2 Mod Studio is licensed under the
+[GNU General Public License version 3](LICENSE), using the SPDX identifier
+`GPL-3.0-only`. Distributed modified versions must remain available under the
+same license terms. This license covers the Tpf2 Mod Studio source code; it does
+not grant rights to Transport Fever game files or third-party mod content.
+
 ## Project documentation
 
 - [Architecture and data flow](docs/architecture.md)
