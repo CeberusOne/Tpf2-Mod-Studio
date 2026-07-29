@@ -1,12 +1,27 @@
 # Installation
 
-## 0.1 delivery status
+## Public Alpha delivery status
 
-Version 0.1 is a tested source delivery, not a published binary release.
-GitHub Actions produces unsigned Windows MSI/NSIS and Linux AppImage/DEB/RPM
-development artifacts. Their builds, archive integrity and compiled-process
-starts are verified, but clean-machine installation and uninstall are not.
-Do not present these artifacts as an official release.
+Version `v0.1.0-alpha.1` is prepared as an explicitly labelled **Public Alpha**.
+Its Windows MSI/NSIS and Linux AppImage/DEB/RPM packages are unsigned. Builds,
+archive integrity and compiled-process starts are verified, but clean-machine
+installation, uninstall and a complete workflow against a real Transport Fever
+2 installation are not yet accepted.
+
+When available, durable tester packages and `SHA256SUMS.txt` are published on
+the repository's
+[Releases page](https://github.com/CeberusOne/Tpf2-Mod-Studio/releases).
+Verify the downloaded file before opening or installing it:
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing
+```
+
+On Windows PowerShell, compare the listed value with:
+
+```powershell
+Get-FileHash .\Tpf2-Mod-Studio-installer-file -Algorithm SHA256
+```
 
 ## Developer installation
 
@@ -61,16 +76,17 @@ The web-only development preview deliberately disables filesystem and process
 actions. Those operations are available only through the native Tauri command
 boundary.
 
-## CI artifact access
+## Temporary CI artifact access
 
 Open a successful **Native CI** run in the repository's **Actions** tab and
-download the Windows or Linux artifact from the **Artifacts** section. GitHub
-requires repository access for this private repository. CI artifacts expire
-after seven days.
+download the Windows or Linux artifact from the **Artifacts** section. These
+temporary artifacts expire after seven days and are not a substitute for a
+named Public Alpha release.
 
-## Uninstalling a development build
+## Uninstalling a Public Alpha build
 
 Installer-specific uninstall behavior is not yet accepted on a clean machine.
-A source checkout can be removed like any other development directory. Mods
-installed into Transport Fever 2 are separate user data and are never removed
+Use the operating system's normal application removal interface and report any
+remaining application files through the bug-report template. Mods installed
+into Transport Fever 2 are separate user data and are never removed
 automatically.

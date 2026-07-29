@@ -26,8 +26,8 @@ The locked native build is verified by GitHub Actions on Ubuntu 22.04 and
 Windows Server 2022. The pipeline typechecks, runs the JavaScript and Rust test
 suites, enforces Rust formatting and Clippy warnings, builds every native
 bundle, and smoke-starts the compiled desktop process on both operating
-systems. The generated packages remain unsigned development artifacts rather
-than a published release.
+systems. Packages are unsigned. Public Alpha releases are published separately
+with checksums and explicit acceptance limits.
 
 ## Technology
 
@@ -80,12 +80,44 @@ Detailed setup, build and verification instructions:
 
 See [`docs/security-model.md`](docs/security-model.md) for details.
 
-## Scope
+## Scope and future support
 
-Only Transport Fever 2 is in scope. Transport Fever 1 and Transport Fever 3 are
-excluded. Vanilla projects are supported by the first slice. CommonAPI2 has a
-separate project mode but its API intelligence remains disabled until a real
-CommonAPI2 installation and documentation source are available.
+The current development and testing focus is Transport Fever 2.
+
+Transport Fever 1 support is planned as a later compatibility target after the
+Transport Fever 2 workflow has reached a stable state.
+
+Transport Fever 3 support is planned once the game, its final modding interfaces
+and the corresponding SDK documentation are publicly available.
+
+The current 0.1 release therefore supports Transport Fever 2 only. Future game
+support is part of the long-term roadmap and is not yet implemented.
+
+Vanilla projects are supported by the first slice. CommonAPI2 has a separate
+project mode, but its API intelligence remains disabled until a real CommonAPI2
+installation and documentation source are available.
+
+## Public Alpha
+
+The first durable tester release is prepared as `v0.1.0-alpha.1`. It remains a
+**Public Alpha** and does not change the product status from **PARTIAL**.
+Interactive installation, uninstall and a complete real-game Transport Fever 2
+workflow on clean user systems still require community acceptance testing.
+
+- [Installation and tester workflow](docs/installation.md)
+- [Known features and limits](docs/supported-features.md)
+- [Report a bug](https://github.com/CeberusOne/Tpf2-Mod-Studio/issues/new?template=bug-report.yml)
+- [Request a feature](https://github.com/CeberusOne/Tpf2-Mod-Studio/issues/new?template=feature-request.yml)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+
+## License
+
+Tpf2 Mod Studio is licensed under the
+[GNU General Public License version 3](LICENSE), using the SPDX identifier
+`GPL-3.0-only`. Distributed modified versions must remain available under the
+same license terms. This license covers the Tpf2 Mod Studio source code; it does
+not grant rights to Transport Fever game files or third-party mod content.
 
 ## Project documentation
 

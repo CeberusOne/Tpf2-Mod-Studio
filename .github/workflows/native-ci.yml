@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Install Linux system dependencies
         if: runner.os == 'Linux'
@@ -131,7 +133,7 @@ jobs:
           retention-days: 7
 
       - name: Upload native bundles
-        if: always()
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

@@ -34,7 +34,7 @@ const MOD_LUA = `function data()
     info = {
       name = _("Test"),
       description = _("modDesc"),
-      authors = { { name = "Mike", role = "CREATOR" } },
+      authors = { { name = "Test Author", role = "CREATOR" } },
       minorVersion = 0,
     },
   }

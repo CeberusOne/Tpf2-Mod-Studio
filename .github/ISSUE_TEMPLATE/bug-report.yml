@@ -1,0 +1,100 @@
+name: Bug report
+description: Report a reproducible Tpf2 Mod Studio problem
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing the Public Alpha. Do not report security vulnerabilities here; use the private process in SECURITY.md.
+  - type: input
+    id: studio-version
+    attributes:
+      label: Tpf2 Mod Studio version
+      description: For example, v0.1.0-alpha.1.
+      placeholder: v0.1.0-alpha.1
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system and version
+      placeholder: Windows 11 24H2 or Ubuntu 24.04
+    validations:
+      required: true
+  - type: dropdown
+    id: package-type
+    attributes:
+      label: Package type
+      options:
+        - Windows MSI
+        - Windows NSIS Setup EXE
+        - Linux AppImage
+        - Linux DEB
+        - Linux RPM
+        - Source or development build
+    validations:
+      required: true
+  - type: dropdown
+    id: tf2-platform
+    attributes:
+      label: Transport Fever 2 platform
+      options:
+        - Steam
+        - GOG
+        - Other
+        - No game installation involved
+    validations:
+      required: true
+  - type: input
+    id: installation-location
+    attributes:
+      label: Installation location
+      description: General location only. Remove your user name and other personal path segments.
+      placeholder: C:\Program Files\Tpf2 Mod Studio
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest repeatable sequence.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag screenshots here after removing private information.
+  - type: textarea
+    id: stdout
+    attributes:
+      label: Relevant stdout.txt section
+      description: Include only the relevant section and remove personal paths or unrelated mod data.
+      render: text
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched for an existing report.
+          required: true
+        - label: I removed credentials, private paths and non-redistributable game or mod content.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
