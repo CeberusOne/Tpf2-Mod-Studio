@@ -49,6 +49,7 @@ jobs:
             libssl-dev \
             libxdo-dev \
             patchelf \
+            xvfb \
             xdg-utils
 
       - name: Set up Node.js
@@ -89,6 +90,36 @@ jobs:
 
       - name: Build native Tauri bundles
         run: npm run desktop:build
+
+      - name: Smoke-test native application on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set +e
+          timeout 12s xvfb-run -a \
+            apps/desktop/src-tauri/target/release/tpf2-mod-studio \
+            > native-smoke.log 2>&1
+          exit_code=$?
+          set -e
+          cat native-smoke.log
+          if [ "$exit_code" -ne 124 ]; then
+            echo "Expected the desktop process to remain open until timeout; exit code was $exit_code."
+            exit 1
+          fi
+
+      - name: Smoke-test native application on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process `
+            -FilePath "apps/desktop/src-tauri/target/release/tpf2-mod-studio.exe" `
+            -PassThru
+          Start-Sleep -Seconds 10
+          if ($process.HasExited) {
+            throw "Desktop process exited early with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id
+          Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
 
       - name: Upload generated Cargo lockfile
         if: always()
