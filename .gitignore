@@ -27,7 +27,7 @@ playwright-report/
 *.jks
 *.keystore
 
-# Temporary, crash and operating-system files
+# Temporary and crash files
 *.tmp
 *.bak
 *.swp
