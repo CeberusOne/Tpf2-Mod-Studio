@@ -1,0 +1,12 @@
+node_modules/
+dist/
+target/
+.DS_Store
+*.log
+*.zip
+.idea/
+.vscode/
+.tpf2-studio/backups/
+coverage/
+test-results/
+playwright-report/
