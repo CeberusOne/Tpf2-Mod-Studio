@@ -19,6 +19,7 @@
 - Added a reproducible Public Alpha release workflow for Windows MSI/NSIS and
   Linux AppImage/DEB/RPM packages with SHA-256 checksums.
 - Added public contribution, security, issue and pull-request guidance.
+- Licensed the project under GNU GPL version 3 only (`GPL-3.0-only`).
 
 ### Known limitations
 
