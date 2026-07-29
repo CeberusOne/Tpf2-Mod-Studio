@@ -47,7 +47,7 @@ const VALID_MOD_LUA = `function data()
     info = {
       name = _("Sample mod"),
       description = _("modDesc"),
-      authors = { { name = "Mike", role = "CREATOR" } },
+      authors = { { name = "Test Author", role = "CREATOR" } },
       minorVersion = 0,
       severityAdd = "NONE",
       severityRemove = "WARNING",
@@ -311,9 +311,9 @@ describe("real filesystem workflow", () => {
 
     const created = await createProjectNode({
       parentDirectory: workspace,
-      projectId: "mike_test_mod_1",
-      displayName: "Mike Test Mod",
-      author: "Mike",
+      projectId: "test_author_mod_1",
+      displayName: "Test Author Mod",
+      author: "Test Author",
       mode: "vanilla"
     });
     let scanned = await scanProjectNode(created.rootPath);
@@ -347,7 +347,7 @@ describe("real filesystem workflow", () => {
       parentDirectory: workspace,
       projectId: "secure_mod_1",
       displayName: "Secure Mod",
-      author: "Mike",
+      author: "Test Author",
       mode: "vanilla"
     });
     await writeFile(path.join(workspace, "outside.txt"), "secret", "utf8");
