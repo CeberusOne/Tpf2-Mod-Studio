@@ -10,3 +10,37 @@ target/
 coverage/
 test-results/
 playwright-report/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+.npmrc
+.cargo/credentials
+.cargo/credentials.toml
+
+# Keys and signing material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Temporary, crash and operating-system files
+*.tmp
+*.bak
+*.swp
+*.dmp
+Thumbs.db
+desktop.ini
+
+# Generated native packages
+*.msi
+*.exe
+*.AppImage
+*.deb
+*.rpm
+
+# Generated Tauri schemas
+apps/desktop/src-tauri/gen/
