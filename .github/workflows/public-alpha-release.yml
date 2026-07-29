@@ -1,6 +1,13 @@
 name: Public Alpha Release
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "LICENSE"
+      - ".github/workflows/public-alpha-release.yml"
+      - "docs/release-notes-0.1.0-alpha.1.md"
   workflow_dispatch:
 
 permissions:
@@ -23,6 +30,10 @@ jobs:
       - name: Require an approved repository license
         shell: bash
         run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Public releases may be created from main only."
+            exit 1
+          fi
           if [ ! -s LICENSE ]; then
             echo "LICENSE is missing. Select and commit a license before publishing."
             exit 1
