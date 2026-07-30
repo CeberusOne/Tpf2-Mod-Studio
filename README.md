@@ -17,7 +17,8 @@ This repository contains the first connected workflow:
 5. build a resource index and detect changes;
 6. install the validated project into an explicitly selected mod directory with
    collision protection and backups;
-7. load and group messages from a real `stdout.txt`.
+7. analyze a real `stdout.txt`, identify supported root causes and separate
+   linked follow-up errors.
 
 No sample mods or fake log events are shown by the production UI. Test fixtures
 live only in automated tests.
@@ -94,8 +95,9 @@ The current 0.1 release therefore supports Transport Fever 2 only. Future game
 support is part of the long-term roadmap and is not yet implemented.
 
 Vanilla projects are supported by the first slice. CommonAPI2 has a separate
-project mode, but its API intelligence remains disabled until a real CommonAPI2
-installation and documentation source are available.
+project mode. Build/native log failures are recognized, but complete API
+intelligence remains disabled until a real CommonAPI2 installation and
+versioned API source are available.
 
 ## Public Alpha
 
@@ -127,6 +129,7 @@ not grant rights to Transport Fever game files or third-party mod content.
 - [Supported file formats](docs/file-formats.md)
 - [CommonAPI2 integration boundary](docs/commonapi2.md)
 - [Technical evidence](docs/evidence.md)
+- [TF2 core logic and modifier baseline](docs/tf2-core-logic.md)
 - [0.1 verification report](docs/status-0.1.md)
 - [Architecture decision record](docs/adr/0001-desktop-architecture.md)
 - [Changelog](CHANGELOG.md)

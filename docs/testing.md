@@ -13,10 +13,9 @@ npm run verify
 2. all Vitest unit, integration and component tests;
 3. production builds for the domain package and React application.
 
-The recorded 2026-07-29 environment is Ubuntu 24.04 x64, Node.js 24.14.0 and
-npm 11.9.0. The endcheck result is 13 passed and 0 failed tests across two test
-files. The complete `npm run verify` process took 6.97 seconds of wall time on
-that hosted runner; this is a reproducibility observation, not a product
+The recorded 2026-07-30 environment is Ubuntu 24.04 x64, Node.js 24.14.0 and
+npm 11.9.0. The current endcheck result is 24 passed and 0 failed tests across
+two test files. Timing is a reproducibility observation, not a product
 performance benchmark.
 
 ## Covered cases
@@ -28,7 +27,13 @@ performance benchmark.
 - Windows-compatible case collision;
 - deterministic index add/change/remove diff;
 - 810 resource entries without loss;
-- repeated log grouping without invented root cause;
+- complete documented modifier/filter category catalogue;
+- valid and deliberately broken modifier callbacks;
+- modifier registration order and load-phase checks;
+- repeated log grouping and warning/error separation;
+- Lua stacktrace, missing-module root cause and linked follow-up errors;
+- CommonAPI2 build mismatch and linked termination;
+- explicit unreliable result for an unknown error signature;
 - real create, scan, edit, validate and install workflow in a temporary tree;
 - collision refusal and explicit replacement backup;
 - path traversal rejection;
@@ -65,8 +70,9 @@ Use only disposable project and installation directories.
 5. Select a disposable `mods` directory and install.
 6. Confirm a second install is refused without overwrite consent.
 7. Consent, reinstall, and confirm the previous directory was backed up.
-8. Load a real copied `stdout.txt`; confirm repeated messages group and unknown
-   causes remain unclassified.
+8. Load a real copied `stdout.txt`; confirm root causes, stack frames, involved
+   mods and consequences are separated, and unknown errors make the causal
+   result unreliable.
 9. Detect paths, inspect every candidate, and launch only an explicitly chosen
    executable.
 
@@ -80,7 +86,8 @@ required:
 - cancellation and restart of a persistent incremental index;
 - very large real `stdout.txt` files near and above the 32 MiB IPC cap;
 - broken encodings and supported binary resources;
-- full dependency and load-order conflicts;
+- full dependency, provenance and cross-mod load-order conflicts;
+- a broad, privacy-scrubbed real-world `stdout.txt` corpus;
 - incompatible CommonAPI2 installations;
 - native Windows and Linux path, case and installer behavior;
 - interactive clean-machine install, startup and uninstall;

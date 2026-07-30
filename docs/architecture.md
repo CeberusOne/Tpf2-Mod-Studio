@@ -23,12 +23,13 @@ flowchart TD
   E -- No --> G["Install to selected mods folder"]
   G --> H["Verify installed mod.lua"]
   H --> I["Optional explicit game launch"]
-  I --> J["Read and group stdout.txt"]
+  I --> J["Analyze stdout.txt causality"]
 ```
 
 ## Package map
 
-- `packages/core`: pure domain contracts, validation, index and log parser.
+- `packages/core`: pure domain contracts, TF2 load/modifier knowledge,
+  validation, index and causal log analysis.
 - `packages/core/src/node-service.ts`: test/developer real-filesystem adapter.
 - `apps/desktop/src`: React workbench and Tauri bridge.
 - `apps/desktop/src-tauri`: native command layer and Tauri configuration.

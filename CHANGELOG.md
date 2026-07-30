@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — 2026-07-30
+
+- Added the complete documented vanilla TF2 resource-modifier and file-filter
+  category catalog with load-phase and chaining semantics.
+- Added static checks for registration phase, category, callback inputs and
+  modifier/filter return contracts.
+- Replaced keyword-only log grouping with supported causal analysis, including
+  stack frames, affected files/mods, root-cause/follow-up links and
+  cause-specific fixes.
+- Added an explicit reliability gate: unknown error signatures prevent a
+  reliable-causality claim.
+- Added valid/broken modifier and realistic stdout/CommonAPI2 regression
+  fixtures plus a causal log UI.
+- Documented the verified Vanilla/CommonAPI2 boundary and remaining runtime,
+  provenance and real-corpus limits.
+
 ## 0.1.0-alpha.1 — 2026-07-29
 
 - Established the Tauri/React monorepo.

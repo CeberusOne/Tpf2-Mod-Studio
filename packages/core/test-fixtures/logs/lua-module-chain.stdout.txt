@@ -1,0 +1,11 @@
+[2026-07-30 09:10:00] INFO Loading 142 mods
+[2026-07-30 09:10:01] WARNING mods/legacy_pack_1/res/models/model/vehicle/train/old.mdl uses deprecated metadata
+[2026-07-30 09:10:02] ERROR error loading script file
+[string "mods/broken_signals_1/res/scripts/signal_loader.lua"]:17: module 'signal/aspect_map' not found:
+	no field package.preload['signal/aspect_map']
+	no file 'mods/broken_signals_1/res/scripts/signal/aspect_map.lua'
+stack traceback:
+	[C]: in function 'require'
+	[string "mods/broken_signals_1/res/scripts/signal_loader.lua"]:17: in main chunk
+[2026-07-30 09:10:02] ERROR Exception type: Lua exception
+[2026-07-30 09:10:02] Some game resources contain incorrect data.

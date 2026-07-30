@@ -1,0 +1,2 @@
+[2026-07-30 09:20:00] ERROR CommonAPI2 native build 35620 is not supported by game build 35710
+[2026-07-30 09:20:00] ERROR Application terminated after caught exception

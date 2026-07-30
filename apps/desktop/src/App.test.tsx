@@ -167,6 +167,30 @@ describe("desktop workbench", () => {
     );
   });
 
+  it("renders root causes separately from linked log consequences", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.chooseLogFile = vi.fn(async () => "/logs/stdout.txt");
+    desktopBridge.readLog = vi.fn(
+      async () =>
+        [
+          "ERROR error loading script file",
+          `[string "mods/broken_mod_1/res/scripts/init.lua"]:9: module 'missing/module' not found:`,
+          "stack traceback:",
+          `  [string "mods/broken_mod_1/res/scripts/init.lua"]:9: in main chunk`,
+          "ERROR Exception type: Lua exception"
+        ].join("\n")
+    );
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Logs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select log" }));
+
+    expect(await screen.findByText("Causal assignment supported")).toBeTruthy();
+    expect(screen.getAllByText(/Root cause/u).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Consequence/u).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Check the required module path/u)).toBeTruthy();
+  });
+
   it("switches to German and persists the explicit language selection", () => {
     const firstRender = render(<App bridge={bridge(false)} />);
 

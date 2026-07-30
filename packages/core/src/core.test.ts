@@ -4,8 +4,8 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { buildResourceIndex, diffResourceIndexes } from "./resource-index.js";
-import { parseTf2Log } from "./log-parser.js";
+import { analyzeTf2Log, parseTf2Log } from "./log-parser.js";
+import { analyzeTf2Registrations } from "./modifier-analyzer.js";
 import {
   createProjectNode,
   installProjectNode,
@@ -13,6 +13,12 @@ import {
   saveProjectFileNode,
   scanProjectNode
 } from "./node-service.js";
+import { buildResourceIndex, diffResourceIndexes } from "./resource-index.js";
+import {
+  TF2_FILE_FILTER_CATEGORIES,
+  TF2_LOAD_PIPELINE,
+  TF2_RESOURCE_MODIFIERS
+} from "./tf2-knowledge.js";
 import type { ProjectSnapshot } from "./types.js";
 import { validateProject } from "./validator.js";
 
@@ -300,6 +306,233 @@ describe("stdout.txt analysis", () => {
     expect(groups[1]).toEqual(
       expect.objectContaining({ severity: "warning", count: 1 })
     );
+  });
+
+  it("identifies a Lua module root cause, stack, mod and consequences", async () => {
+    const log = await readFile(
+      path.join(
+        process.cwd(),
+        "packages/core/test-fixtures/logs/lua-module-chain.stdout.txt"
+      ),
+      "utf8"
+    );
+    const analysis = analyzeTf2Log(log);
+    const root = analysis.groups.find(
+      (group) => group.causeStatus === "root-cause"
+    );
+    const consequences = analysis.groups.filter(
+      (group) => group.causeStatus === "consequence"
+    );
+    const warning = analysis.groups.find(
+      (group) => group.severity === "warning"
+    );
+
+    expect(analysis).toEqual(
+      expect.objectContaining({
+        rootCauseCount: 1,
+        consequenceCount: 2,
+        warningCount: 1,
+        unclassifiedErrorCount: 0,
+        reliable: true
+      })
+    );
+    expect(root).toEqual(
+      expect.objectContaining({
+        causeCode: "LUA_MODULE_NOT_FOUND",
+        causeCertainty: "confirmed",
+        file: "mods/broken_signals_1/res/scripts/signal_loader.lua",
+        sourceLine: 17,
+        modId: "broken_signals_1"
+      })
+    );
+    expect(root?.stackTrace).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: "mods/broken_signals_1/res/scripts/signal_loader.lua",
+          sourceLine: 17
+        })
+      ])
+    );
+    expect(consequences).toHaveLength(2);
+    expect(consequences.every((group) => group.causedBy === root?.id)).toBe(
+      true
+    );
+    expect(warning?.causeStatus).toBe("unclassified");
+  });
+
+  it("keeps unknown error signatures explicitly unreliable", () => {
+    const analysis = analyzeTf2Log(
+      "ERROR engine state rejected request 42 without diagnostic context"
+    );
+
+    expect(analysis.reliable).toBe(false);
+    expect(analysis.rootCauseCount).toBe(0);
+    expect(analysis.unclassifiedErrorCount).toBe(1);
+  });
+
+  it("separates a CommonAPI2 compatibility cause from termination", async () => {
+    const log = await readFile(
+      path.join(
+        process.cwd(),
+        "packages/core/test-fixtures/logs/commonapi-build.stdout.txt"
+      ),
+      "utf8"
+    );
+    const analysis = analyzeTf2Log(log);
+
+    expect(analysis.groups[0]).toEqual(
+      expect.objectContaining({
+        causeCode: "COMMONAPI2_BUILD_UNSUPPORTED",
+        causeStatus: "root-cause"
+      })
+    );
+    expect(analysis.groups[1]).toEqual(
+      expect.objectContaining({
+        causeStatus: "consequence",
+        causedBy: analysis.groups[0]?.id
+      })
+    );
+  });
+});
+
+describe("TF2 resource loading and modifier knowledge", () => {
+  it("contains every officially documented vanilla modifier and filter category", () => {
+    expect(TF2_RESOURCE_MODIFIERS.map(({ category }) => category)).toEqual([
+      "loadModel",
+      "loadModule",
+      "loadStreet",
+      "loadTrack",
+      "loadBridge",
+      "loadTunnel",
+      "loadMultipleUnit",
+      "loadRailroadCrossing",
+      "loadTrafficLight",
+      "loadConstruction",
+      "loadConstructionCategory",
+      "loadConstructionMenu",
+      "loadClimate",
+      "loadEnvironment",
+      "loadTerrainMaterial",
+      "loadTerrainGenerator",
+      "loadGrass",
+      "loadGroundTex",
+      "loadCargoType",
+      "loadSoundSet",
+      "loadScript",
+      "loadGameScript"
+    ]);
+    expect(TF2_FILE_FILTER_CATEGORIES).toHaveLength(24);
+    expect(
+      TF2_RESOURCE_MODIFIERS.every(
+        (definition) =>
+          definition.inputs[0] === "fileName" &&
+          definition.inputs[1] === "data" &&
+          definition.executionPhase === "resource-load" &&
+          definition.returnContract.includes("resource data")
+      )
+    ).toBe(true);
+  });
+
+  it("models registration, resolution, filter, modifier and runtime phases", () => {
+    expect(TF2_LOAD_PIPELINE.map(({ id }) => id)).toEqual([
+      "mod-order",
+      "run-fn",
+      "resource-resolution",
+      "filter-chain",
+      "modifier-chain",
+      "native-ingest",
+      "post-run-fn",
+      "game-script"
+    ]);
+  });
+
+  it("accepts realistic modifier/filter registrations and preserves chain order", async () => {
+    const content = await readFile(
+      path.join(
+        process.cwd(),
+        "packages/core/test-fixtures/mods/valid_modifier_mod_1/mod.lua"
+      ),
+      "utf8"
+    );
+    const analysis = analyzeTf2Registrations(content);
+
+    expect(analysis.diagnostics).toEqual([]);
+    expect(analysis.registrations).toEqual([
+      expect.objectContaining({
+        kind: "modifier",
+        category: "loadBridge",
+        callback: "doubleBridgeSpeed",
+        insideRunFn: true,
+        order: 1
+      }),
+      expect.objectContaining({
+        kind: "file-filter",
+        category: "model/vehicle",
+        callback: "keepVehicles",
+        insideRunFn: true,
+        order: 2
+      })
+    ]);
+  });
+
+  it("blocks an unknown modifier category, wrong callback and registration phase", async () => {
+    const content = await readFile(
+      path.join(
+        process.cwd(),
+        "packages/core/test-fixtures/mods/broken_modifier_mod_1/mod.lua"
+      ),
+      "utf8"
+    );
+    const analysis = analyzeTf2Registrations(content);
+    const codes = analysis.diagnostics.map(({ code }) => code);
+
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "TF2_REGISTRATION_OUTSIDE_RUNFN",
+        "TF2_MODIFIER_CATEGORY_UNKNOWN",
+        "TF2_CALLBACK_PARAMETERS",
+        "TF2_MODIFIER_RETURN_MISSING"
+      ])
+    );
+  });
+
+  it("integrates modifier contract failures into the installation gate", () => {
+    const broken = `function data()
+  return {
+    info = {
+      name = _("Broken return"),
+      description = _("modDesc"),
+      authors = { { name = "Fixture", role = "CREATOR" } },
+      minorVersion = 0,
+    },
+    runFn = function(settings, modParams)
+      addModifier("loadModel", function(fileName, data)
+        return nil
+      end)
+    end,
+  }
+end`;
+    const result = validateProject(
+      snapshot([
+        {
+          relativePath: "mod.lua",
+          size: broken.length,
+          modifiedMs: 1,
+          text: true,
+          content: broken
+        }
+      ])
+    );
+
+    expect(result.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "TF2_MODIFIER_RETURN_INVALID",
+          severity: "error"
+        })
+      ])
+    );
+    expect(result.canInstall).toBe(false);
   });
 });
 

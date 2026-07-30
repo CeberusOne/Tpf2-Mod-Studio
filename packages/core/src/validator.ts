@@ -1,5 +1,6 @@
 import { parse } from "luaparse";
 
+import { analyzeTf2Registrations } from "./modifier-analyzer.js";
 import { normalizeResourcePath, portablePathKey } from "./path-utils.js";
 import type {
   Diagnostic,
@@ -382,6 +383,9 @@ export function validateProject(snapshot: ProjectSnapshot): ValidationResult {
   }
   diagnostics.push(...pathDiagnostics(snapshot));
   diagnostics.push(...resourceReferenceDiagnostics(snapshot));
+  if (modLua?.content !== undefined) {
+    diagnostics.push(...analyzeTf2Registrations(modLua.content).diagnostics);
+  }
 
   if (!/^[a-z0-9][a-z0-9_-]*_[1-9][0-9]*$/u.test(snapshot.folderName)) {
     diagnostics.push(
