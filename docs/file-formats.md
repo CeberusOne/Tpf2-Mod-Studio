@@ -12,7 +12,7 @@
 | `.con` | Text editing, indexing and quoted reference extraction | No construction preview |
 | `.tga`, `.dds`, `.png` | Indexed as textures | No image preview in 0.1 |
 | `.wav`, `.ogg` | Indexed as sound | No audio preview |
-| `stdout.txt` | Bounded UTF-8 read, severity/source extraction and repetition grouping | 32 MiB native IPC cap; no streaming yet |
+| `stdout.txt` | Bounded UTF-8 read, severity/source/stack extraction, repetition grouping and supported causal attribution | 32 MiB native IPC cap; no streaming; unknown causes remain unclassified |
 | other UTF-8-sized text files | Listed and editable when the scanner classifies them as text | No format-specific validation |
 | other binary files | Listed and counted | Not opened in the text editor |
 

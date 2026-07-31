@@ -26,15 +26,15 @@ import {
   X
 } from "lucide-react";
 import {
+  analyzeTf2Log,
   buildResourceIndex,
-  parseTf2Log,
   validateProject
 } from "@tpf2-mod-studio/core";
 import type {
   CreateProjectRequest,
   Diagnostic,
   InstallationCandidate,
-  LogGroup,
+  LogAnalysis,
   ProjectFile,
   ProjectMode,
   ProjectSnapshot,
@@ -171,7 +171,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   const [allowOverwrite, setAllowOverwrite] = useState(false);
   const [installResult, setInstallResult] = useState<string>();
   const [logPath, setLogPath] = useState("");
-  const [logGroups, setLogGroups] = useState<LogGroup[]>([]);
+  const [logAnalysis, setLogAnalysis] = useState<LogAnalysis>();
   const [installations, setInstallations] = useState<InstallationCandidate[]>([]);
 
   const validation = useMemo(
@@ -403,7 +403,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     );
     if (content === undefined) return;
     setLogPath(selected);
-    setLogGroups(parseTf2Log(content));
+    setLogAnalysis(analyzeTf2Log(content));
   }
 
   async function detectInstallations(): Promise<void> {
@@ -794,8 +794,8 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
 
           {view === "logs" ? (
             <LogView
+              analysis={logAnalysis}
               experience={experience}
-              groups={logGroups}
               logPath={logPath}
               native={bridge.isNative}
               onChooseLog={() => void chooseAndReadLog()}
@@ -1095,19 +1095,20 @@ function InstallView({
 }
 
 function LogView({
+  analysis,
   experience,
-  groups,
   logPath,
   native,
   onChooseLog
 }: {
+  analysis: LogAnalysis | undefined;
   experience: ExperienceMode;
-  groups: LogGroup[];
   logPath: string;
   native: boolean;
   onChooseLog: () => void;
 }) {
   const { t } = useI18n();
+  const groups = analysis?.groups ?? [];
 
   return (
     <div className="logs-page">
@@ -1127,6 +1128,29 @@ function LogView({
         </button>
       </div>
       {logPath.length > 0 ? <div className="selected-path">{logPath}</div> : null}
+      {analysis !== undefined ? (
+        <section
+          className={`log-analysis-summary ${
+            analysis.reliable ? "is-reliable" : "is-unconfirmed"
+          }`}
+        >
+          <strong>
+            {analysis.reliable
+              ? t("logCausalityReliable")
+              : t("logCausalityUnconfirmed")}
+          </strong>
+          <span>
+            {t("logRootCauseCount", { count: analysis.rootCauseCount })} ·{" "}
+            {t("logConsequenceCount", {
+              count: analysis.consequenceCount
+            })}{" "}
+            ·{" "}
+            {t("logUnclassifiedCount", {
+              count: analysis.unclassifiedErrorCount
+            })}
+          </span>
+        </section>
+      ) : null}
       {groups.length === 0 ? (
         <EmptyState
           icon={<ScrollText size={26} />}
@@ -1149,15 +1173,45 @@ function LogView({
                   {group.modId === undefined
                     ? ""
                     : ` · ${t("modReference", { modId: group.modId })}`}
+                  {" · "}
+                  {group.causeStatus === "root-cause"
+                    ? t("logRootCause")
+                    : group.causeStatus === "consequence"
+                      ? t("logConsequence")
+                      : t("causeUnclassified")}
                 </small>
+                {group.recommendedFix === undefined ? null : (
+                  <p className="log-fix">
+                    <b>{t("correction")}</b> {group.recommendedFix}
+                  </p>
+                )}
                 {experience === "expert" ? (
-                  <code>
-                    {group.file ?? t("noFileAssigned")}
-                    {group.sourceLine === undefined
-                      ? ""
-                      : `:${group.sourceLine}`}{" "}
-                    · {t("causeUnclassified")}
-                  </code>
+                  <>
+                    <code>
+                      {group.file ?? t("noFileAssigned")}
+                      {group.sourceLine === undefined
+                        ? ""
+                        : `:${group.sourceLine}`}{" "}
+                      · {group.causeCode ?? t("causeUnclassified")}
+                    </code>
+                    {group.technicalCause === undefined ? null : (
+                      <p className="log-cause">
+                        <b>{t("cause")}</b> {group.technicalCause}
+                      </p>
+                    )}
+                    {group.stackTrace.length === 0 ? null : (
+                      <details className="log-stack">
+                        <summary>
+                          {t("logStackFrames", {
+                            count: group.stackTrace.length
+                          })}
+                        </summary>
+                        {group.stackTrace.map((frame) => (
+                          <code key={frame.raw}>{frame.raw}</code>
+                        ))}
+                      </details>
+                    )}
+                  </>
                 ) : null}
               </div>
               <span className="severity-label">

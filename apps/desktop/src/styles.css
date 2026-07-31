@@ -1207,6 +1207,30 @@ nav {
   border-radius: 7px;
 }
 
+.log-analysis-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 11px 13px;
+  color: var(--muted-strong);
+  font-size: 9px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--success);
+  border-radius: 7px;
+}
+
+.log-analysis-summary.is-unconfirmed {
+  border-left-color: var(--warning);
+}
+
+.log-analysis-summary strong {
+  color: var(--text);
+  font-size: 10px;
+}
+
 .log-row {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) auto;
@@ -1261,6 +1285,36 @@ nav {
 .log-row code {
   color: var(--muted-strong);
   font-size: 8px;
+}
+
+.log-row .log-fix,
+.log-row .log-cause {
+  margin: 2px 0 0;
+  color: var(--muted-strong);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.log-row .log-fix b,
+.log-row .log-cause b {
+  color: var(--text);
+}
+
+.log-stack {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.log-stack summary {
+  cursor: pointer;
+}
+
+.log-stack code {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .installation-grid {

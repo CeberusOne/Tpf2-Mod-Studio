@@ -88,6 +88,20 @@ export interface IndexDiff {
 
 export type LogSeverity = "error" | "warning" | "info";
 
+export type LogCauseStatus =
+  | "root-cause"
+  | "consequence"
+  | "unclassified";
+
+export type LogCauseCertainty = "confirmed" | "probable" | "unclassified";
+
+export interface LogStackFrame {
+  raw: string;
+  file?: string;
+  sourceLine?: number;
+  functionName?: string;
+}
+
 export interface LogGroup {
   id: string;
   severity: LogSeverity;
@@ -98,7 +112,60 @@ export interface LogGroup {
   file?: string;
   sourceLine?: number;
   modId?: string;
-  causeStatus: "unclassified";
+  causeStatus: LogCauseStatus;
+  causeCertainty: LogCauseCertainty;
+  causeCode?: string;
+  causedBy?: string;
+  technicalCause?: string;
+  recommendedFix?: string;
+  stackTrace: LogStackFrame[];
+  affectedFiles: string[];
+  affectedMods: string[];
+}
+
+export interface LogAnalysis {
+  groups: LogGroup[];
+  rootCauseCount: number;
+  consequenceCount: number;
+  warningCount: number;
+  unclassifiedErrorCount: number;
+  reliable: boolean;
+  reliabilityReason: string;
+}
+
+export type Tf2RegistrationKind = "modifier" | "file-filter";
+
+export interface Tf2ModifierDefinition {
+  category: string;
+  resourceType: string;
+  purpose: string;
+  executionPhase: "resource-load";
+  inputs: readonly ["fileName", "data"];
+  returnContract: string;
+  chainSemantics: string;
+  crossModImpact: string;
+}
+
+export interface Tf2LoadPhase {
+  id:
+    | "mod-order"
+    | "run-fn"
+    | "resource-resolution"
+    | "filter-chain"
+    | "modifier-chain"
+    | "native-ingest"
+    | "post-run-fn"
+    | "game-script";
+  description: string;
+}
+
+export interface Tf2Registration {
+  kind: Tf2RegistrationKind;
+  category?: string;
+  callback?: string;
+  line: number;
+  order: number;
+  insideRunFn: boolean;
 }
 
 export interface CreatedProject {

@@ -1,6 +1,6 @@
 # Technical evidence baseline
 
-Checked on 2026-07-29.
+Checked on 2026-07-30.
 
 ## Official Transport Fever 2 sources
 
@@ -14,6 +14,15 @@ Checked on 2026-07-29.
   <https://wiki.transportfever2.com/doku.php?id=gamemanual:gamefilelocations>
 - Scripting basics:
   <https://wiki.transportfever2.com/doku.php?id=modding:scriptingbasics>
+- Resource modifiers, file filters and their callback contracts:
+  <https://wiki.transportfever2.com/doku.php?id=modding:modifiersfilters>
+- Base configuration timing:
+  <https://wiki.transportfever2.com/doku.php?id=modding:baseconfig>
+
+## CommonAPI2 source
+
+- CommonAPI2 quickstart, native/script split, activation and build boundary:
+  <https://www.transportfever.net/lexicon/entry/361-commonapi2-quickstart-guide/>
 
 ## Official framework sources
 
@@ -43,3 +52,6 @@ Checked on 2026-07-29.
 | Tauri native bundle in this repository | Build, package and process start verified on Ubuntu 22.04 and Windows Server 2022 |
 | TypeScript domain behavior | Verified by automated tests in this repository |
 | Rust filesystem boundary behavior | Verified by five native tests on both supported CI operating systems |
+| 22 vanilla modifier categories and 24 file-filter categories | Officially documented and regression-tested |
+| Known `stdout.txt` cause signatures | Deterministic fixture-tested; unknown signatures remain unclassified |
+| Full cross-mod order and provenance | Not verified without a real ordered active-mod/base-resource corpus |
