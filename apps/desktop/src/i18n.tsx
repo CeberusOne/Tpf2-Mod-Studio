@@ -265,6 +265,21 @@ const english = {
   modSourceBuiltin: "Shipped with the game",
   modsInSource: "{count} mods",
   modFiles: "{count} files",
+  modHealthOk: "OK",
+  modHealthWarning: "Runs with issues",
+  modHealthError: "Will not load",
+  modInfo: "Info",
+  modFindingCount: "{count} finding(s)",
+  modNoProvenFindings:
+    "No provable issue in mod.lua. Resource and path checks need a full project scan.",
+  modUnprovenCount: "{count} check(s) could not be proven",
+  modUnprovenNote:
+    "These say something could not be verified statically — usually a callback defined in another file. They do not mean the mod is broken and never change the light.",
+  modEditFiles: "Edit files",
+  modEditNoTextFiles:
+    "This mod has no editable text files. Meshes, textures and sounds need dedicated editors.",
+  modEditWorkshopWarning:
+    "Steam Workshop content is managed by Steam and can be overwritten on the next update. Copy the mod into your local mods folder for lasting changes.",
   modMissingLua: "No mod.lua",
   modDuplicate: "Duplicate of {path}",
   modsFound: "{count} mods found",
@@ -548,6 +563,21 @@ const german: TranslationCatalog = {
   modSourceBuiltin: "Mit dem Spiel geliefert",
   modsInSource: "{count} Mods",
   modFiles: "{count} Dateien",
+  modHealthOk: "In Ordnung",
+  modHealthWarning: "Läuft mit Mängeln",
+  modHealthError: "Wird nicht geladen",
+  modInfo: "Info",
+  modFindingCount: "{count} Befund(e)",
+  modNoProvenFindings:
+    "Kein belegbarer Mangel in mod.lua. Ressourcen- und Pfadprüfungen brauchen einen vollständigen Projekt-Scan.",
+  modUnprovenCount: "{count} Prüfung(en) nicht belegbar",
+  modUnprovenNote:
+    "Diese Hinweise besagen, dass etwas statisch nicht überprüfbar war — meist ein Callback in einer anderen Datei. Sie bedeuten nicht, dass die Mod defekt ist, und beeinflussen die Ampel nie.",
+  modEditFiles: "Dateien bearbeiten",
+  modEditNoTextFiles:
+    "Diese Mod hat keine bearbeitbaren Textdateien. Meshes, Texturen und Sounds brauchen eigene Editoren.",
+  modEditWorkshopWarning:
+    "Steam-Workshop-Inhalte verwaltet Steam; Änderungen können beim nächsten Update überschrieben werden. Kopiere die Mod für dauerhafte Änderungen in deinen lokalen Mods-Ordner.",
   modMissingLua: "Keine mod.lua",
   modDuplicate: "Duplikat von {path}",
   modsFound: "{count} Mods gefunden",

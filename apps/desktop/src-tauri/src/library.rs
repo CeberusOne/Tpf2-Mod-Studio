@@ -16,6 +16,8 @@ use zip::{write::SimpleFileOptions, ZipWriter};
 const PREVIEW_MAX_EDGE: u32 = 256;
 /// Refuse absurd source images rather than decoding them into memory.
 const PREVIEW_MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
+/// Upper bound for a `mod.lua` shipped to the UI for health classification.
+const MAX_MOD_LUA_BYTES: u64 = 512 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +31,10 @@ pub struct InstalledMod {
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub duplicate_of: Option<String>,
+    /// Root `mod.lua` source so the UI can classify mod health without a
+    /// second round trip. Already read here for the display name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mod_lua: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -119,15 +125,20 @@ fn scan_mod_directory(root: &Path, source: &str, into: &mut Vec<InstalledMod>) {
         if id.starts_with('.') {
             continue;
         }
-        let mod_lua = path.join("mod.lua");
-        let has_mod_lua = mod_lua.is_file();
-        let display_name = if has_mod_lua {
-            fs::read_to_string(&mod_lua)
-                .ok()
-                .and_then(|content| extract_display_name(&content))
+        let mod_lua_path = path.join("mod.lua");
+        let has_mod_lua = mod_lua_path.is_file();
+        // A real library holds ~730 mods averaging 1.8 KiB of mod.lua, so
+        // shipping the source costs about a megabyte in total. Skip outliers.
+        let mod_lua = if has_mod_lua
+            && fs::metadata(&mod_lua_path)
+                .map(|meta| meta.len() <= MAX_MOD_LUA_BYTES)
+                .unwrap_or(false)
+        {
+            fs::read_to_string(&mod_lua_path).ok()
         } else {
             None
         };
+        let display_name = mod_lua.as_deref().and_then(extract_display_name);
         into.push(InstalledMod {
             id: id.to_string(),
             path: path_string(&path),
@@ -136,6 +147,7 @@ fn scan_mod_directory(root: &Path, source: &str, into: &mut Vec<InstalledMod>) {
             file_count: count_files(&path),
             display_name,
             duplicate_of: None,
+            mod_lua,
         });
     }
 }

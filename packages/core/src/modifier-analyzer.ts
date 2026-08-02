@@ -1,5 +1,6 @@
 import { parse } from "luaparse";
 
+import { stripByteOrderMark } from "./path-utils.js";
 import { isTf2RegistrationCategory } from "./tf2-knowledge.js";
 import type {
   Diagnostic,
@@ -326,7 +327,7 @@ export function analyzeTf2Registrations(
 ): Tf2RegistrationAnalysis {
   let ast: LuaNode;
   try {
-    ast = parse(content, {
+    ast = parse(stripByteOrderMark(content), {
       comments: false,
       locations: true,
       luaVersion: "5.3"

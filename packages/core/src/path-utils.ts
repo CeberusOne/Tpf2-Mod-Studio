@@ -1,4 +1,17 @@
 const NUL = "\0";
+
+/**
+ * Drop a leading UTF-8 byte order mark.
+ *
+ * Many editors write one, Transport Fever 2 loads such files fine, but the Lua
+ * parser reports it as `unexpected symbol` on line 1. Measured on a real
+ * library, 225 of 709 installed `mod.lua` files start with a BOM — without
+ * this every one of them would be reported as a syntax error and blocked from
+ * installation.
+ */
+export function stripByteOrderMark(source: string): string {
+  return source.charCodeAt(0) === 0xfeff ? source.slice(1) : source;
+}
 const WINDOWS_FORBIDDEN_CHARACTERS = /[\u0000-\u001f\u007f<>:"|?*]/u;
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/iu;
 

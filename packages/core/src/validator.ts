@@ -4,7 +4,8 @@ import { analyzeTf2Registrations } from "./modifier-analyzer.js";
 import {
   assertSafeRelativePath,
   normalizeResourcePath,
-  portablePathKey
+  portablePathKey,
+  stripByteOrderMark
 } from "./path-utils.js";
 import type {
   Diagnostic,
@@ -116,7 +117,7 @@ function luaDiagnostics(file: ProjectFile): Diagnostic[] {
   if (file.content === undefined) return [];
   let ast: LuaNode;
   try {
-    ast = parse(file.content, {
+    ast = parse(stripByteOrderMark(file.content), {
       comments: false,
       locations: true,
       luaVersion: "5.3"
@@ -388,6 +389,39 @@ function pathDiagnostics(snapshot: ProjectSnapshot): Diagnostic[] {
   return diagnostics;
 }
 
+/**
+ * Folder-name convention check, usable without a full project scan.
+ */
+export function folderNameDiagnostics(folderName: string): Diagnostic[] {
+  if (/^[a-z0-9][a-z0-9_-]*_[1-9][0-9]*$/u.test(folderName)) return [];
+  return [
+    diagnostic(
+      "MOD_FOLDER_CONVENTION",
+      "warning",
+      "official-guidance",
+      "Non-standard mod folder name",
+      `\`${folderName}\` does not end in a positive major-version suffix such as \`_1\`.`,
+      "TF2 uses the mod folder's major-version suffix to distinguish installed versions.",
+      "Use a lower-case identifier ending in `_1` or another positive major version."
+    )
+  ];
+}
+
+/**
+ * Structure and syntax checks for a root `mod.lua`, without needing the rest of
+ * the project. Resource-reference and path checks require a full scan and are
+ * deliberately not included.
+ */
+export function modLuaDiagnostics(content: string): Diagnostic[] {
+  return luaDiagnostics({
+    relativePath: "mod.lua",
+    size: content.length,
+    modifiedMs: 0,
+    text: true,
+    content
+  });
+}
+
 export function validateProject(snapshot: ProjectSnapshot): ValidationResult {
   const diagnostics: Diagnostic[] = [];
   const modLua = snapshot.files.find(
@@ -429,19 +463,7 @@ export function validateProject(snapshot: ProjectSnapshot): ValidationResult {
     diagnostics.push(...analyzeTf2Registrations(modLua.content).diagnostics);
   }
 
-  if (!/^[a-z0-9][a-z0-9_-]*_[1-9][0-9]*$/u.test(snapshot.folderName)) {
-    diagnostics.push(
-      diagnostic(
-        "MOD_FOLDER_CONVENTION",
-        "warning",
-        "official-guidance",
-        "Non-standard mod folder name",
-        `\`${snapshot.folderName}\` does not end in a positive major-version suffix such as \`_1\`.`,
-        "TF2 uses the mod folder's major-version suffix to distinguish installed versions.",
-        "Use a lower-case identifier ending in `_1` or another positive major version."
-      )
-    );
-  }
+  diagnostics.push(...folderNameDiagnostics(snapshot.folderName));
 
   diagnostics.sort((left, right) => {
     const rank = { error: 0, warning: 1, info: 2 };

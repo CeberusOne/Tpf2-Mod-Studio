@@ -767,6 +767,255 @@ nav {
   object-fit: cover;
 }
 
+.health-light {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 2px 0 4px;
+}
+
+.health-lamps {
+  display: flex;
+  gap: 4px;
+  padding: 3px 5px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.lamp {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+  opacity: 0.35;
+}
+
+.lamp.red.is-lit,
+.lamp.error.is-lit {
+  background: #e5484d;
+  opacity: 1;
+  box-shadow: 0 0 6px #e5484d99;
+}
+
+.lamp.amber.is-lit,
+.lamp.warning.is-lit {
+  background: #f5a524;
+  opacity: 1;
+  box-shadow: 0 0 6px #f5a52499;
+}
+
+.lamp.green.is-lit,
+.lamp.ok.is-lit {
+  background: #30a46c;
+  opacity: 1;
+  box-shadow: 0 0 6px #30a46c99;
+}
+
+.health-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.health-label.ok {
+  color: #30a46c;
+}
+
+.health-label.warning {
+  color: #f5a524;
+}
+
+.health-label.error {
+  color: #e5484d;
+}
+
+.mod-source-health {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.health-tally {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.mod-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mod-card-actions button {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.mod-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.mod-finding {
+  padding: 9px 10px;
+  font-size: 0.78rem;
+  background: var(--surface-raised);
+  border-left: 3px solid var(--border);
+  border-radius: 5px;
+}
+
+.mod-finding.error {
+  border-left-color: #e5484d;
+}
+
+.mod-finding.warning {
+  border-left-color: #f5a524;
+}
+
+.mod-finding-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.mod-finding-head code {
+  margin-left: auto;
+  font-size: 0.66rem;
+}
+
+.mod-finding p {
+  margin: 3px 0;
+}
+
+.mod-finding-fix {
+  color: var(--text);
+}
+
+.mod-finding-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.mod-unproven summary {
+  color: var(--muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.mod-unproven-note {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.mod-editor {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.mod-editor-warning {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 9px;
+  padding: 7px 9px;
+  color: #f5a524;
+  font-size: 0.74rem;
+  background: #f5a5241a;
+  border-radius: 5px;
+}
+
+.mod-editor-body {
+  display: grid;
+  grid-template-columns: minmax(140px, 34%) 1fr;
+  gap: 9px;
+  height: 340px;
+}
+
+.mod-editor-files {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.mod-editor-file {
+  padding: 5px 8px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.mod-editor-file:hover {
+  color: var(--text);
+}
+
+.mod-editor-file.is-active {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.mod-editor-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.mod-editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 7px;
+  font-size: 0.72rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mod-editor-bar span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mod-editor-bar button {
+  margin-left: auto;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+}
+
+.mod-editor-pane > :last-child {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mod-editor-hint {
+  display: grid;
+  height: 100%;
+  padding: 12px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
 .mod-card code {
   overflow: hidden;
   font-size: 0.7rem;

@@ -1,5 +1,6 @@
 export * from "./ai-assist.js";
 export * from "./log-parser.js";
+export * from "./mod-health.js";
 export * from "./modifier-analyzer.js";
 export * from "./path-utils.js";
 export * from "./resource-index.js";

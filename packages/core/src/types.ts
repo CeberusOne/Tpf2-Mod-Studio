@@ -231,6 +231,22 @@ export interface InstalledMod {
   fileCount: number;
   displayName?: string;
   duplicateOf?: string;
+  /** Root `mod.lua` source, when present and within the inspection limit. */
+  modLua?: string;
+}
+
+/** Traffic-light state of an installed mod. */
+export type ModHealthStatus = "ok" | "warning" | "error";
+
+export interface ModHealth {
+  status: ModHealthStatus;
+  /** Proven (non-heuristic) errors — the mod does not load. */
+  errorCount: number;
+  /** Proven (non-heuristic) warnings — the mod loads with known issues. */
+  warningCount: number;
+  /** Findings that could not be proven statically; they never set the status. */
+  unprovenCount: number;
+  diagnostics: Diagnostic[];
 }
 
 export interface LogFileInfo {
