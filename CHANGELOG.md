@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.10 — 2026-08-02
+
+- Fixed an available update being impossible to install: the startup check
+  showed a notice, but `applyUpdate` and `restartAfterUpdate` were never
+  called from the interface. The offer is now a banner with explicit Install
+  and Restart buttons; nothing installs automatically.
+- Installers no longer resolve "latest" through an endpoint that skips
+  pre-releases, and now verify the published SHA-256 before installing.
+
 ## 0.1.0-alpha.9 — 2026-08-02
 
 - Added a Savegames tab: reads which mods a savegame used, checks their
