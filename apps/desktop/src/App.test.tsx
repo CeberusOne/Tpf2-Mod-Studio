@@ -106,13 +106,13 @@ describe("desktop workbench", () => {
     render(<App bridge={bridge(false)} />);
 
     expect(
-      screen.getByText("From the first file to a real test run.")
+      screen.getByText("Create, validate, and install mods.")
     ).toBeTruthy();
-    expect(screen.getByText("UI preview")).toBeTruthy();
+    expect(screen.getByText("Browser preview")).toBeTruthy();
     expect(
       (
         screen.getByRole("button", {
-          name: "Open existing mod"
+          name: "Open project"
         }) as HTMLButtonElement
       ).disabled
     ).toBe(true);
@@ -127,7 +127,7 @@ describe("desktop workbench", () => {
 
     await waitFor(() => {
       expect(desktopBridge.chooseDirectory).toHaveBeenCalledWith(
-        "Select a Transport Fever 2 mod project"
+        "Select a mod project folder"
       );
       expect(desktopBridge.scanProject).toHaveBeenCalledWith(
         "/real/project/test_mod_1"
@@ -135,7 +135,7 @@ describe("desktop workbench", () => {
     });
     expect(screen.getByText("test_mod_1")).toBeTruthy();
     expect(screen.getByText("mod.lua")).toBeTruthy();
-    expect(screen.getByText(/2 real files loaded/u)).toBeTruthy();
+    expect(screen.getByText(/Loaded 2 project files/u)).toBeTruthy();
   });
 
   it("opens a text file and exposes the validation installation gate", async () => {
@@ -148,23 +148,23 @@ describe("desktop workbench", () => {
       "function data()"
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Build & installation" })
-    );
-    expect(screen.getByText("Approved")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Install" }));
+    expect(screen.getByText("Ready")).toBeTruthy();
   });
 
-  it("passes translated labels into the native log picker", () => {
+  it("passes translated labels into the native log picker", async () => {
     const desktopBridge = bridge();
     render(<App bridge={desktopBridge} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Logs" }));
-    fireEvent.click(screen.getByRole("button", { name: "Select log" }));
+    fireEvent.click(screen.getByRole("button", { name: "Game log" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open log…" }));
 
-    expect(desktopBridge.chooseLogFile).toHaveBeenCalledWith(
-      "Select Transport Fever 2 stdout.txt",
-      "TF2 logs"
-    );
+    await waitFor(() => {
+      expect(desktopBridge.chooseLogFile).toHaveBeenCalledWith(
+        "Select stdout.txt",
+        "Log files"
+      );
+    });
   });
 
   it("renders root causes separately from linked log consequences", async () => {
@@ -182,13 +182,15 @@ describe("desktop workbench", () => {
     );
     render(<App bridge={desktopBridge} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Logs" }));
-    fireEvent.click(screen.getByRole("button", { name: "Select log" }));
+    fireEvent.click(screen.getByRole("button", { name: "Game log" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open log…" }));
 
-    expect(await screen.findByText("Causal assignment supported")).toBeTruthy();
+    expect(
+      await screen.findByText("Root-cause analysis complete")
+    ).toBeTruthy();
     expect(screen.getAllByText(/Root cause/u).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Consequence/u).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Check the required module path/u)).toBeTruthy();
+    expect(screen.getAllByText(/Follow-up/u).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Check the module path/u)).toBeTruthy();
   });
 
   it("switches to German and persists the explicit language selection", () => {
@@ -197,7 +199,7 @@ describe("desktop workbench", () => {
     expect(document.documentElement.lang).toBe("en");
     fireEvent.click(screen.getByRole("button", { name: "German" }));
     expect(
-      screen.getByText("Von der ersten Datei bis zum echten Testlauf.")
+      screen.getByText("Mods erstellen, prüfen und installieren.")
     ).toBeTruthy();
     expect(document.documentElement.lang).toBe("de");
     expect(
@@ -206,6 +208,6 @@ describe("desktop workbench", () => {
 
     firstRender.unmount();
     render(<App bridge={bridge(false)} />);
-    expect(screen.getByText("UI-Vorschau")).toBeTruthy();
+    expect(screen.getByText("Browser-Vorschau")).toBeTruthy();
   });
 });

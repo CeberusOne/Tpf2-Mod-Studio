@@ -20,6 +20,7 @@ loader.config({ monaco });
 
 interface MonacoEditorProps {
   expert: boolean;
+  fontSize?: number;
   language: string;
   onChange: (value: string | undefined) => void;
   path: string;
@@ -29,12 +30,14 @@ interface MonacoEditorProps {
 
 export default function MonacoEditor({
   expert,
+  fontSize = 14,
   language,
   onChange,
   path,
   theme,
   value
 }: MonacoEditorProps) {
+  const resolvedFontSize = Math.max(11, Math.min(22, fontSize));
   return (
     <Editor
       beforeMount={configureLuaLanguage}
@@ -43,8 +46,8 @@ export default function MonacoEditor({
       options={{
         automaticLayout: true,
         fontFamily: "'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
-        fontSize: 13,
-        lineHeight: 21,
+        fontSize: resolvedFontSize,
+        lineHeight: Math.round(resolvedFontSize * 1.55),
         minimap: { enabled: expert },
         padding: { top: 14 },
         renderWhitespace: expert ? "selection" : "none",

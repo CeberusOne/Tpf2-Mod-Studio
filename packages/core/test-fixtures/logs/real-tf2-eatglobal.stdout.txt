@@ -1,0 +1,55 @@
+mod.io backend created for Steam platform 
+
+user data folder: /home/mikeh/.local/share/Steam/userdata/30743674/1066780/local/
+starting up build version: 35924
+
+__CRASHDB_INIT__
+Modio: Initializing
+Modio: Initial Authentication
+Modio: Initial Like Data
+Modio: User authenticated: CeberusOne
+"/home/mikeh/mod.io/common/6791/mods/5805235/mod.lua" not found. Mod will not be available.
+Found 730 mods
+language: de
+locale: de_DE
+eatglobal: Initialization [....eat1963_tunnel_2/res/scripts/eatglobal_v2_32024.lua] (Version 2.32024) successfully completed: 4.198 ms.
+commonapi2.init	20251010
+CommonAPI2Native: stdout.txt logging enabled
+MemoryTool::getCodeSections
+MemoryTool::getCodeSections Done
+MemoryTool::Dump
+Region: >.text< ptr:0x55818f39d000 len: 59a6de0 flags: 7
+Region: >.code2< ptr:0x558194d45700 len: 217038 flags: 7
+Region: >.code3< ptr:0x558194f5d000 len: 310 flags: 7
+Region: >.code4< ptr:0x558194f5e000 len: 1812a flags: 7
+TPF2 Build 35924
+SteamUserProfileBackend_vtable = 0x558194d5ff30
+ecs::Engine::BeginModification = 0x5581925ed0a0
+ecs::Engine::NoteComponentAboutToBeChanged = 0x5581925f0950
+ecs::Engine::NoteComponentChanged = 0x5581925f0b10
+ecs::Engine::EndModification = 0x5581925f37a0
+SteamAPI_RegisterCallResult_Ptr = 0x7fe664700180
+CommonAPI2Native: InitDone
+createTrampolineAdv 0x55818f29d380
+createTrampolineAdv prolog_size = 49
+createTrampolineAdv epilog_size = 68
+createTrampolineAdv 0x55818f29dcc0
+createTrampolineAdv prolog_size = 49
+createTrampolineAdv epilog_size = 68
+commonapi2.ui:	Loading commonapi2.ui interface
+eatglobal: Unable to load module 'eatglobal.userSettings'. Message: cannot open /home/mikeh/.local/share/Steam/userdata/30743674/1066780/local/mods/eat1963_tunnel_2/res/scripts/eatglobal/eat_userSettings.lua: No such file or directory
+stack traceback:
+	/home/mikeh/.local/share/Steam/userdata/30743674/1066780/local/mods/eat1963_tunnel_2/res/scripts/eatglobal_v2_32024.lua:410: in function '__index'
+	/home/mikeh/.local/share/Steam/userdata/30743674/1066780/local/mods/eat1963_tunnel_2/res/scripts/eatglobal/eat_configs.lua:63: in function 'postLoadFn'
+	/home/mikeh/.local/share/Steam/userdata/30743674/1066780/local/mods/eat1963_tunnel_2/res/scripts/eatglobal_v2_32024.lua:289: in function 'doRunPostLoadFn'
+	/home/mikeh/.local/share/Steam/userdata/30743674/1066780/local/mods/eat1963_tunnel_2/res/scripts/eatglobal_v2_32024.lua:393: in function '__index'
+	/home/mikeh/.local/share/Steam/userdata/30743674/1066780/local/mods/eat1963_tunnel_2/mod.lua:32: in main chunk
+eatglobal: Initialization [....3143350546/res/scripts/eatglobal_v2_32016.lua] (Version 2.32016) successfully completed: 3.395 ms.
+eatglobal: init [/home/mikeh/.local/share/Steam/steamapps/workshop/content/1066780/2876182551/res/scripts/eatglobal_v2_29.lua] (Version 2.29)
+eatglobal: Initialization [....1920437817/res/scripts/eatglobal_v2_32014.lua] (Version 2.32014) successfully completed: 3.016 ms.
+eatglobal: Initialization [....3115736275/res/scripts/eatglobal_v2_32013.lua] (Version 2.32013) successfully completed: 2.601 ms.
+eatglobal: init [/home/mikeh/.local/share/Steam/steamapps/workshop/content/1066780/2159730470/res/scripts/eatglobal_v2_26.lua] (Version 2.26)
+eatglobal: History created and saved in file ....2860603563/res/scripts/eatglobal_historie.txt.
+eatglobal: Initialization [....2860603563/res/scripts/eatglobal_v2_32011.lua] (Version 2.32011) successfully completed: 7.535 ms.
+eatglobal: History created and saved in file ....1977036089/res/scripts/eatglobal_historie.txt.
+eatglobal: Initialization [....3048471253/res/scripts/eatglobal_v2_32023.lua] (Version 2.32023) successfully completed: 3.886 ms.

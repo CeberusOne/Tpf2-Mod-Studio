@@ -13,8 +13,12 @@ const TIMESTAMP_PREFIX =
 const BRACKET_FILE_REFERENCE = /\[string\s+"([^"]+)"\]:(\d+)/giu;
 const AT_FILE_REFERENCE =
   /@((?:[A-Za-z]:)?[^()\r\n]+\.(?:lua|con|mdl|mtl|msh(?:\.blob)?|txt|log))\((\d+)\)/giu;
+// Absolute or relative resource paths, including real TF2 stack lines:
+// /home/.../mod.lua:32: in function
 const FILE_REFERENCE =
-  /((?:[A-Za-z]:)?(?:[^\s"'<>|:[\]]+[\\/])+[^\s"'<>|:[\]]+\.(?:lua|con|mdl|mtl|msh(?:\.blob)?|txt|log))(?::(\d+))?/giu;
+  /((?:[A-Za-z]:)?(?:\/|\\)?(?:[^\s"'<>|:[\]()]+[\\/])+[^\s"'<>|:[\]()]+\.(?:lua|con|mdl|mtl|msh(?:\.blob)?|txt|log))(?::(\d+))?/giu;
+const PLAIN_STACK_FRAME =
+  /^((?:[A-Za-z]:)?(?:\/|\\)?(?:[^\s"'<>|:[\]()]+[\\/])+[^\s"'<>|:[\]()]+\.(?:lua|con)):(\d+):\s+in\s+(?:function|main chunk)/iu;
 
 interface FileLocation {
   file: string;
@@ -48,7 +52,8 @@ interface CauseRule {
 const CAUSE_RULES: readonly CauseRule[] = [
   {
     code: "COMMONAPI2_BUILD_UNSUPPORTED",
-    pattern: /commonapi2[^\r\n]*(?:build|version)[^\r\n]*(?:not supported|unsupported|incompatible)/iu,
+    pattern:
+      /commonapi2[^\r\n]*(?:build|version|native)[^\r\n]*(?:not supported|unsupported|incompatible)/iu,
     technicalCause:
       "The loaded CommonAPI2 native component does not declare compatibility with this Transport Fever 2 build.",
     recommendedFix:
@@ -57,7 +62,8 @@ const CAUSE_RULES: readonly CauseRule[] = [
   },
   {
     code: "COMMONAPI2_NATIVE_LOAD_FAILED",
-    pattern: /commonapi2[^\r\n]*(?:native|dll|shared (?:object|library)|\.so)[^\r\n]*(?:failed|could not|cannot|not loaded)/iu,
+    pattern:
+      /commonapi2[^\r\n]*(?:native|dll|shared (?:object|library)|\.so)[^\r\n]*(?:failed|could not|cannot|not loaded)/iu,
     technicalCause:
       "The CommonAPI2 script layer could not use its build-specific native component.",
     recommendedFix:
@@ -66,11 +72,22 @@ const CAUSE_RULES: readonly CauseRule[] = [
   },
   {
     code: "LUA_MODULE_NOT_FOUND",
-    pattern: /module\s+['"][^'"]+['"]\s+not found/iu,
+    pattern:
+      /(?:module\s+['"][^'"]+['"]\s+not found|unable to load module\s+['"][^'"]+['"]|cannot open[^\r\n]+\.lua[^\r\n]*(?:no such file|not found))/iu,
     technicalCause:
-      "Lua `require` could not resolve the named module through the active base-game and mod resource search paths.",
+      "Lua could not resolve or open a required module through the active base-game and mod search paths.",
     recommendedFix:
-      "Check the required module path and letter case, then verify that the mod or declared dependency providing it is installed and loaded before the dependent mod.",
+      "Check the module path and letter case, ensure the providing mod is installed and enabled, and confirm dependency load order.",
+    certainty: "confirmed"
+  },
+  {
+    code: "MOD_ENTRY_MISSING",
+    pattern:
+      /(?:["'][^"']*mod\.lua["']\s+not found|mod\.lua["']?\s+not found)[^\r\n]*(?:mod will not be available)?/iu,
+    technicalCause:
+      "Transport Fever 2 discovered a mod folder or external mod reference without a usable root `mod.lua`.",
+    recommendedFix:
+      "Remove or repair the incomplete mod package. For mod.io/workshop entries, reinstall the mod or disable the broken entry.",
     certainty: "confirmed"
   },
   {
@@ -96,7 +113,7 @@ const CAUSE_RULES: readonly CauseRule[] = [
   {
     code: "RESOURCE_NOT_FOUND",
     pattern:
-      /(?:no such file|file not found|cannot open|could not open|resource[^\r\n]*not found|failed to open)/iu,
+      /(?:no such file or directory|no such file|file not found|cannot open|could not open|resource[^\r\n]*not found|failed to open|unable to load[^\r\n]+(?:file|resource|model|texture|mesh))/iu,
     technicalCause:
       "A referenced file or resource was unavailable in the resolved TF2 base-game and active-mod paths.",
     recommendedFix:
@@ -120,11 +137,14 @@ const CAUSE_RULES: readonly CauseRule[] = [
     recommendedFix:
       "Use the assertion location and the immediately preceding mod/resource operations to isolate the smallest reproducible active-mod set.",
     certainty: "probable"
-  }
+  },
 ] as const;
 
 const CONSEQUENCE_PATTERN =
-  /(?:exception type:|this error is usually caused by modding|some game resources contain incorrect data|error (?:while )?loading|failed to load (?:resource|script|model|construction)|resource loading (?:failed|aborted)|application (?:crashed|terminated)|caught exception)/iu;
+  /(?:exception type:|this error is usually caused by modding|some game resources contain incorrect data|error (?:while )?loading|failed to load (?:resource|script|model|construction)|resource loading (?:failed|aborted)|application (?:crashed|terminated)|caught exception|mod will not be available)/iu;
+
+const ERROR_SIGNAL =
+  /(?:\berror\b|\bfatal\b|\bexception\b|unable to load|cannot open|could not open|no such file|stack traceback|assertion failed|mod will not be available|(?:file|module|resource|script|mod\.lua).{0,80}not found|(?:failed to (?:load|open|read|write|init)))/iu;
 
 function stableMessage(line: string): string {
   return line.replace(TIMESTAMP_PREFIX, "").trim().replace(/\s+/gu, " ");
@@ -133,7 +153,12 @@ function stableMessage(line: string): string {
 function severityFor(line: string): LogSeverity {
   const normalized = stableMessage(line);
   if (/^(?:warn(?:ing)?)(?:\b|:)/iu.test(normalized)) return "warning";
-  if (/^(?:info|debug|trace)(?:\b|:)/iu.test(normalized)) return "info";
+  if (
+    /^(?:info|debug|trace)(?:\b|:)/iu.test(normalized) &&
+    !ERROR_SIGNAL.test(normalized)
+  ) {
+    return "info";
+  }
   if (
     /^(?:error|fatal|exception)(?:\b|:)/iu.test(normalized) ||
     /\b(?:stack traceback|unhandled exception|assertion failed)\b/iu.test(
@@ -141,7 +166,8 @@ function severityFor(line: string): LogSeverity {
     ) ||
     /^(?:this error is usually caused by modding|some game resources contain incorrect data)/iu.test(
       normalized
-    )
+    ) ||
+    ERROR_SIGNAL.test(normalized)
   ) {
     return "error";
   }
@@ -197,7 +223,7 @@ function extractLocations(value: string): FileLocation[] {
 function modIdFor(file: string): string | undefined {
   const normalized = normalizeFile(file);
   const match = normalized.match(
-    /(?:^|\/)(?:mods|staging_area|workshop\/content\/1066780)\/([^/]+)\//iu
+    /(?:^|\/)(?:mods|staging_area|workshop\/content\/\d+|mod\.io\/common\/\d+\/mods)\/([^/]+)\//iu
   );
   return match?.[1];
 }
@@ -213,6 +239,21 @@ function explicitModIds(value: string): string[] {
 function stackFrameFor(line: string): LogStackFrame | undefined {
   const stable = stableMessage(line);
   if (/^stack traceback:?$/iu.test(stable)) return undefined;
+  const plain = stable.match(PLAIN_STACK_FRAME);
+  if (plain?.[1] !== undefined) {
+    const sourceLine = Number.parseInt(plain[2] ?? "", 10);
+    const functionMatch = stable.match(
+      /\bin function\s+(?:['"]([^'"]+)['"]|<([^>]+)>|([^\s]+))/iu
+    );
+    const functionName =
+      functionMatch?.[1] ?? functionMatch?.[2] ?? functionMatch?.[3];
+    return {
+      raw: stable,
+      file: normalizeFile(plain[1]),
+      ...(Number.isNaN(sourceLine) ? {} : { sourceLine }),
+      ...(functionName === undefined ? {} : { functionName })
+    };
+  }
   if (
     !/(?:\bin function\b|\bin main chunk\b|\[C\]|@.+\(\d+\)|\[string\s+")/iu.test(
       stable
@@ -246,6 +287,9 @@ function isDetailLine(line: string, previous: RawLogEvent | undefined): boolean 
     /^no (?:field|file) package\./iu.test(stable) ||
     /^no file\s+['"]/iu.test(stable) ||
     /^file name:/iu.test(stable) ||
+    /^message:\s*/iu.test(stable) ||
+    /^\t/u.test(line) ||
+    PLAIN_STACK_FRAME.test(stable) ||
     stackFrameFor(line) !== undefined
   );
 }
