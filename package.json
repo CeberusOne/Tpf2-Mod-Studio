@@ -3,6 +3,7 @@
   "version": "0.1.0-alpha.8",
   "private": true,
   "license": "GPL-3.0-only",
+  "author": "Mike Hering",
   "description": "Standalone desktop workbench for Transport Fever 2 mod development.",
   "type": "module",
   "workspaces": [

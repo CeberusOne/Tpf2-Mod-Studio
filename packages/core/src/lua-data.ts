@@ -79,6 +79,17 @@ function evaluate(
     return evaluate(bound, next);
   }
 
+  // `_("text")` is Transport Fever 2's translation helper. Its argument is a
+  // plain literal, so the text is readable without running anything.
+  if (
+    node.type === "CallExpression" &&
+    node.base?.type === "Identifier" &&
+    node.base.name === "_"
+  ) {
+    const first = node.arguments?.[0];
+    return first === undefined ? undefined : literal(first);
+  }
+
   if (node.type !== "TableConstructorExpression") return undefined;
 
   const array: LuaValue[] = [];

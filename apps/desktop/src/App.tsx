@@ -857,6 +857,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
         <div className="sidebar-footer">
           <NativeBadge native={bridge.isNative} />
           <span>{t("noTelemetry")}</span>
+          <span className="sidebar-author">{t("authorLine")}</span>
         </div>
       </aside>
 

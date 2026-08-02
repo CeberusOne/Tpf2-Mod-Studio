@@ -2204,3 +2204,9 @@ nav {
   padding: 4px 9px;
   font-size: 0.74rem;
 }
+
+.sidebar-author {
+  color: var(--muted);
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
