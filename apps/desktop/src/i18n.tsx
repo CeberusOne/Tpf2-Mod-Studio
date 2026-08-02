@@ -242,7 +242,14 @@ const english = {
   aiOptionalNote:
     "AI is never required. The Studio works fully without any API key.",
   aiBaseUrlPlaceholder: "https://…/v1",
-  aiModelPlaceholder: "your-model-id"
+  aiModelPlaceholder: "your-model-id",
+  updateChecking: "Checking for updates…",
+  updateAvailable: "Update {version} is available",
+  updateInstalling: "Downloading and installing update {version}…",
+  updateInstalled: "Update installed. Restarting…",
+  updateFailed: "Update failed: {error}",
+  updateUpToDate: "You are on the latest version ({version}).",
+  updateNotes: "Release notes"
 
 } as const;
 
@@ -481,7 +488,14 @@ const german: TranslationCatalog = {
   aiOptionalNote:
     "KI ist nie Pflicht. Das Studio funktioniert vollständig ohne API-Schlüssel.",
   aiBaseUrlPlaceholder: "https://…/v1",
-  aiModelPlaceholder: "dein-modell-id"
+  aiModelPlaceholder: "dein-modell-id",
+  updateChecking: "Suche nach Updates…",
+  updateAvailable: "Update {version} ist verfügbar",
+  updateInstalling: "Update {version} wird heruntergeladen und installiert…",
+  updateInstalled: "Update installiert. Neustart…",
+  updateFailed: "Update fehlgeschlagen: {error}",
+  updateUpToDate: "Du hast die neueste Version ({version}).",
+  updateNotes: "Versionshinweise"
 
 };
 

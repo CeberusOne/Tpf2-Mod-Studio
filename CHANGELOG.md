@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Auto-updater: on startup checks GitHub Releases (including pre-releases) and
+  self-updates Linux AppImage / Windows setup installs when a newer version exists.
 - ZIP mod support: inspect archives for `mod.lua` and import into the mods folder
   (nested roots supported, overwrite with backup).
 - Log view focuses on problems only by default; hides TF2 startup/Vulkan/init noise

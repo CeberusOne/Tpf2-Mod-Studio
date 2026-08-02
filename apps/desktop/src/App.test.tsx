@@ -111,7 +111,19 @@ function bridge(native = true): DesktopBridge {
       })
     ),
     readLog: vi.fn(async () => ""),
-    launchGame: vi.fn(async () => 1234)
+    launchGame: vi.fn(async () => 1234),
+    checkForUpdate: vi.fn(async () => ({
+      available: false,
+      currentVersion: "0.1.0-alpha.3",
+      latestVersion: "0.1.0-alpha.3",
+      releaseTag: "",
+      notes: "",
+      downloadUrl: "",
+      assetName: "",
+      htmlUrl: ""
+    })),
+    applyUpdate: vi.fn(async () => "ok"),
+    restartAfterUpdate: vi.fn(async () => undefined)
   };
 }
 

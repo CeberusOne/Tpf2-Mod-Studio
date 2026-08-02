@@ -302,6 +302,58 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     };
   }, [bridge, t]);
 
+  // Auto-update from GitHub Releases on startup (Linux AppImage / Windows installer).
+  useEffect(() => {
+    if (!bridge.isNative) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        setNotice({ tone: "neutral", message: t("updateChecking") });
+        const info = await bridge.checkForUpdate();
+        if (cancelled) return;
+        if (!info.available) {
+          setNotice({
+            tone: "neutral",
+            message: t("updateUpToDate", { version: info.currentVersion })
+          });
+          return;
+        }
+        setNotice({
+          tone: "neutral",
+          message: t("updateAvailable", { version: info.latestVersion })
+        });
+        setNotice({
+          tone: "neutral",
+          message: t("updateInstalling", { version: info.latestVersion })
+        });
+        const result = await bridge.applyUpdate(info);
+        if (cancelled) return;
+        setNotice({
+          tone: "success",
+          message: result || t("updateInstalled")
+        });
+        // Give the user a moment to see the message, then relaunch.
+        window.setTimeout(() => {
+          void bridge.restartAfterUpdate().catch(() => {
+            setNotice({
+              tone: "success",
+              message: t("updateInstalled")
+            });
+          });
+        }, 1200);
+      } catch (error) {
+        if (cancelled) return;
+        setNotice({
+          tone: "error",
+          message: t("updateFailed", { error: errorMessage(error) })
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, t]);
+
   async function withBusy<T>(
     label: string,
     operation: () => Promise<T>
