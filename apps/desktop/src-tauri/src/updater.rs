@@ -316,17 +316,15 @@ fn validate_release_url(url: &str, release_tag: &str, asset_name: &str) -> Resul
     if release_tag.is_empty() || asset_name.is_empty() {
         return Err("Release tag and asset name are required.".into());
     }
-    let parsed = reqwest::Url::parse(url)
-        .map_err(|error| format!("Invalid release asset URL: {error}"))?;
+    let parsed =
+        reqwest::Url::parse(url).map_err(|error| format!("Invalid release asset URL: {error}"))?;
     if parsed.scheme() != "https" || parsed.host_str() != Some("github.com") {
         return Err("Update assets must use HTTPS on github.com.".into());
     }
     if parsed.query().is_some() || parsed.fragment().is_some() {
         return Err("Update asset URLs must not contain a query or fragment.".into());
     }
-    let expected_path = format!(
-        "/{GITHUB_REPO}/releases/download/{release_tag}/{asset_name}"
-    );
+    let expected_path = format!("/{GITHUB_REPO}/releases/download/{release_tag}/{asset_name}");
     if parsed.path() != expected_path {
         return Err(format!(
             "Update URL does not match the expected repository, release and asset: {expected_path}"
@@ -345,15 +343,22 @@ async fn download_bytes(url: &str, maximum: u64) -> Result<Vec<u8>, String> {
     if !response.status().is_success() {
         return Err(format!("Download HTTP {}", response.status()));
     }
-    if response.content_length().is_some_and(|length| length > maximum) {
-        return Err(format!("Download exceeds the allowed size of {maximum} bytes."));
+    if response
+        .content_length()
+        .is_some_and(|length| length > maximum)
+    {
+        return Err(format!(
+            "Download exceeds the allowed size of {maximum} bytes."
+        ));
     }
     let bytes = response
         .bytes()
         .await
         .map_err(|error| format!("Download body failed: {error}"))?;
     if bytes.len() as u64 > maximum {
-        return Err(format!("Download exceeds the allowed size of {maximum} bytes."));
+        return Err(format!(
+            "Download exceeds the allowed size of {maximum} bytes."
+        ));
     }
     Ok(bytes.to_vec())
 }
@@ -386,11 +391,7 @@ fn expected_checksum(manifest: &str, asset_name: &str) -> Result<String, String>
     ))
 }
 
-async fn download_to_file(
-    url: &str,
-    destination: &Path,
-    expected_size: u64,
-) -> Result<(), String> {
+async fn download_to_file(url: &str, destination: &Path, expected_size: u64) -> Result<(), String> {
     if expected_size == 0 || expected_size > MAX_UPDATE_BYTES {
         return Err("Release asset size is missing or exceeds the updater limit.".into());
     }
@@ -687,9 +688,7 @@ mod tests {
     fn release_url_is_restricted_to_expected_repository_tag_and_asset() {
         let tag = "v0.1.0-alpha.7";
         let asset = "Tpf2.Mod.Studio_0.1.0_amd64.AppImage";
-        let valid = format!(
-            "https://github.com/{GITHUB_REPO}/releases/download/{tag}/{asset}"
-        );
+        let valid = format!("https://github.com/{GITHUB_REPO}/releases/download/{tag}/{asset}");
         assert!(validate_release_url(&valid, tag, asset).is_ok());
         assert!(validate_release_url("https://example.com/update.AppImage", tag, asset).is_err());
         assert!(validate_release_url(&valid, "v0.1.0-alpha.8", asset).is_err());
