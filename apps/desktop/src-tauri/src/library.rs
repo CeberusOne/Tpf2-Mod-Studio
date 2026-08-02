@@ -260,7 +260,7 @@ pub fn list_log_files(user_data_path: String) -> Result<Vec<LogFileInfo>, String
             }
         }
     }
-    files.sort_by(|left, right| right.modified_ms.cmp(&left.modified_ms));
+    files.sort_by_key(|entry| std::cmp::Reverse(entry.modified_ms));
     Ok(files)
 }
 

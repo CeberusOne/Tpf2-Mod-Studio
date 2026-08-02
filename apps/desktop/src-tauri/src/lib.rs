@@ -1045,10 +1045,10 @@ fn strip_zip_prefix(path: &str, prefix: Option<&str>) -> Option<String> {
             let root = root.trim_matches('/');
             if normalized == root {
                 None
-            } else if let Some(rest) = normalized.strip_prefix(&format!("{root}/")) {
-                Some(rest.to_string())
             } else {
-                None
+                normalized
+                    .strip_prefix(&format!("{root}/"))
+                    .map(|rest| rest.to_string())
             }
         }
     }
