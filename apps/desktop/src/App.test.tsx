@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   CreatedProject,
   InstallationCandidate,
+  InstalledMod,
   InstallResult,
   ProjectSnapshot
 } from "@tpf2-mod-studio/core";
@@ -25,7 +26,25 @@ vi.mock("./MonacoEditor", () => ({
   )
 }));
 
+// jsdom has no IntersectionObserver; report every observed card as visible so
+// the lazy preview path actually runs in tests.
+class TestIntersectionObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe(target: Element): void {
+    this.callback(
+      [{ isIntersecting: true, target } as IntersectionObserverEntry],
+      this as unknown as IntersectionObserver
+    );
+  }
+  unobserve(): void {}
+  disconnect(): void {}
+  takeRecords(): IntersectionObserverEntry[] {
+    return [];
+  }
+}
+
 beforeEach(() => {
+  vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
   window.localStorage.clear();
   Object.defineProperty(window.navigator, "language", {
     configurable: true,
@@ -125,7 +144,8 @@ function bridge(native = true): DesktopBridge {
     })),
     applyUpdate: vi.fn(async () => "ok"),
     restartAfterUpdate: vi.fn(async () => undefined),
-    scanModLibrary: vi.fn(async () => []),
+    scanModLibrary: vi.fn(async (): Promise<InstalledMod[]> => []),
+    readModPreview: vi.fn(async () => "data:image/jpeg;base64,AAAA"),
     listLogFiles: vi.fn(async () => []),
     archiveStdout: vi.fn(async () => "/tmp/stdout-archive.txt"),
     exportProjectZip: vi.fn(async () => "/exports/test_mod_1.zip"),
@@ -283,6 +303,47 @@ describe("desktop workbench", () => {
         "/tf2/userdata/staging_area",
         false
       );
+    });
+  });
+
+  it("separates workshop from local mods and lazy-loads their previews", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.scanModLibrary = vi.fn(
+      async (): Promise<InstalledMod[]> => [
+        {
+          id: "local_mod_1",
+          path: "/tf2/userdata/mods/local_mod_1",
+          source: "local",
+          hasModLua: true,
+          fileCount: 4
+        },
+        {
+          id: "2817689128",
+          path: "/steam/workshop/content/1066780/2817689128",
+          source: "workshop",
+          hasModLua: true,
+          fileCount: 9,
+          displayName: "Workshop Signals"
+        }
+      ]
+    );
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan mod library" }));
+
+    // Grouped under their own headings rather than one flat list.
+    expect(await screen.findByText("Local mods")).toBeTruthy();
+    expect(screen.getByText("Steam Workshop")).toBeTruthy();
+    expect(screen.getByText("Workshop Signals")).toBeTruthy();
+
+    await waitFor(() => {
+      expect(desktopBridge.readModPreview).toHaveBeenCalledWith(
+        "/steam/workshop/content/1066780/2817689128"
+      );
+      expect(
+        (screen.getAllByRole("img")[0] as HTMLImageElement).src
+      ).toContain("data:image/jpeg;base64,");
     });
   });
 

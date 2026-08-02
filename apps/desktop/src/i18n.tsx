@@ -259,6 +259,11 @@ const english = {
   manageDescription: "Local, staging and workshop folders from your TF2 installation.",
   scanModLibrary: "Scan mod library",
   modSource: "Source",
+  modSourceLocal: "Local mods",
+  modSourceWorkshop: "Steam Workshop",
+  modSourceStaging: "Staging area",
+  modSourceBuiltin: "Shipped with the game",
+  modsInSource: "{count} mods",
   modFiles: "{count} files",
   modMissingLua: "No mod.lua",
   modDuplicate: "Duplicate of {path}",
@@ -537,6 +542,11 @@ const german: TranslationCatalog = {
   manageDescription: "Lokale, Staging- und Workshop-Ordner deiner TF2-Installation.",
   scanModLibrary: "Mod-Bibliothek scannen",
   modSource: "Quelle",
+  modSourceLocal: "Lokale Mods",
+  modSourceWorkshop: "Steam Workshop",
+  modSourceStaging: "Staging-Bereich",
+  modSourceBuiltin: "Mit dem Spiel geliefert",
+  modsInSource: "{count} Mods",
   modFiles: "{count} Dateien",
   modMissingLua: "Keine mod.lua",
   modDuplicate: "Duplikat von {path}",
@@ -659,6 +669,14 @@ export function localizedInstallationSource(
 ): string {
   if (source === "steam-default") return t("installationSourceSteam");
   if (source === "manual") return t("installationSourceManual");
+  return source;
+}
+
+export function localizedModSource(source: string, t: Translator): string {
+  if (source === "local") return t("modSourceLocal");
+  if (source === "workshop") return t("modSourceWorkshop");
+  if (source === "staging") return t("modSourceStaging");
+  if (source === "builtin") return t("modSourceBuiltin");
   return source;
 }
 

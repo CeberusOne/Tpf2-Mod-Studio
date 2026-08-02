@@ -1239,6 +1239,11 @@ fn scan_mod_library(
 }
 
 #[tauri::command]
+fn read_mod_preview(mod_path: String) -> Result<String, String> {
+    library::read_mod_preview(mod_path)
+}
+
+#[tauri::command]
 fn list_log_files(user_data_path: String) -> Result<Vec<library::LogFileInfo>, String> {
     library::list_log_files(user_data_path)
 }
@@ -1298,6 +1303,7 @@ pub fn run() {
             inspect_mod_archive,
             import_mod_archive,
             scan_mod_library,
+            read_mod_preview,
             list_log_files,
             archive_stdout,
             export_project_zip,
@@ -1546,6 +1552,52 @@ mod tests {
             .join("mod.lua")
             .is_file());
         assert!(installed.file_count >= 2);
+    }
+
+    #[test]
+    fn mod_preview_decodes_tga_into_a_small_jpeg_data_uri() {
+        let workspace = TemporaryDirectory::new("preview");
+        let mod_dir = workspace.path().join("preview_mod_1");
+        fs::create_dir_all(&mod_dir).expect("mod dir");
+        // 512x512 uncompressed 24-bit TGA, the shape TF2 mods ship.
+        let (width, height) = (512u16, 512u16);
+        let mut tga = vec![0u8; 18];
+        tga[2] = 2; // uncompressed true-color
+        tga[12] = (width & 0xff) as u8;
+        tga[13] = (width >> 8) as u8;
+        tga[14] = (height & 0xff) as u8;
+        tga[15] = (height >> 8) as u8;
+        tga[16] = 24; // bits per pixel
+        for index in 0..(width as usize * height as usize) {
+            tga.extend_from_slice(&[(index % 256) as u8, 0x40, 0x80]);
+        }
+        fs::write(mod_dir.join("image_00.tga"), &tga).expect("tga");
+
+        let uri = library::read_mod_preview(path_string(&mod_dir)).expect("preview");
+        assert!(uri.starts_with("data:image/jpeg;base64,"));
+        // A 512x512 source must not reach the WebView at full size.
+        assert!(
+            uri.len() < 60_000,
+            "thumbnail data URI unexpectedly large: {} bytes",
+            uri.len()
+        );
+
+        // A displayable JPEG next to it wins over the TGA.
+        fs::write(mod_dir.join("workshop_preview.jpg"), &tga).expect("decoy");
+        let error = library::read_mod_preview(path_string(&mod_dir))
+            .expect_err("a TGA payload named .jpg must fail rather than be mislabelled");
+        assert!(error.contains("decode"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn mod_preview_reports_missing_images() {
+        let workspace = TemporaryDirectory::new("preview-none");
+        let mod_dir = workspace.path().join("bare_mod_1");
+        fs::create_dir_all(&mod_dir).expect("mod dir");
+        fs::write(mod_dir.join("mod.lua"), "function data() return {} end").expect("mod.lua");
+        let error =
+            library::read_mod_preview(path_string(&mod_dir)).expect_err("no preview available");
+        assert!(error.contains("No preview"), "unexpected error: {error}");
     }
 
     #[test]
