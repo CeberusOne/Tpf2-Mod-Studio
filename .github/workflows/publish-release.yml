@@ -61,7 +61,7 @@ jobs:
             xdg-utils
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -190,7 +190,7 @@ jobs:
           Get-ChildItem staged
 
       - name: Upload staged packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: staged/*
@@ -231,13 +231,13 @@ jobs:
           echo "title=Tpf2 Mod Studio ${tag#v}" >> "$GITHUB_OUTPUT"
 
       - name: Download Linux packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-linux-x64
           path: release-packages
 
       - name: Download Windows packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-windows-x64
           path: release-packages
