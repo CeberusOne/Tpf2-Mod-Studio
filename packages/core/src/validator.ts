@@ -34,17 +34,17 @@ type LuaParseFailure = Error & {
 const RESOURCE_REFERENCE_PATTERN =
   /(["'])([^"'\\\r\n]+\.(?:lua|con|module|mdl|msh(?:\.blob)?|mtl|tga|dds|png|jpe?g|wav|ogg|ani|fs|vs|ttf|otf|po|mo))\1/giu;
 
-const LUA_RESOURCE_EXTENSIONS = new Set([
+// Keep syntax validation conservative until every TF2 Lua-backed resource type
+// has representative fixtures. Reference extraction still covers all text types.
+const LUA_RESOURCE_EXTENSIONS = new Set([".lua", ".con"]);
+
+const TEXT_RESOURCE_EXTENSIONS = new Set([
   ".lua",
   ".con",
   ".module",
   ".mdl",
   ".mtl",
-  ".ani"
-]);
-
-const TEXT_RESOURCE_EXTENSIONS = new Set([
-  ...LUA_RESOURCE_EXTENSIONS,
+  ".ani",
   ".fs",
   ".vs",
   ".json",
