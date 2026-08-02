@@ -856,13 +856,22 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">
+        <button
+          aria-label={t("backToMainView")}
+          className="brand"
+          onClick={() => {
+            setView("workspace");
+            setNotice(undefined);
+          }}
+          title={t("backToMainView")}
+          type="button"
+        >
           <div className="brand-mark">T2</div>
           <div>
             <strong>Tpf2 Mod Studio</strong>
             <span>Transport Fever 2</span>
           </div>
-        </div>
+        </button>
 
         <nav aria-label={t("mainNavigation")}>
           {navigation.map((item) => (
