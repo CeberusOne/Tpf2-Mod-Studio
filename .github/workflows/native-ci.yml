@@ -55,7 +55,7 @@ jobs:
             xdg-utils
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -161,7 +161,7 @@ jobs:
 
       - name: Upload generated Cargo lockfile
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cargo-lock-${{ runner.os }}
           path: apps/desktop/src-tauri/Cargo.lock
@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload native bundles
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: apps/desktop/src-tauri/target/release/bundle/**
