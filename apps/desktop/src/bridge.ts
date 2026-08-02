@@ -62,6 +62,8 @@ export interface DesktopBridge {
     userDataPath?: string;
     gameRoot?: string;
   }): Promise<InstalledMod[]>;
+  /** Downscaled JPEG `data:` URI for a mod's preview image. */
+  readModPreview(modPath: string): Promise<string>;
   listLogFiles(userDataPath: string): Promise<LogFileInfo[]>;
   archiveStdout(userDataPath: string): Promise<string>;
   exportProjectZip(
@@ -190,6 +192,11 @@ export const tauriBridge: DesktopBridge = {
       userDataPath: input.userDataPath ?? null,
       gameRoot: input.gameRoot ?? null
     });
+  },
+
+  async readModPreview(modPath) {
+    requireNative();
+    return invoke<string>("read_mod_preview", { modPath });
   },
 
   async listLogFiles(userDataPath) {

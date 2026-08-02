@@ -1,13 +1,21 @@
 //! Installed-mod library, log archive helpers and project ZIP export.
 //! Aligns with the Entwicklungsplan: Mod Manager, Log Center archive, Build export.
 
+use base64::Engine;
 use serde::Serialize;
 use std::{
-    fs, io,
+    fs,
+    io::{self, BufReader, Cursor},
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
 use zip::{write::SimpleFileOptions, ZipWriter};
+
+/// Longest thumbnail edge. Mod previews are 512px+ and `image_00.tga` files
+/// reach 30 MiB, so full images must never reach the WebView.
+const PREVIEW_MAX_EDGE: u32 = 256;
+/// Refuse absurd source images rather than decoding them into memory.
+const PREVIEW_MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -192,6 +200,108 @@ pub fn scan_mod_library(
 
     mods.sort_by(|left, right| left.id.cmp(&right.id).then(left.source.cmp(&right.source)));
     mods
+}
+
+/// Rank a mod-root image by how cheap and how representative it is.
+///
+/// Steam and mod.io drop a ready-to-display JPEG next to the mod, so prefer
+/// those. `image_00.tga` is the mod's own thumbnail and the only image for
+/// roughly a fifth of installed mods, but it needs decoding and re-encoding.
+fn preview_rank(file_name: &str) -> Option<u8> {
+    let lower = file_name.to_ascii_lowercase();
+    let displayable =
+        lower.ends_with(".jpg") || lower.ends_with(".jpeg") || lower.ends_with(".png");
+    if lower.starts_with("workshop_preview") && displayable {
+        return Some(0);
+    }
+    if lower.starts_with("modio_preview") && displayable {
+        return Some(1);
+    }
+    if lower == "image_00.tga" {
+        return Some(2);
+    }
+    if displayable {
+        return Some(3);
+    }
+    if lower.starts_with("image_") && lower.ends_with(".tga") {
+        return Some(4);
+    }
+    None
+}
+
+/// Best preview image directly inside the mod folder, if any.
+fn find_mod_preview(mod_dir: &Path) -> Option<PathBuf> {
+    let mut best: Option<(u8, String)> = None;
+    for entry in fs::read_dir(mod_dir).ok()?.flatten() {
+        if !entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            continue;
+        }
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Some(rank) = preview_rank(name) else {
+            continue;
+        };
+        // Ties resolve by name so the choice is stable between scans.
+        if best.as_ref().map_or(true, |(top, current)| {
+            rank < *top || (rank == *top && name < current.as_str())
+        }) {
+            best = Some((rank, name.to_string()));
+        }
+    }
+    best.map(|(_, name)| mod_dir.join(name))
+}
+
+/// Decode a mod preview and return a downscaled JPEG as a `data:` URI.
+///
+/// TGA cannot be rendered by the WebView at all, and the raw files are far too
+/// large to hand over, so decoding and thumbnailing happen natively.
+pub fn read_mod_preview(mod_path: String) -> Result<String, String> {
+    let mod_dir = fs::canonicalize(&mod_path)
+        .map_err(|error| format!("Cannot access mod folder: {error}"))?;
+    if !mod_dir.is_dir() {
+        return Err("The selected mod path is not a directory.".into());
+    }
+    let source = find_mod_preview(&mod_dir).ok_or_else(|| "No preview image found.".to_string())?;
+    let metadata =
+        fs::metadata(&source).map_err(|error| format!("Cannot read preview metadata: {error}"))?;
+    if metadata.len() > PREVIEW_MAX_SOURCE_BYTES {
+        return Err("The preview image exceeds the decode limit.".into());
+    }
+
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    // Decide by extension: TGA carries no leading magic bytes, so content
+    // sniffing misidentifies it.
+    let format = match extension.as_str() {
+        "tga" => image::ImageFormat::Tga,
+        "png" => image::ImageFormat::Png,
+        "jpg" | "jpeg" => image::ImageFormat::Jpeg,
+        _ => return Err("Unsupported preview image format.".into()),
+    };
+    let reader = BufReader::new(
+        fs::File::open(&source).map_err(|error| format!("Cannot open preview image: {error}"))?,
+    );
+    let decoded = image::load(reader, format)
+        .map_err(|error| format!("Cannot decode preview image: {error}"))?;
+
+    // JPEG has no alpha channel, so drop it before encoding.
+    let thumbnail = image::DynamicImage::ImageRgb8(
+        decoded
+            .thumbnail(PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE)
+            .to_rgb8(),
+    );
+    let mut encoded = Vec::new();
+    thumbnail
+        .write_to(&mut Cursor::new(&mut encoded), image::ImageFormat::Jpeg)
+        .map_err(|error| format!("Cannot encode preview thumbnail: {error}"))?;
+
+    Ok(format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&encoded)
+    ))
 }
 
 pub fn list_log_files(user_data_path: String) -> Result<Vec<LogFileInfo>, String> {

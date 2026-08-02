@@ -70,6 +70,7 @@ import {
   localizedCertainty,
   localizedInstallationReason,
   localizedInstallationSource,
+  localizedModSource,
   localizedSeverity,
   useI18n
 } from "./i18n";
@@ -1197,6 +1198,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
 
           {view === "manage" ? (
             <ManageView
+              bridge={bridge}
               mods={installedMods}
               native={bridge.isNative}
               onOpen={(path) => void loadProject(path)}
@@ -1565,18 +1567,100 @@ function InstallView({
   );
 }
 
+/**
+ * Decoding a preview costs roughly a third of a second per mod, so previews
+ * load only once a card is actually scrolled into view, and each result is
+ * remembered for the session.
+ */
+const previewCache = new Map<string, string | null>();
+
+function ModPreview({
+  bridge,
+  modPath,
+  name
+}: {
+  bridge: DesktopBridge;
+  modPath: string;
+  name: string;
+}) {
+  const [source, setSource] = useState<string | null>(
+    () => previewCache.get(modPath) ?? null
+  );
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (previewCache.has(modPath) || !bridge.isNative) return undefined;
+    const frame = frameRef.current;
+    if (frame === null) return undefined;
+
+    let cancelled = false;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      void bridge
+        .readModPreview(modPath)
+        .then((uri) => {
+          previewCache.set(modPath, uri);
+          if (!cancelled) setSource(uri);
+        })
+        .catch(() => {
+          // Missing or undecodable preview: the placeholder stays.
+          previewCache.set(modPath, null);
+        });
+    });
+    observer.observe(frame);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [bridge, modPath]);
+
+  return (
+    <div className="mod-preview" ref={frameRef}>
+      {source === null ? (
+        <Box aria-hidden size={22} />
+      ) : (
+        <img alt={name} loading="lazy" src={source} />
+      )}
+    </div>
+  );
+}
+
+const MOD_SOURCE_ORDER = ["local", "staging", "workshop", "builtin"] as const;
+
 function ManageView({
+  bridge,
   mods,
   native,
   onOpen,
   onScan
 }: {
+  bridge: DesktopBridge;
   mods: InstalledMod[];
   native: boolean;
   onOpen: (path: string) => void;
   onScan: () => void;
 }) {
   const { t } = useI18n();
+
+  const groups = useMemo(() => {
+    const bySource = new Map<string, InstalledMod[]>();
+    for (const mod of mods) {
+      const existing = bySource.get(mod.source);
+      if (existing === undefined) bySource.set(mod.source, [mod]);
+      else existing.push(mod);
+    }
+    const rank = (source: string): number => {
+      const index = MOD_SOURCE_ORDER.indexOf(
+        source as (typeof MOD_SOURCE_ORDER)[number]
+      );
+      return index === -1 ? MOD_SOURCE_ORDER.length : index;
+    };
+    return [...bySource.entries()].sort(
+      ([left], [right]) => rank(left) - rank(right) || left.localeCompare(right)
+    );
+  }, [mods]);
+
   return (
     <div className="setup-page">
       <div className="section-intro">
@@ -1600,37 +1684,50 @@ function ManageView({
           {t("noModsFoundDescription")}
         </EmptyState>
       ) : (
-        <div className="installation-grid">
-          {mods.map((mod) => (
-            <article className="installation-card" key={`${mod.source}:${mod.path}`}>
-              <div className="installation-heading">
-                <div>
-                  <strong>{mod.displayName ?? mod.id}</strong>
-                  <span>
-                    {t("modSource")}: {mod.source}
-                  </span>
-                </div>
-                <span className={mod.hasModLua ? "valid" : "invalid"}>
-                  {mod.hasModLua ? t("valid") : t("modMissingLua")}
-                </span>
-              </div>
-              <code>{mod.path}</code>
-              <small>{t("modFiles", { count: mod.fileCount })}</small>
-              {mod.duplicateOf === undefined ? null : (
-                <p>{t("modDuplicate", { path: mod.duplicateOf })}</p>
-              )}
-              <button
-                className="secondary-button full"
-                disabled={!mod.hasModLua}
-                onClick={() => onOpen(mod.path)}
-                type="button"
-              >
-                <FolderOpen size={16} />
-                {t("open")}
-              </button>
-            </article>
-          ))}
-        </div>
+        groups.map(([source, entries]) => (
+          <section className="mod-source-group" key={source}>
+            <h3 className="mod-source-heading">
+              {localizedModSource(source, t)}
+              <span className="mod-source-count">
+                {t("modsInSource", { count: entries.length })}
+              </span>
+            </h3>
+            <div className="installation-grid">
+              {entries.map((mod) => (
+                <article className="installation-card mod-card" key={mod.path}>
+                  <ModPreview
+                    bridge={bridge}
+                    modPath={mod.path}
+                    name={mod.displayName ?? mod.id}
+                  />
+                  <div className="installation-heading">
+                    <div>
+                      <strong>{mod.displayName ?? mod.id}</strong>
+                      <span>{mod.id}</span>
+                    </div>
+                    <span className={mod.hasModLua ? "valid" : "invalid"}>
+                      {mod.hasModLua ? t("valid") : t("modMissingLua")}
+                    </span>
+                  </div>
+                  <code>{mod.path}</code>
+                  <small>{t("modFiles", { count: mod.fileCount })}</small>
+                  {mod.duplicateOf === undefined ? null : (
+                    <p>{t("modDuplicate", { path: mod.duplicateOf })}</p>
+                  )}
+                  <button
+                    className="secondary-button full"
+                    disabled={!mod.hasModLua}
+                    onClick={() => onOpen(mod.path)}
+                    type="button"
+                  >
+                    <FolderOpen size={16} />
+                    {t("open")}
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+        ))
       )}
     </div>
   );
