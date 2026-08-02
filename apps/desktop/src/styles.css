@@ -2044,3 +2044,62 @@ nav {
   width: 100%;
   justify-content: center;
 }
+
+.model-browser {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.model-viewer-canvas {
+  height: 360px;
+  overflow: hidden;
+  background: #14181d;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.model-viewer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 8px;
+  font-size: 0.76rem;
+}
+
+.model-lod {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.model-lod select {
+  padding: 3px 6px;
+  font-size: 0.74rem;
+}
+
+.model-viewer-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.model-missing {
+  color: #f5a524;
+}
+
+.model-viewer-hint,
+.model-viewer-error {
+  padding: 16px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.model-viewer-error {
+  color: #e5484d;
+}

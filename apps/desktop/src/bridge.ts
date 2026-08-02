@@ -12,6 +12,12 @@ import type {
   ProjectSnapshot
 } from "@tpf2-mod-studio/core";
 
+export interface ModelFile {
+  relativePath: string;
+  text?: string;
+  base64?: string;
+}
+
 export interface UpdateInfo {
   available: boolean;
   currentVersion: string;
@@ -64,6 +70,8 @@ export interface DesktopBridge {
   }): Promise<InstalledMod[]>;
   /** Downscaled JPEG `data:` URI for a mod's preview image. */
   readModPreview(modPath: string): Promise<string>;
+  /** Read a `.mdl`/`.msh`/`.mtl`/`.ani` as text or a `.blob` as base64. */
+  readModelFile(rootPath: string, relativePath: string): Promise<ModelFile>;
   listLogFiles(userDataPath: string): Promise<LogFileInfo[]>;
   archiveStdout(userDataPath: string): Promise<string>;
   exportProjectZip(
@@ -197,6 +205,11 @@ export const tauriBridge: DesktopBridge = {
   async readModPreview(modPath) {
     requireNative();
     return invoke<string>("read_mod_preview", { modPath });
+  },
+
+  async readModelFile(rootPath, relativePath) {
+    requireNative();
+    return invoke<ModelFile>("read_model_file", { rootPath, relativePath });
   },
 
   async listLogFiles(userDataPath) {

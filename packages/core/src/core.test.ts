@@ -11,6 +11,12 @@ import {
 } from "./ai-assist.js";
 import { analyzeTf2Log, parseTf2Log } from "./log-parser.js";
 import { classifyModHealth } from "./mod-health.js";
+import { parseLuaData } from "./lua-data.js";
+import {
+  decodeTf2Mesh,
+  parseTf2Mesh,
+  parseTf2Model
+} from "./model-format.js";
 import { analyzeTf2Registrations } from "./modifier-analyzer.js";
 import {
   createProjectNode,
@@ -356,6 +362,117 @@ end`;
     expect(local.diagnostics.map((item) => item.code)).toContain(
       "MOD_FOLDER_CONVENTION"
     );
+  });
+});
+
+describe("Transport Fever 2 model formats", () => {
+  it("reads a model's LODs, parts, bounding box and collider", () => {
+    const mdl = `function data()
+return {
+  boundingInfo = {
+    bbMax = { 1.5, 2, 3, },
+    bbMin = { -1.5, -2, 0, },
+  },
+  collider = {
+    params = { halfExtents = { 1.5, 2, 1.5, }, },
+    transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, },
+    type = "BOX",
+  },
+  lods = {
+    {
+      node = {
+        children = {
+          {
+            materials = { "vehicle/body.mtl", },
+            mesh = "vehicle/body_lod0.msh",
+            name = "body",
+            transf = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, },
+            animations = { open_door = { type = "KEYFRAME", }, },
+          },
+        },
+      },
+      visibleFrom = 0,
+      visibleTo = 200,
+    },
+  },
+}
+end`;
+    const model = parseTf2Model(mdl);
+
+    expect(model?.lods).toHaveLength(1);
+    expect(model?.lods[0]?.parts[0]).toEqual({
+      name: "body",
+      mesh: "vehicle/body_lod0.msh",
+      materials: ["vehicle/body.mtl"],
+      transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+      animations: ["open_door"]
+    });
+    expect(model?.lods[0]?.visibleTo).toBe(200);
+    expect(model?.boundingBox?.min).toEqual([-1.5, -2, 0]);
+    expect(model?.collider?.type).toBe("BOX");
+    expect(model?.collider?.halfExtents).toEqual([1.5, 2, 1.5]);
+  });
+
+  it("resolves a mesh returned through a local variable", () => {
+    // Some Workshop meshes assign the table first and return it afterwards.
+    const msh = `local result = {
+  subMeshes = { { indices = { position = { count = 12, offset = 40, }, }, }, },
+  vertexAttr = { position = { count = 36, numComp = 3, offset = 0, }, },
+}
+return result`;
+    const mesh = parseTf2Mesh(msh);
+
+    expect(mesh?.vertexAttr["position"]).toEqual({
+      offset: 0,
+      count: 36,
+      numComp: 3
+    });
+    expect(mesh?.subMeshes[0]?.indices["position"]).toEqual({
+      offset: 40,
+      count: 12,
+      numComp: 1
+    });
+  });
+
+  it("decodes geometry using byte offsets, float positions and uint32 indices", () => {
+    const positions = new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]);
+    const indices = new Uint32Array([0, 1, 2]);
+    const blob = new ArrayBuffer(
+      positions.byteLength + indices.byteLength
+    );
+    new Float32Array(blob, 0, positions.length).set(positions);
+    new Uint32Array(blob, positions.byteLength, indices.length).set(indices);
+
+    const decoded = decodeTf2Mesh(
+      {
+        vertexAttr: { position: { offset: 0, count: 36, numComp: 3 } },
+        subMeshes: [{ indices: { position: { offset: 36, count: 12, numComp: 1 } } }]
+      },
+      blob
+    );
+
+    expect(decoded).toHaveLength(1);
+    expect([...(decoded[0]?.positions ?? [])]).toEqual([...positions]);
+    expect([...(decoded[0]?.indices ?? [])]).toEqual([0, 1, 2]);
+  });
+
+  it("refuses geometry whose indices address missing vertices", () => {
+    const blob = new ArrayBuffer(48);
+    new Uint32Array(blob, 36, 3).set([0, 1, 99]);
+    const decoded = decodeTf2Mesh(
+      {
+        vertexAttr: { position: { offset: 0, count: 36, numComp: 3 } },
+        subMeshes: [{ indices: { position: { offset: 36, count: 12, numComp: 1 } } }]
+      },
+      blob
+    );
+
+    expect(decoded).toHaveLength(0);
+  });
+
+  it("returns nothing for values a static reader cannot resolve", () => {
+    // `require`-built transforms are computed at runtime; the Lua is never run.
+    expect(parseLuaData(`function data() return computed() end`)).toBeUndefined();
   });
 });
 
