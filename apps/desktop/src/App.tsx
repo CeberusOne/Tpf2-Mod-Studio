@@ -76,6 +76,7 @@ import {
 
 const MonacoEditor = lazy(() => import("./MonacoEditor"));
 const ModelViewer = lazy(() => import("./ModelViewer"));
+const SavegameView = lazy(() => import("./SavegameView"));
 
 type View =
   | "workspace"
@@ -83,6 +84,7 @@ type View =
   | "install"
   | "logs"
   | "manage"
+  | "savegames"
   | "settings";
 type ExperienceMode = "beginner" | "expert";
 type Theme = "dark" | "light";
@@ -792,6 +794,11 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     { id: "install", label: t("navInstall"), icon: <Box size={18} /> },
     { id: "manage", label: t("navManage"), icon: <PackageCheck size={18} /> },
     { id: "logs", label: t("navLogs"), icon: <ScrollText size={18} /> },
+    {
+      id: "savegames",
+      label: t("navSavegames"),
+      icon: <Database size={18} />
+    },
     { id: "settings", label: t("navSetup"), icon: <Settings size={18} /> }
   ];
 
@@ -1191,6 +1198,32 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
                 )
               }
             />
+          ) : null}
+
+          {view === "savegames" ? (
+            <ErrorBoundary label={t("navSavegames")}>
+              <Suspense
+                fallback={
+                  <div className="editor-loading">
+                    <LoaderCircle className="spin" size={18} />
+                    {t("editorLoading")}
+                  </div>
+                }
+              >
+                <SavegameView
+                  bridge={bridge}
+                  installedMods={installedMods}
+                  native={bridge.isNative}
+                  onNotice={setNotice}
+                  onScanLibrary={() => void refreshModLibrary()}
+                  userDataPath={
+                    installations.find(
+                      (item) => item.userDataPath !== undefined
+                    )?.userDataPath
+                  }
+                />
+              </Suspense>
+            </ErrorBoundary>
           ) : null}
 
           {view === "settings" ? (

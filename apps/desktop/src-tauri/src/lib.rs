@@ -1,4 +1,5 @@
 mod library;
+mod savegame;
 mod updater;
 
 use base64::Engine;
@@ -1282,6 +1283,35 @@ struct ModelFile {
 /// needs its own reader. Path validation is unchanged: the resolved file must
 /// stay beneath the selected root.
 #[tauri::command]
+fn list_savegames(user_data_path: String) -> Result<Vec<savegame::SavegameInfo>, String> {
+    savegame::list_savegames(user_data_path)
+}
+
+#[tauri::command]
+fn read_savegame_mods(save_path: String) -> Result<savegame::SavegameMods, String> {
+    savegame::read_savegame_mods(save_path)
+}
+
+#[tauri::command]
+fn list_mod_presets(user_data_path: String) -> Result<Vec<savegame::PresetInfo>, String> {
+    savegame::list_mod_presets(user_data_path)
+}
+
+#[tauri::command]
+fn read_mod_preset(preset_path: String) -> Result<String, String> {
+    savegame::read_mod_preset(preset_path)
+}
+
+#[tauri::command]
+fn write_mod_preset(
+    user_data_path: String,
+    name: String,
+    content: String,
+) -> Result<String, String> {
+    savegame::write_mod_preset(user_data_path, name, content)
+}
+
+#[tauri::command]
 fn read_model_file(root_path: String, relative_path: String) -> Result<ModelFile, String> {
     let (_, candidate) = safe_existing_path(&root_path, &relative_path)?;
     let metadata =
@@ -1365,6 +1395,11 @@ pub fn run() {
             scan_mod_library,
             read_mod_preview,
             read_model_file,
+            list_savegames,
+            read_savegame_mods,
+            list_mod_presets,
+            read_mod_preset,
+            write_mod_preset,
             list_log_files,
             archive_stdout,
             export_project_zip,

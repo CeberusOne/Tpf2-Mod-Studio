@@ -4022,6 +4022,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tokio",
  "zip",
+ "zstd",
 ]
 
 [[package]]
