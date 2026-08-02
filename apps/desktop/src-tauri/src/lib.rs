@@ -627,19 +627,11 @@ fn steam_userdata_roots() -> Vec<PathBuf> {
     {
         for variable in ["ProgramFiles(x86)", "ProgramFiles"] {
             if let Ok(base) = env::var(variable) {
-                roots.push(
-                    PathBuf::from(base)
-                        .join("Steam")
-                        .join("userdata"),
-                );
+                roots.push(PathBuf::from(base).join("Steam").join("userdata"));
             }
         }
         if let Ok(home) = env::var("USERPROFILE") {
-            roots.push(
-                PathBuf::from(home)
-                    .join("Steam")
-                    .join("userdata"),
-            );
+            roots.push(PathBuf::from(home).join("Steam").join("userdata"));
         }
     }
     #[cfg(target_os = "linux")]
@@ -648,7 +640,10 @@ fn steam_userdata_roots() -> Vec<PathBuf> {
             let home = PathBuf::from(home);
             roots.extend([
                 home.join(".steam").join("steam").join("userdata"),
-                home.join(".local").join("share").join("Steam").join("userdata"),
+                home.join(".local")
+                    .join("share")
+                    .join("Steam")
+                    .join("userdata"),
                 home.join(".var")
                     .join("app")
                     .join("com.valvesoftware.Steam")
@@ -1061,5 +1056,56 @@ mod tests {
             Some("0")
         );
         env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
+    }
+
+    #[test]
+    fn detect_installations_finds_local_tf2_when_present() {
+        let candidates = detect_installations();
+        // On CI runners this may be empty; when TF2 is installed, paths must resolve.
+        let home = env::var("HOME").unwrap_or_default();
+        let expected_game =
+            PathBuf::from(&home).join(".local/share/Steam/steamapps/common/Transport Fever 2");
+        if !expected_game.is_dir() {
+            return;
+        }
+        assert!(
+            !candidates.is_empty(),
+            "expected at least one TF2 install when the Steam common folder exists"
+        );
+        let first = &candidates[0];
+        assert!(first.valid, "install should be valid: {:?}", first.reason);
+        assert!(
+            Path::new(&first.executable_path).is_file(),
+            "executable missing: {}",
+            first.executable_path
+        );
+        assert!(
+            first
+                .mods_path
+                .as_ref()
+                .is_some_and(|p| Path::new(p).is_dir()),
+            "mods path missing: {:?}",
+            first.mods_path
+        );
+        assert!(
+            first
+                .stdout_path
+                .as_ref()
+                .is_some_and(|p| Path::new(p).is_file()),
+            "stdout path missing: {:?}",
+            first.stdout_path
+        );
+        assert!(
+            first
+                .user_data_path
+                .as_ref()
+                .is_some_and(|p| Path::new(p).is_dir()),
+            "user data missing: {:?}",
+            first.user_data_path
+        );
+        eprintln!(
+            "detected: root={} mods={:?} stdout={:?}",
+            first.root_path, first.mods_path, first.stdout_path
+        );
     }
 }
