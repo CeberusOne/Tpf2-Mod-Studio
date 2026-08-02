@@ -8,10 +8,14 @@ use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+// PathBuf is only named in Linux AppImage install/restart helpers.
+#[cfg(target_os = "linux")]
+use std::path::PathBuf;
 
 const GITHUB_REPO: &str = "CeberusOne/Tpf2-Mod-Studio";
 const USER_AGENT: &str = "Tpf2-Mod-Studio-Updater";
