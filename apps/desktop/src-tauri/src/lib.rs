@@ -77,6 +77,10 @@ struct InstallationCandidate {
     executable_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     user_data_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mods_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stdout_path: Option<String>,
     source: &'static str,
     valid: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -598,10 +602,15 @@ fn install_project(
 fn candidate(root: PathBuf, executable_name: &str) -> InstallationCandidate {
     let executable = root.join(executable_name);
     let valid = root.join("res").is_dir() && executable.is_file();
+    let user_data_path = find_user_data_directory();
+    let mods_path = resolve_mods_directory(&root, user_data_path.as_deref());
+    let stdout_path = resolve_stdout_path(user_data_path.as_deref());
     InstallationCandidate {
         root_path: path_string(&root),
         executable_path: path_string(&executable),
-        user_data_path: None,
+        user_data_path: user_data_path.map(|path| path_string(&path)),
+        mods_path: mods_path.map(|path| path_string(&path)),
+        stdout_path: stdout_path.map(|path| path_string(&path)),
         source: "steam-default",
         valid,
         reason: if valid {
@@ -610,6 +619,111 @@ fn candidate(root: PathBuf, executable_name: &str) -> InstallationCandidate {
             Some("Expected executable or game resource directory is missing.".into())
         },
     }
+}
+
+fn steam_userdata_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    #[cfg(target_os = "windows")]
+    {
+        for variable in ["ProgramFiles(x86)", "ProgramFiles"] {
+            if let Ok(base) = env::var(variable) {
+                roots.push(
+                    PathBuf::from(base)
+                        .join("Steam")
+                        .join("userdata"),
+                );
+            }
+        }
+        if let Ok(home) = env::var("USERPROFILE") {
+            roots.push(
+                PathBuf::from(home)
+                    .join("Steam")
+                    .join("userdata"),
+            );
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(home) = env::var("HOME") {
+            let home = PathBuf::from(home);
+            roots.extend([
+                home.join(".steam").join("steam").join("userdata"),
+                home.join(".local").join("share").join("Steam").join("userdata"),
+                home.join(".var")
+                    .join("app")
+                    .join("com.valvesoftware.Steam")
+                    .join(".steam")
+                    .join("steam")
+                    .join("userdata"),
+            ]);
+        }
+    }
+    roots
+}
+
+/// Prefer the most recently modified Steam user-data folder for app 1066780.
+fn find_user_data_directory() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    for userdata_root in steam_userdata_roots() {
+        let Ok(entries) = fs::read_dir(&userdata_root) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let local = entry.path().join("1066780").join("local");
+            if local.is_dir() {
+                candidates.push(local);
+            }
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(home) = env::var("USERPROFILE") {
+            let documents = PathBuf::from(home)
+                .join("Documents")
+                .join("Transport Fever 2");
+            if documents.is_dir() {
+                candidates.push(documents);
+            }
+        }
+    }
+    candidates.into_iter().max_by_key(|path| {
+        fs::metadata(path)
+            .and_then(|meta| meta.modified())
+            .ok()
+            .unwrap_or(SystemTime::UNIX_EPOCH)
+    })
+}
+
+fn resolve_mods_directory(game_root: &Path, user_data: Option<&Path>) -> Option<PathBuf> {
+    if let Some(user_data) = user_data {
+        let user_mods = user_data.join("mods");
+        if user_mods.is_dir() {
+            return Some(user_mods);
+        }
+    }
+    let game_mods = game_root.join("mods");
+    if game_mods.is_dir() {
+        return Some(game_mods);
+    }
+    None
+}
+
+fn resolve_stdout_path(user_data: Option<&Path>) -> Option<PathBuf> {
+    let user_data = user_data?;
+    let candidates = [
+        user_data.join("crash_dump").join("stdout.txt"),
+        user_data.join("stdout.txt"),
+        user_data.join("logs").join("stdout.txt"),
+    ];
+    candidates
+        .into_iter()
+        .filter(|path| path.is_file())
+        .max_by_key(|path| {
+            fs::metadata(path)
+                .and_then(|meta| meta.modified())
+                .ok()
+                .unwrap_or(SystemTime::UNIX_EPOCH)
+        })
 }
 
 #[tauri::command]
@@ -628,6 +742,16 @@ fn detect_installations() -> Vec<InstallationCandidate> {
                     "TransportFever2.exe",
                 ));
             }
+        }
+        if let Ok(home) = env::var("USERPROFILE") {
+            roots.push((
+                PathBuf::from(home)
+                    .join("Steam")
+                    .join("steamapps")
+                    .join("common")
+                    .join("Transport Fever 2"),
+                "TransportFever2.exe",
+            ));
         }
     }
     #[cfg(target_os = "linux")]
@@ -666,10 +790,17 @@ fn detect_installations() -> Vec<InstallationCandidate> {
             ]);
         }
     }
+    let mut seen = HashSet::new();
     roots
         .into_iter()
         .filter(|(root, _)| root.exists())
-        .map(|(root, executable)| candidate(root, executable))
+        .filter_map(|(root, executable)| {
+            let key = path_string(&root);
+            if !seen.insert(key) {
+                return None;
+            }
+            Some(candidate(root, executable))
+        })
         .collect()
 }
 

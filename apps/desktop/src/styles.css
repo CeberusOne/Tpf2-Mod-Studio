@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  --ui-font-size: 16px;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -51,6 +52,10 @@
   box-sizing: border-box;
 }
 
+html {
+  font-size: var(--ui-font-size, 16px);
+}
+
 html,
 body,
 #root {
@@ -65,6 +70,8 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
+  font-size: 1rem;
+  line-height: 1.45;
 }
 
 button,
@@ -121,7 +128,7 @@ button:disabled {
   height: 38px;
   place-items: center;
   color: var(--accent-ink);
-  font-size: 14px;
+  font-size: 1rem;
   font-weight: 900;
   letter-spacing: -0.06em;
   background: var(--accent);
@@ -137,14 +144,14 @@ button:disabled {
 
 .brand strong {
   overflow: hidden;
-  font-size: 14px;
+  font-size: 1rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .brand span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.8rem;
   letter-spacing: 0.04em;
 }
 
@@ -182,7 +189,7 @@ nav {
 
 .nav-item span:nth-child(2) {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 0.857rem;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -192,7 +199,7 @@ nav {
   min-width: 20px;
   padding: 2px 6px;
   color: var(--accent);
-  font-size: 10px;
+  font-size: 0.8rem;
   font-weight: 800;
   text-align: center;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -213,7 +220,7 @@ nav {
   margin: 8px 0 10px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.8rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
@@ -226,7 +233,7 @@ nav {
   gap: 7px;
   margin-top: 8px;
   color: var(--text);
-  font-size: 12px;
+  font-size: 0.857rem;
 }
 
 .project-name strong {
@@ -239,7 +246,7 @@ nav {
   display: inline-flex;
   padding: 3px 7px;
   color: var(--info);
-  font-size: 9px;
+  font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -254,7 +261,7 @@ nav {
   gap: 7px;
   padding: 12px 8px 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.8rem;
 }
 
 .native-badge {
@@ -262,7 +269,7 @@ nav {
   align-items: center;
   gap: 7px;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -308,7 +315,7 @@ nav {
 
 .eyebrow {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -316,7 +323,7 @@ nav {
 
 .topbar h1 {
   margin: 0;
-  font-size: 16px;
+  font-size: 1.143rem;
   letter-spacing: -0.015em;
 }
 
@@ -337,7 +344,7 @@ nav {
 .segmented button {
   padding: 6px 9px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.8rem;
   font-weight: 700;
   background: transparent;
   border: 0;
@@ -369,7 +376,7 @@ nav {
   gap: 7px;
   min-height: 34px;
   padding: 7px 11px;
-  font-size: 11px;
+  font-size: 0.8rem;
   font-weight: 750;
   border-radius: 7px;
   cursor: pointer;
@@ -401,7 +408,7 @@ nav {
 .secondary-button.large {
   min-height: 40px;
   padding: 9px 14px;
-  font-size: 12px;
+  font-size: 0.857rem;
 }
 
 .full {
@@ -437,7 +444,7 @@ nav {
   height: 28px;
   padding: 0 24px;
   color: var(--accent);
-  font-size: 10px;
+  font-size: 0.8rem;
   font-weight: 700;
   background: color-mix(in srgb, var(--accent) 8%, var(--bg));
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
@@ -497,7 +504,7 @@ nav {
   max-width: 620px;
   margin: 0;
   color: var(--muted-strong);
-  font-size: 14px;
+  font-size: 1rem;
   line-height: 1.75;
 }
 
@@ -516,7 +523,7 @@ nav {
   margin-top: 20px;
   padding: 11px 13px;
   color: var(--muted-strong);
-  font-size: 11px;
+  font-size: 0.8rem;
   line-height: 1.55;
   background: var(--surface-raised);
   border: 1px solid var(--border);
@@ -555,7 +562,7 @@ nav {
 
 .workflow-step > span {
   color: var(--accent);
-  font-size: 10px;
+  font-size: 0.8rem;
   font-weight: 900;
   letter-spacing: 0.08em;
 }
@@ -567,12 +574,12 @@ nav {
 }
 
 .workflow-step strong {
-  font-size: 12px;
+  font-size: 0.857rem;
 }
 
 .workflow-step small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.8rem;
 }
 
 .workflow-step svg {
@@ -617,7 +624,7 @@ nav {
 }
 
 .panel-heading strong {
-  font-size: 11px;
+  font-size: 0.8rem;
 }
 
 .file-list {
@@ -654,14 +661,14 @@ nav {
 .file-row span {
   overflow: hidden;
   font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-  font-size: 9px;
+  font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .file-row small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
 }
 
 .index-summary {
@@ -670,7 +677,7 @@ nav {
   gap: 7px;
   padding: 10px 12px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 0.8rem;
   border-top: 1px solid var(--border);
 }
 
@@ -696,7 +703,7 @@ nav {
   max-width: 190px;
   padding: 0 10px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.8rem;
   background: transparent;
   border: 0;
   border-right: 1px solid var(--border);
@@ -737,7 +744,7 @@ nav {
   margin-left: auto;
   padding: 0 11px;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   font-weight: 700;
   background: transparent;
   border: 0;
@@ -762,7 +769,7 @@ nav {
   justify-content: center;
   gap: 8px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 0.8rem;
 }
 
 .editor-status {
@@ -773,7 +780,7 @@ nav {
   height: 25px;
   padding: 0 10px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
   background: var(--surface-raised);
   border-top: 1px solid var(--border);
 }
@@ -793,14 +800,14 @@ nav {
 }
 
 .rail-stat strong {
-  font-size: 18px;
+  font-size: 1.286rem;
   line-height: 1;
 }
 
 .rail-stat small {
   grid-column: 2;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
   text-transform: uppercase;
 }
 
@@ -827,7 +834,7 @@ nav {
   margin-top: auto;
   padding: 8px 5px;
   color: var(--accent);
-  font-size: 8px;
+  font-size: 0.8rem;
   font-weight: 800;
   text-align: left;
   text-transform: uppercase;
@@ -860,14 +867,14 @@ nav {
 
 .empty-state h2 {
   margin: 0 0 8px;
-  font-size: 16px;
+  font-size: 1.143rem;
 }
 
 .empty-state p {
   max-width: 460px;
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8rem;
   line-height: 1.6;
 }
 
@@ -881,7 +888,7 @@ nav {
 
 .section-intro h2 {
   margin: 8px 0 0;
-  font-size: 23px;
+  font-size: 1.643rem;
   letter-spacing: -0.03em;
 }
 
@@ -889,7 +896,7 @@ nav {
   max-width: 430px;
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8rem;
   line-height: 1.55;
 }
 
@@ -961,14 +968,14 @@ nav {
 }
 
 .diagnostic-title strong {
-  font-size: 11px;
+  font-size: 0.8rem;
 }
 
 .diagnostic-title span,
 .severity-label {
   padding: 2px 5px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -979,14 +986,14 @@ nav {
 .diagnostic-body p {
   margin: 5px 0 5px;
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: 0.8rem;
   line-height: 1.45;
 }
 
 .diagnostic-body > small {
   color: var(--muted);
   font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 8px;
+  font-size: 0.8rem;
 }
 
 .expert-detail {
@@ -996,7 +1003,7 @@ nav {
   margin-top: 9px;
   padding: 9px;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   line-height: 1.45;
   background: var(--surface-raised);
   border-left: 2px solid var(--border-strong);
@@ -1005,7 +1012,7 @@ nav {
 .expert-detail code {
   align-self: flex-start;
   color: var(--accent);
-  font-size: 8px;
+  font-size: 0.8rem;
 }
 
 .two-column-page {
@@ -1024,7 +1031,7 @@ nav {
 
 .task-card h2 {
   margin: 10px 0 11px;
-  font-size: 27px;
+  font-size: 1.929rem;
   letter-spacing: -0.035em;
 }
 
@@ -1032,7 +1039,7 @@ nav {
 .gate-card > p {
   margin: 0 0 24px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.8rem;
   line-height: 1.6;
 }
 
@@ -1041,7 +1048,7 @@ nav {
   flex-direction: column;
   gap: 6px;
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
@@ -1062,7 +1069,7 @@ nav {
 
 .field small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
@@ -1081,7 +1088,7 @@ nav {
   gap: 6px;
   padding: 0 11px;
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: 0.8rem;
   font-weight: 700;
   background: var(--surface-hover);
   border: 1px solid var(--border);
@@ -1096,7 +1103,7 @@ nav {
   gap: 9px;
   margin: 14px 0 18px;
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: 0.8rem;
   line-height: 1.4;
 }
 
@@ -1127,13 +1134,13 @@ nav {
 }
 
 .success-box strong {
-  font-size: 10px;
+  font-size: 0.8rem;
 }
 
 .success-box span {
   overflow: hidden;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1170,7 +1177,7 @@ nav {
 
 .gate-card h3 {
   margin: 8px 0;
-  font-size: 20px;
+  font-size: 1.429rem;
 }
 
 .gate-card ul {
@@ -1181,7 +1188,7 @@ nav {
   margin: 0;
   padding: 14px 0 0;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   text-align: left;
   border-top: 1px solid var(--border);
   list-style: none;
@@ -1199,7 +1206,7 @@ nav {
   overflow: hidden;
   color: var(--muted);
   font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 9px;
+  font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
   background: var(--surface);
@@ -1215,7 +1222,7 @@ nav {
   margin-bottom: 10px;
   padding: 11px 13px;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-left: 3px solid var(--success);
@@ -1228,7 +1235,7 @@ nav {
 
 .log-analysis-summary strong {
   color: var(--text);
-  font-size: 10px;
+  font-size: 0.8rem;
 }
 
 .log-row {
@@ -1256,7 +1263,7 @@ nav {
   min-height: 25px;
   place-items: center;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   font-weight: 800;
   background: var(--surface-hover);
   border-radius: 6px;
@@ -1272,26 +1279,26 @@ nav {
 .log-row strong {
   overflow-wrap: anywhere;
   font-family: "JetBrains Mono", Consolas, monospace;
-  font-size: 9px;
+  font-size: 0.8rem;
   font-weight: 600;
   line-height: 1.45;
 }
 
 .log-row small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
 }
 
 .log-row code {
   color: var(--muted-strong);
-  font-size: 8px;
+  font-size: 0.8rem;
 }
 
 .log-row .log-fix,
 .log-row .log-cause {
   margin: 2px 0 0;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   line-height: 1.45;
 }
 
@@ -1303,7 +1310,7 @@ nav {
 .log-stack {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
 }
 
 .log-stack summary {
@@ -1351,12 +1358,12 @@ nav {
 }
 
 .installation-heading strong {
-  font-size: 11px;
+  font-size: 0.8rem;
 }
 
 .installation-heading span {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 0.8rem;
 }
 
 .installation-heading > .valid {
@@ -1373,7 +1380,7 @@ nav {
   padding: 8px;
   overflow: hidden;
   color: var(--muted-strong);
-  font-size: 8px;
+  font-size: 0.8rem;
   text-overflow: ellipsis;
   white-space: nowrap;
   background: var(--surface-raised);
@@ -1382,7 +1389,7 @@ nav {
 
 .installation-card > p {
   color: var(--error);
-  font-size: 9px;
+  font-size: 0.8rem;
 }
 
 .notice {
@@ -1396,7 +1403,7 @@ nav {
   max-width: 430px;
   padding: 11px 13px;
   color: var(--muted-strong);
-  font-size: 10px;
+  font-size: 0.8rem;
   line-height: 1.45;
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
@@ -1447,7 +1454,7 @@ nav {
 
 .modal-heading h2 {
   margin: 7px 0 0;
-  font-size: 22px;
+  font-size: 1.571rem;
   letter-spacing: -0.03em;
 }
 
@@ -1465,7 +1472,7 @@ nav {
   margin-top: 18px;
   padding: 11px;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 0.8rem;
   line-height: 1.5;
   background: var(--surface-raised);
   border: 1px solid var(--border);
@@ -1526,4 +1533,96 @@ nav {
   .welcome-copy {
     min-height: 430px;
   }
+}
+
+
+/* UI scale control */
+.font-size-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 9.5rem;
+  padding: 0.35rem 0.65rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--muted-strong);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.font-size-control input[type="range"] {
+  width: 5.5rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.font-size-control output {
+  min-width: 2.4rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.log-analysis-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface);
+}
+
+.log-analysis-summary.is-reliable {
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+}
+
+.log-analysis-summary.is-unconfirmed {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+}
+
+.log-cause,
+.log-fix {
+  margin: 0.35rem 0 0;
+  color: var(--muted-strong);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.detected-paths {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+}
+
+.detected-paths .path-row {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.detected-paths .path-row span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detected-paths .path-row code {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }

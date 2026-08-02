@@ -393,6 +393,40 @@ describe("stdout.txt analysis", () => {
       })
     );
   });
+
+  it("classifies real TF2 stdout without ERROR prefixes", async () => {
+    const log = await readFile(
+      path.join(
+        process.cwd(),
+        "packages/core/test-fixtures/logs/real-tf2-eatglobal.stdout.txt"
+      ),
+      "utf8"
+    );
+    const analysis = analyzeTf2Log(log);
+    const moduleMissing = analysis.groups.find(
+      (group) => group.causeCode === "LUA_MODULE_NOT_FOUND"
+    );
+    const missingEntry = analysis.groups.find(
+      (group) => group.causeCode === "MOD_ENTRY_MISSING"
+    );
+
+    expect(analysis.rootCauseCount).toBeGreaterThanOrEqual(2);
+    expect(analysis.unclassifiedErrorCount).toBe(0);
+    expect(analysis.reliable).toBe(true);
+    expect(moduleMissing).toEqual(
+      expect.objectContaining({
+        causeStatus: "root-cause",
+        modId: "eat1963_tunnel_2"
+      })
+    );
+    expect(moduleMissing?.stackTrace.length).toBeGreaterThan(0);
+    expect(missingEntry).toEqual(
+      expect.objectContaining({
+        causeStatus: "root-cause",
+        causeCode: "MOD_ENTRY_MISSING"
+      })
+    );
+  });
 });
 
 describe("TF2 resource loading and modifier knowledge", () => {

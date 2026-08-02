@@ -153,9 +153,29 @@ export default function App(props: AppProps) {
   );
 }
 
+const FONT_SIZE_STORAGE_KEY = "tpf2-mod-studio.ui-font-size.v1";
+const FONT_SIZE_MIN = 13;
+const FONT_SIZE_MAX = 20;
+const FONT_SIZE_DEFAULT = 16;
+
+function readStoredFontSize(): number {
+  if (typeof window === "undefined") return FONT_SIZE_DEFAULT;
+  try {
+    const raw = window.localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+    const value = raw === null ? FONT_SIZE_DEFAULT : Number.parseInt(raw, 10);
+    if (Number.isFinite(value)) {
+      return Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, value));
+    }
+  } catch {
+    // Ignore storage failures; session default remains usable.
+  }
+  return FONT_SIZE_DEFAULT;
+}
+
 function Workbench({ bridge = tauriBridge }: AppProps) {
   const { language, setLanguage, t } = useI18n();
   const [theme, setTheme] = useState<Theme>("dark");
+  const [fontSize, setFontSize] = useState<number>(readStoredFontSize);
   const [experience, setExperience] =
     useState<ExperienceMode>("beginner");
   const [view, setView] = useState<View>("workspace");
@@ -193,10 +213,59 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   }, [theme]);
 
   useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--ui-font-size",
+      `${fontSize}px`
+    );
+    try {
+      window.localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(fontSize));
+    } catch {
+      // Session-only scale still applies.
+    }
+  }, [fontSize]);
+
+  useEffect(() => {
     if (notice === undefined) return undefined;
     const timer = window.setTimeout(() => setNotice(undefined), 5000);
     return () => window.clearTimeout(timer);
   }, [notice]);
+
+  useEffect(() => {
+    if (!bridge.isNative) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const candidates = await bridge.detectInstallations();
+        if (cancelled) return;
+        setInstallations(candidates);
+        const preferred =
+          candidates.find((item) => item.valid) ?? candidates[0];
+        if (preferred === undefined) return;
+        if (preferred.modsPath !== undefined && preferred.modsPath.length > 0) {
+          setModsDirectory((current) =>
+            current.length === 0 ? preferred.modsPath! : current
+          );
+        }
+        if (
+          preferred.stdoutPath !== undefined &&
+          preferred.stdoutPath.length > 0
+        ) {
+          setLogPath((current) =>
+            current.length === 0 ? preferred.stdoutPath! : current
+          );
+        }
+        setNotice({
+          tone: "success",
+          message: t("noticeAutoDetected")
+        });
+      } catch {
+        // Silent on startup; user can rescan from Game paths.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, t]);
 
   async function withBusy<T>(
     label: string,
@@ -393,17 +462,36 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     });
   }
 
+  async function analyzeLogAt(path: string): Promise<void> {
+    const content = await withBusy(t("busyAnalyzeLog"), () =>
+      bridge.readLog(path)
+    );
+    if (content === undefined) return;
+    setLogPath(path);
+    setLogAnalysis(analyzeTf2Log(content));
+    setNotice({
+      tone: "success",
+      message: t("noticeLogLoaded", { path })
+    });
+  }
+
   async function chooseAndReadLog(): Promise<void> {
     const selected = await withBusy(t("busyOpenLogPicker"), () =>
       bridge.chooseLogFile(t("dialogSelectLog"), t("dialogLogFilter"))
     );
     if (selected === undefined || selected === null) return;
-    const content = await withBusy(t("busyAnalyzeLog"), () =>
-      bridge.readLog(selected)
-    );
-    if (content === undefined) return;
-    setLogPath(selected);
-    setLogAnalysis(analyzeTf2Log(content));
+    await analyzeLogAt(selected);
+  }
+
+  async function openLatestDetectedLog(): Promise<void> {
+    const detected =
+      installations.find((item) => item.stdoutPath !== undefined)?.stdoutPath ??
+      logPath;
+    if (detected === undefined || detected.length === 0) {
+      await chooseAndReadLog();
+      return;
+    }
+    await analyzeLogAt(detected);
   }
 
   async function detectInstallations(): Promise<void> {
@@ -412,6 +500,14 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     );
     if (candidates === undefined) return;
     setInstallations(candidates);
+    const preferred =
+      candidates.find((item) => item.valid) ?? candidates[0];
+    if (preferred?.modsPath !== undefined && preferred.modsPath.length > 0) {
+      setModsDirectory(preferred.modsPath);
+    }
+    if (preferred?.stdoutPath !== undefined && preferred.stdoutPath.length > 0) {
+      setLogPath(preferred.stdoutPath);
+    }
     setNotice({
       tone: candidates.length === 0 ? "neutral" : "success",
       message:
@@ -475,7 +571,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
           <div className="brand-mark">T2</div>
           <div>
             <strong>Tpf2 Mod Studio</strong>
-            <span>Desktop IDE · Alpha 0.1</span>
+            <span>Transport Fever 2</span>
           </div>
         </div>
 
@@ -527,6 +623,21 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
             <h1>{navigation.find((item) => item.id === view)?.label}</h1>
           </div>
           <div className="topbar-actions">
+            <label className="font-size-control" title={t("fontSizeControl")}>
+              <span>{t("fontSizeControl")}</span>
+              <input
+                aria-label={t("fontSizeControl")}
+                max={FONT_SIZE_MAX}
+                min={FONT_SIZE_MIN}
+                onChange={(event) =>
+                  setFontSize(Number.parseInt(event.target.value, 10))
+                }
+                step={1}
+                type="range"
+                value={fontSize}
+              />
+              <output>{t("fontSizeValue", { size: fontSize })}</output>
+            </label>
             <div
               className="segmented language-switch"
               aria-label={t("languageControl")}
@@ -725,6 +836,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
                       >
                         <MonacoEditor
                           expert={experience === "expert"}
+                          fontSize={fontSize - 1}
                           language={editorLanguage(activeTab.path)}
                           onChange={updateActiveContent}
                           path={activeTab.path}
@@ -799,6 +911,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               logPath={logPath}
               native={bridge.isNative}
               onChooseLog={() => void chooseAndReadLog()}
+              onOpenLatestLog={() => void openLatestDetectedLog()}
             />
           ) : null}
 
@@ -808,6 +921,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               native={bridge.isNative}
               onDetect={() => void detectInstallations()}
               onLaunch={(executablePath) => void launchGame(executablePath)}
+              onUseModsPath={(path) => setModsDirectory(path)}
             />
           ) : null}
         </main>
@@ -1099,13 +1213,15 @@ function LogView({
   experience,
   logPath,
   native,
-  onChooseLog
+  onChooseLog,
+  onOpenLatestLog
 }: {
   analysis: LogAnalysis | undefined;
   experience: ExperienceMode;
   logPath: string;
   native: boolean;
   onChooseLog: () => void;
+  onOpenLatestLog: () => void;
 }) {
   const { t } = useI18n();
   const groups = analysis?.groups ?? [];
@@ -1117,15 +1233,26 @@ function LogView({
           <span className="eyebrow">{t("realGameLogs")}</span>
           <h2>{t("logsTitle")}</h2>
         </div>
-        <button
-          className="primary-button"
-          disabled={!native}
-          onClick={onChooseLog}
-          type="button"
-        >
-          <Search size={17} />
-          {t("selectLog")}
-        </button>
+        <div className="section-actions">
+          <button
+            className="primary-button"
+            disabled={!native}
+            onClick={onOpenLatestLog}
+            type="button"
+          >
+            <ScrollText size={17} />
+            {t("openLatestLog")}
+          </button>
+          <button
+            className="secondary-button"
+            disabled={!native}
+            onClick={onChooseLog}
+            type="button"
+          >
+            <Search size={17} />
+            {t("selectLog")}
+          </button>
+        </div>
       </div>
       {logPath.length > 0 ? <div className="selected-path">{logPath}</div> : null}
       {analysis !== undefined ? (
@@ -1149,6 +1276,7 @@ function LogView({
               count: analysis.unclassifiedErrorCount
             })}
           </span>
+          <span>{t("logReliabilityDetail", { reason: analysis.reliabilityReason })}</span>
         </section>
       ) : null}
       {groups.length === 0 ? (
@@ -1180,9 +1308,14 @@ function LogView({
                       ? t("logConsequence")
                       : t("causeUnclassified")}
                 </small>
+                {group.technicalCause === undefined ? null : (
+                  <p className="log-cause">
+                    <b>{t("showCauseAlways")}:</b> {group.technicalCause}
+                  </p>
+                )}
                 {group.recommendedFix === undefined ? null : (
                   <p className="log-fix">
-                    <b>{t("correction")}</b> {group.recommendedFix}
+                    <b>{t("correction")}:</b> {group.recommendedFix}
                   </p>
                 )}
                 {experience === "expert" ? (
@@ -1194,11 +1327,6 @@ function LogView({
                         : `:${group.sourceLine}`}{" "}
                       · {group.causeCode ?? t("causeUnclassified")}
                     </code>
-                    {group.technicalCause === undefined ? null : (
-                      <p className="log-cause">
-                        <b>{t("cause")}</b> {group.technicalCause}
-                      </p>
-                    )}
                     {group.stackTrace.length === 0 ? null : (
                       <details className="log-stack">
                         <summary>
@@ -1229,12 +1357,14 @@ function SetupView({
   installations,
   native,
   onDetect,
-  onLaunch
+  onLaunch,
+  onUseModsPath
 }: {
   installations: InstallationCandidate[];
   native: boolean;
   onDetect: () => void;
   onLaunch: (executablePath: string) => void;
+  onUseModsPath: (path: string) => void;
 }) {
   const { t } = useI18n();
 
@@ -1278,19 +1408,49 @@ function SetupView({
                   {candidate.valid ? t("valid") : t("invalid")}
                 </span>
               </div>
-              <code>{candidate.rootPath}</code>
+              <div className="detected-paths">
+                <div className="path-row">
+                  <span>{t("pathGame")}</span>
+                  <code>{candidate.rootPath}</code>
+                </div>
+                <div className="path-row">
+                  <span>{t("pathUserData")}</span>
+                  <code>
+                    {candidate.userDataPath ?? t("pathMissing")}
+                  </code>
+                </div>
+                <div className="path-row">
+                  <span>{t("pathMods")}</span>
+                  <code>{candidate.modsPath ?? t("pathMissing")}</code>
+                </div>
+                <div className="path-row">
+                  <span>{t("pathStdout")}</span>
+                  <code>{candidate.stdoutPath ?? t("pathMissing")}</code>
+                </div>
+              </div>
               {candidate.reason === undefined ? null : (
                 <p>{localizedInstallationReason(candidate.reason, t)}</p>
               )}
-              <button
-                className="secondary-button full"
-                disabled={!candidate.valid}
-                onClick={() => onLaunch(candidate.executablePath)}
-                type="button"
-              >
-                <Play size={16} />
-                {t("launchTestRun")}
-              </button>
+              <div className="section-actions">
+                {candidate.modsPath === undefined ? null : (
+                  <button
+                    className="secondary-button"
+                    onClick={() => onUseModsPath(candidate.modsPath!)}
+                    type="button"
+                  >
+                    {t("useDetectedMods")}
+                  </button>
+                )}
+                <button
+                  className="secondary-button"
+                  disabled={!candidate.valid}
+                  onClick={() => onLaunch(candidate.executablePath)}
+                  type="button"
+                >
+                  <Play size={16} />
+                  {t("launchTestRun")}
+                </button>
+              </div>
             </article>
           ))}
         </div>

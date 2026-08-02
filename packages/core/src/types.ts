@@ -192,6 +192,10 @@ export interface InstallationCandidate {
   rootPath: string;
   executablePath: string;
   userDataPath?: string;
+  /** Preferred local mods directory (user-data mods when present). */
+  modsPath?: string;
+  /** Latest detected stdout.txt for this installation. */
+  stdoutPath?: string;
   source: "steam-default" | "manual";
   valid: boolean;
   reason?: string;

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Added a UI text-size slider (13–20px) with persistence; editor font follows.
+- Improved stdout.txt root-cause analysis for real TF2 logs (no `ERROR` prefix),
+  including missing `mod.lua`, Lua module load failures, absolute stack frames
+  and mod id extraction from user-data / workshop / mod.io paths.
+- Auto-detects game install, user-data, preferred mods folder and latest
+  `stdout.txt` on startup; fills Install and Log targets automatically.
+- Replaced marketing-style panel copy with concise professional DE/EN wording.
+- Game paths view lists detected executable, user data, mods and log locations.
+
 ## 0.1.0-alpha.2 — 2026-08-02
 
 - Fixed Linux startup abort (`Could not create GBM EGL display`) by defaulting
