@@ -10,6 +10,17 @@ import type {
   ProjectSnapshot
 } from "@tpf2-mod-studio/core";
 
+export interface UpdateInfo {
+  available: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  releaseTag: string;
+  notes: string;
+  downloadUrl: string;
+  assetName: string;
+  htmlUrl: string;
+}
+
 export interface DesktopBridge {
   readonly isNative: boolean;
   chooseDirectory(title: string): Promise<string | null>;
@@ -37,6 +48,9 @@ export interface DesktopBridge {
   ): Promise<InstallResult>;
   readLog(logPath: string): Promise<string>;
   launchGame(executablePath: string): Promise<number>;
+  checkForUpdate(): Promise<UpdateInfo>;
+  applyUpdate(info: UpdateInfo): Promise<string>;
+  restartAfterUpdate(): Promise<void>;
 }
 
 function requireNative(): void {
@@ -136,5 +150,20 @@ export const tauriBridge: DesktopBridge = {
   async launchGame(executablePath) {
     requireNative();
     return invoke<number>("launch_game", { executablePath });
+  },
+
+  async checkForUpdate() {
+    requireNative();
+    return invoke<UpdateInfo>("check_for_update");
+  },
+
+  async applyUpdate(info) {
+    requireNative();
+    return invoke<string>("apply_update", { info });
+  },
+
+  async restartAfterUpdate() {
+    requireNative();
+    await invoke("restart_after_update");
   }
 };

@@ -1,3 +1,5 @@
+mod updater;
+
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
@@ -1105,6 +1107,21 @@ fn apply_linux_runtime_workarounds() {
     }
 }
 
+#[tauri::command]
+async fn check_for_update() -> Result<updater::UpdateInfo, String> {
+    updater::check_for_update().await
+}
+
+#[tauri::command]
+async fn apply_update(info: updater::UpdateInfo) -> Result<String, String> {
+    updater::apply_update(info).await
+}
+
+#[tauri::command]
+fn restart_after_update() -> Result<(), String> {
+    updater::restart_application()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     apply_linux_runtime_workarounds();
@@ -1121,7 +1138,10 @@ pub fn run() {
             read_tf2_log,
             launch_game,
             inspect_mod_archive,
-            import_mod_archive
+            import_mod_archive,
+            check_for_update,
+            apply_update,
+            restart_after_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tpf2 Mod Studio");
