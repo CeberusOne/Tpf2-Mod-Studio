@@ -1,5 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 
 import type {
   CreateProjectRequest,
@@ -28,6 +28,11 @@ export interface DesktopBridge {
   chooseDirectory(title: string): Promise<string | null>;
   chooseLogFile(title: string, filterName: string): Promise<string | null>;
   chooseModArchive(title: string, filterName: string): Promise<string | null>;
+  chooseExportTarget(
+    title: string,
+    filterName: string,
+    defaultName: string
+  ): Promise<string | null>;
   detectInstallations(): Promise<InstallationCandidate[]>;
   createProject(request: CreateProjectRequest): Promise<CreatedProject>;
   scanProject(rootPath: string): Promise<ProjectSnapshot>;
@@ -61,6 +66,7 @@ export interface DesktopBridge {
     rootPath: string,
     destinationPath: string
   ): Promise<string>;
+  ensureStagingDirectory(userDataPath: string): Promise<string>;
   checkForUpdate(): Promise<UpdateInfo>;
   applyUpdate(info: UpdateInfo): Promise<string>;
   restartAfterUpdate(): Promise<void>;
@@ -102,6 +108,16 @@ export const tauriBridge: DesktopBridge = {
       directory: false,
       multiple: false,
       title,
+      filters: [{ name: filterName, extensions: ["zip"] }]
+    });
+    return typeof selected === "string" ? selected : null;
+  },
+
+  async chooseExportTarget(title, filterName, defaultName) {
+    requireNative();
+    const selected = await save({
+      title,
+      defaultPath: defaultName,
       filters: [{ name: filterName, extensions: ["zip"] }]
     });
     return typeof selected === "string" ? selected : null;
@@ -187,6 +203,11 @@ export const tauriBridge: DesktopBridge = {
   async exportProjectZip(rootPath, destinationPath) {
     requireNative();
     return invoke<string>("export_project_zip", { rootPath, destinationPath });
+  },
+
+  async ensureStagingDirectory(userDataPath) {
+    requireNative();
+    return invoke<string>("ensure_staging_directory", { userDataPath });
   },
 
   async checkForUpdate() {

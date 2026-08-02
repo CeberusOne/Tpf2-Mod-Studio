@@ -80,6 +80,7 @@ function bridge(native = true): DesktopBridge {
     chooseDirectory: vi.fn(async () => "/real/project/test_mod_1"),
     chooseLogFile: vi.fn(async () => null),
     chooseModArchive: vi.fn(async () => null),
+    chooseExportTarget: vi.fn(async () => "/exports/test_mod_1.zip"),
     detectInstallations: vi.fn(async (): Promise<InstallationCandidate[]> => []),
     createProject: vi.fn(
       async (): Promise<CreatedProject> => ({
@@ -127,7 +128,8 @@ function bridge(native = true): DesktopBridge {
     scanModLibrary: vi.fn(async () => []),
     listLogFiles: vi.fn(async () => []),
     archiveStdout: vi.fn(async () => "/tmp/stdout-archive.txt"),
-    exportProjectZip: vi.fn(async () => "/tmp/mod.zip")
+    exportProjectZip: vi.fn(async () => "/exports/test_mod_1.zip"),
+    ensureStagingDirectory: vi.fn(async () => "/tf2/userdata/staging_area")
   };
 }
 
@@ -226,6 +228,62 @@ describe("desktop workbench", () => {
     expect(await screen.findByText(/Check the module path/u)).toBeTruthy();
     expect(screen.getAllByText(/Root cause/u).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Follow-up/u).length).toBeGreaterThan(0);
+  });
+
+  it("asks for an explicit ZIP target instead of writing beside the project", async () => {
+    const desktopBridge = bridge();
+    render(<App bridge={desktopBridge} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    await screen.findByText("mod.lua");
+
+    fireEvent.click(screen.getByRole("button", { name: "Install" }));
+    fireEvent.click(screen.getByRole("button", { name: "Export ZIP package" }));
+
+    await waitFor(() => {
+      expect(desktopBridge.chooseExportTarget).toHaveBeenCalledWith(
+        "Save the mod ZIP as",
+        "ZIP archives",
+        "test_mod_1.zip"
+      );
+      expect(desktopBridge.exportProjectZip).toHaveBeenCalledWith(
+        "/real/project/test_mod_1",
+        "/exports/test_mod_1.zip"
+      );
+    });
+  });
+
+  it("creates staging_area before installing into it", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.detectInstallations = vi.fn(
+      async (): Promise<InstallationCandidate[]> => [
+        {
+          rootPath: "/tf2",
+          executablePath: "/tf2/TransportFever2",
+          userDataPath: "/tf2/userdata",
+          source: "steam-default",
+          valid: true
+        }
+      ]
+    );
+    render(<App bridge={desktopBridge} />);
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    await screen.findByText("mod.lua");
+
+    fireEvent.click(screen.getByRole("button", { name: "Install" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Install to staging_area" })
+    );
+
+    await waitFor(() => {
+      expect(desktopBridge.ensureStagingDirectory).toHaveBeenCalledWith(
+        "/tf2/userdata"
+      );
+      expect(desktopBridge.installProject).toHaveBeenCalledWith(
+        "/real/project/test_mod_1",
+        "/tf2/userdata/staging_area",
+        false
+      );
+    });
   });
 
   it("switches to German and persists the explicit language selection", () => {

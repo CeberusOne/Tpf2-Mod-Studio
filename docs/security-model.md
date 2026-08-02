@@ -29,6 +29,28 @@ Transport Fever 2 launches only after a visible user action. The executable is
 validated as a file and passed to the operating-system process API directly.
 No shell command string is constructed. The app does not terminate the game.
 
+## Archive import rules
+
+- Every archive entry is validated as a relative path before extraction.
+  Traversal segments, absolute paths and Windows drive prefixes are rejected;
+  `Path::join` would otherwise silently escape the staging directory.
+- Extraction is capped at 20,000 entries and 512 MiB decompressed.
+- A rejected archive removes its staging directory and installs nothing.
+
 ## Network and telemetry
 
-The first slice has no network access, update service, analytics or telemetry.
+There is no analytics and no telemetry. Two features do reach the network.
+Both are scoped and neither runs without being visible to the user.
+
+- **Update check.** At startup the app issues one unauthenticated `GET` to
+  `api.github.com/repos/CeberusOne/Tpf2-Mod-Studio/releases`. It reads release
+  metadata only; nothing is uploaded. Downloading and installing an update
+  requires an explicit user action, is capped at 512 MiB, and never restarts
+  the application on its own.
+- **Optional AI assist.** Disabled by default with no provider preselected.
+  Once the user enables it and supplies their own base URL, API key and model,
+  the selected log group or diagnostic is sent to that endpoint as a chat
+  completion request. The API key is stored in this application's WebView
+  `localStorage` and is transmitted only to the configured base URL.
+
+No other outbound request is made.

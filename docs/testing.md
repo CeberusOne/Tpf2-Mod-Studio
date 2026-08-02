@@ -14,7 +14,7 @@ npm run verify
 3. production builds for the domain package and React application.
 
 The recorded 2026-07-30 environment is Ubuntu 24.04 x64, Node.js 24.14.0 and
-npm 11.9.0. The current endcheck result is 24 passed and 0 failed tests across
+npm 11.9.0. The current endcheck result is 31 passed and 0 failed tests across
 two test files. Timing is a reproducibility observation, not a product
 performance benchmark.
 
@@ -52,6 +52,13 @@ cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo test --locked --all-targets
 cd ../../..
 npm run desktop:build
+```
+
+The updater's live GitHub check is opt-in so `cargo test` stays offline-safe
+and does not spend the 60 requests/hour unauthenticated API budget:
+
+```bash
+TPF2_UPDATER_NETWORK_TESTS=1 cargo test --locked check_for_update
 ```
 
 On 2026-07-29 all commands passed on GitHub-hosted Ubuntu 22.04 and Windows

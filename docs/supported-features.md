@@ -18,6 +18,11 @@
 - Static modifier registration, callback and return-contract checks
 - Causal `stdout.txt` analysis for supported Lua, resource and CommonAPI2
   signatures, including stack frames, mod attribution and linked consequences
+- ZIP mod import with path-validated, size-capped extraction
+- Clean project ZIP export to a user-chosen target
+- Installed-mod library scan across local, staging, builtin and workshop paths
+- Optional, user-configured AI assist (disabled by default, no preset provider)
+- Startup update check against GitHub Releases; install stays a user action
 - Light/dark UI and beginner/expert information levels
 
 ## Not yet complete
@@ -27,7 +32,6 @@
 - tested 800-mod installation scan in the native shell
 - full TF2 dependency graph, active-mod provenance and cross-mod order proof
 - 3D model/material/mesh preview
-- archive import and archive packaging
 - complete TF2 Lua API completion database
 - process lifecycle tracking after game launch
 - streaming analysis of logs larger than the IPC cap

@@ -166,8 +166,7 @@ const ERROR_SIGNAL =
 const NOISE_LINE =
   /^(?:adding archive\b|MemoryTool::|createTrampoline|Region:\s*>|Modio:\s|mod\.io backend|__CRASHDB_|Optional extension not found|Requested (?:instance|device) extensions|Supported depth resolve|Supperted stencil|Format support:|\* (?:R8|R16|R32|B10|D16|D24|D32)|- (?:linear|optimal):|Memory (?:types|heaps):|\* \d+ \{|Swapchain size:|StreamingTexturePool:|sampling rate:|opened device OpenAL|Started in UI Mode|Build: Build |GC Called|Saved (?:settings|pipeline cache)|Goodbye\.?|Shutdown at |Startup at |=+|seed: \d+|Fifo|Immediate|invalid|Use present mode:|Create Vulkan instance|Found device #|-> Selected device|Count: \d+|Flags: \{|ecs::Engine::|Steam(?:User|API)|TPF2 Build |starting up build version|user data folder:|language: |locale: |"ooooo|"`888|" 888|"o888o|eatglobal: (?:init |History created|Initialization )|commonapi2\.(?:init|ui:)|CommonAPI2Native: (?:stdout|InitDone)|Successfully read pipeline cache|Pipeline was read successfully|Mods changed, recreating data|Found (?:CommonAPI2|menuUI|layout)|menuUILayout:|MainMenuFailbackButton|Destroying failback|- (?:numSamples|textureQuality|terrainTextureResolution):|Settings:|Steam language code|Found \d+ mods$|Loaded \d+ of \d+ mod|Update of mod descriptions|successfully completed:)/iu;
 
-function isNoiseLine(line: string): boolean {
-  const stable = stableMessage(line);
+function isNoiseLine(stable: string): boolean {
   if (stable.length === 0) return true;
   if (ERROR_SIGNAL.test(stable) || /^(?:warn(?:ing)?)(?:\b|:)/iu.test(stable)) {
     return false;
@@ -179,8 +178,7 @@ function stableMessage(line: string): string {
   return line.replace(TIMESTAMP_PREFIX, "").trim().replace(/\s+/gu, " ");
 }
 
-function severityFor(line: string): LogSeverity {
-  const normalized = stableMessage(line);
+function severityFor(normalized: string): LogSeverity {
   if (/^(?:warn(?:ing)?)(?:\b|:)/iu.test(normalized)) return "warning";
   if (
     /^(?:info|debug|trace)(?:\b|:)/iu.test(normalized) &&
@@ -342,29 +340,30 @@ function rawEvents(content: string): { events: RawLogEvent[]; noiseSkipped: numb
     const raw = lines[index];
     if (raw === undefined || raw.trim().length === 0) continue;
     const previous = events.at(-1);
-    if (isDetailLine(raw, previous)) {
-      previous?.lines.push(raw);
-      if (previous !== undefined) rebuildEvent(previous);
+    if (previous !== undefined && isDetailLine(raw, previous)) {
+      // Only collect here. Rebuilding per appended line would re-scan every
+      // earlier line of the event and make long stack tracebacks quadratic.
+      previous.lines.push(raw);
       continue;
     }
-    if (isNoiseLine(raw)) {
+    const stable = stableMessage(raw);
+    if (isNoiseLine(stable)) {
       noiseSkipped += 1;
       continue;
     }
-    const event: RawLogEvent = {
+    events.push({
       lines: [raw],
       firstLine: index + 1,
       lastLine: index + 1,
-      severity: severityFor(raw),
-      message: stableMessage(raw),
+      severity: severityFor(stable),
+      message: stable,
       locations: [],
       stackTrace: [],
       causeStatus: "unclassified",
       causeCertainty: "unclassified"
-    };
-    rebuildEvent(event);
-    events.push(event);
+    });
   }
+  for (const event of events) rebuildEvent(event);
   return { events, noiseSkipped };
 }
 

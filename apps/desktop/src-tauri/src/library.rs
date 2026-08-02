@@ -3,8 +3,7 @@
 
 use serde::Serialize;
 use std::{
-    fs,
-    io::{Read, Write},
+    fs, io,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -152,14 +151,15 @@ pub fn scan_mod_library(
         if staging.is_dir() {
             scan_mod_directory(&staging, "staging", &mut mods);
         }
-        // Game install mods folder may differ from userdata mods.
+        // The user-data mods folder is already covered when `mods_path` pointed
+        // here; scan it only when the caller passed a different local root.
         let local_mods = PathBuf::from(&user_data).join("mods");
         if local_mods.is_dir()
-            && !mods.iter().any(|item| {
-                item.source == "local" && Path::new(&item.path).starts_with(&local_mods)
-            })
+            && !mods
+                .iter()
+                .any(|item| Path::new(&item.path).starts_with(&local_mods))
         {
-            // Already covered if mods_path pointed here.
+            scan_mod_directory(&local_mods, "local", &mut mods);
         }
     }
     if let Some(game) = game_root {
@@ -341,12 +341,8 @@ pub fn export_project_zip(root_path: String, destination_path: String) -> Result
             .map_err(|error| format!("Cannot write ZIP entry: {error}"))?;
         let mut input = fs::File::open(&path)
             .map_err(|error| format!("Cannot read file for export: {error}"))?;
-        let mut buffer = Vec::new();
-        input
-            .read_to_end(&mut buffer)
-            .map_err(|error| format!("Cannot buffer file for export: {error}"))?;
-        zip.write_all(&buffer)
-            .map_err(|error| format!("Cannot compress file: {error}"))?;
+        // Stream instead of buffering: mod meshes and textures can be large.
+        io::copy(&mut input, &mut zip).map_err(|error| format!("Cannot compress file: {error}"))?;
     }
     zip.finish()
         .map_err(|error| format!("Cannot finalize ZIP: {error}"))?;

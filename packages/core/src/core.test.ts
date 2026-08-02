@@ -190,6 +190,47 @@ describe("Transport Fever 2 project validation", () => {
     );
   });
 
+  it("keeps reference line numbers exact across a large resource file", () => {
+    const references = Array.from(
+      { length: 500 },
+      (_, index) => `    "vehicle/train/missing_${index}.mtl",`
+    );
+    const model = [
+      "function data()",
+      "  return { materials = {",
+      ...references,
+      "  } }",
+      "end"
+    ].join("\n");
+    const result = validateProject(
+      snapshot([
+        {
+          relativePath: "mod.lua",
+          size: VALID_MOD_LUA.length,
+          modifiedMs: 1,
+          text: true,
+          content: VALID_MOD_LUA
+        },
+        {
+          relativePath: "res/models/model/vehicle/train/test.mdl",
+          size: model.length,
+          modifiedMs: 1,
+          text: true,
+          content: model
+        }
+      ])
+    );
+
+    const lines = result.diagnostics
+      .filter((item) => item.code === "RESOURCE_UNRESOLVED")
+      .map((item) => item.line);
+
+    expect(lines).toHaveLength(references.length);
+    expect(new Set(lines).size).toBe(references.length);
+    expect(Math.min(...(lines as number[]))).toBe(3);
+    expect(Math.max(...(lines as number[]))).toBe(references.length + 2);
+  });
+
   it("blocks files that collide on Windows-compatible casing", () => {
     const result = validateProject(
       snapshot([
@@ -389,6 +430,34 @@ describe("stdout.txt analysis", () => {
       true
     );
     expect(warning?.causeStatus).toBe("unclassified");
+  });
+
+  it("collects a long stack traceback into one event", () => {
+    // Guards the linear event assembly. Rebuilding the event per appended
+    // detail line was quadratic: this input took ~22 s before and ~18 ms after,
+    // so Vitest's 5 s default timeout fails the test if the regression returns.
+    const frames = Array.from(
+      { length: 6_000 },
+      (_, index) =>
+        `  mods/deep_mod_1/res/scripts/frame_${index}.lua:${index + 1}: in function 'step'`
+    );
+    const analysis = analyzeTf2Log(
+      ["ERROR attempt to index a nil value", "stack traceback:", ...frames].join(
+        "\n"
+      )
+    );
+
+    expect(analysis.groups).toHaveLength(1);
+    expect(analysis.groups[0]).toEqual(
+      expect.objectContaining({
+        causeCode: "LUA_RUNTIME_NIL",
+        causeStatus: "root-cause",
+        firstLine: 1,
+        lastLine: frames.length + 2,
+        modId: "deep_mod_1"
+      })
+    );
+    expect(analysis.groups[0]?.stackTrace).toHaveLength(frames.length);
   });
 
   it("keeps unknown error signatures explicitly unreliable", () => {

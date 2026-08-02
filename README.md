@@ -95,8 +95,12 @@ Detailed setup, build and verification instructions:
 - Existing installed mods are never overwritten unless the user explicitly
   requests it; an in-target backup is created first.
 - Mod Lua is parsed statically and never executed for validation.
+- Imported ZIP archives are extracted with per-entry path validation and hard
+  entry/size caps.
 - Game launch uses a direct process API, never a shell.
-- Telemetry is absent.
+- Telemetry is absent. The only outbound requests are the startup GitHub
+  release check and — if you explicitly enable and configure it — the optional
+  AI assist to your own endpoint.
 
 See [`docs/security-model.md`](docs/security-model.md) for details.
 

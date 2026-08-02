@@ -729,12 +729,33 @@ nav {
   border-color: var(--accent);
 }
 
+.editor-tab-label {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
 .tab-close {
   display: grid;
   flex: 0 0 auto;
   margin-left: auto;
+  padding: 0;
   place-items: center;
   color: var(--muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
 }
 
 .save-button {

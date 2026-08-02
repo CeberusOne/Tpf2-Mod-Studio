@@ -19,6 +19,7 @@ use std::{
 
 const GITHUB_REPO: &str = "CeberusOne/Tpf2-Mod-Studio";
 const USER_AGENT: &str = "Tpf2-Mod-Studio-Updater";
+const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -310,7 +311,7 @@ fn linux_install_target() -> Result<PathBuf, String> {
 
 async fn download_to_file(url: &str, destination: &Path) -> Result<(), String> {
     let client = http_client()?;
-    let response = client
+    let mut response = client
         .get(url)
         .send()
         .await
@@ -318,18 +319,29 @@ async fn download_to_file(url: &str, destination: &Path) -> Result<(), String> {
     if !response.status().is_success() {
         return Err(format!("Download HTTP {}", response.status()));
     }
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|error| format!("Download body failed: {error}"))?;
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent)
             .map_err(|error| format!("Cannot create download directory: {error}"))?;
     }
     let mut file = fs::File::create(destination)
         .map_err(|error| format!("Cannot create download file: {error}"))?;
-    file.write_all(&bytes)
-        .map_err(|error| format!("Cannot write download: {error}"))?;
+    // Stream to disk: installer packages are tens of megabytes.
+    let mut downloaded = 0u64;
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| format!("Download body failed: {error}"))?
+    {
+        downloaded = downloaded.saturating_add(chunk.len() as u64);
+        if downloaded > MAX_DOWNLOAD_BYTES {
+            let _ = fs::remove_file(destination);
+            return Err(format!(
+                "The update package exceeds the {MAX_DOWNLOAD_BYTES} byte download limit."
+            ));
+        }
+        file.write_all(&chunk)
+            .map_err(|error| format!("Cannot write download: {error}"))?;
+    }
     Ok(())
 }
 
@@ -530,8 +542,15 @@ mod tests {
         }
     }
 
+    /// Live GitHub call: opt in with `TPF2_UPDATER_NETWORK_TESTS=1`.
+    /// Unauthenticated api.github.com allows 60 requests/hour per IP, so this
+    /// must not run on every `cargo test` or in offline environments.
     #[tokio::test]
     async fn check_for_update_returns_structured_result() {
+        if env::var_os("TPF2_UPDATER_NETWORK_TESTS").is_none() {
+            eprintln!("skipped: set TPF2_UPDATER_NETWORK_TESTS=1 to run the live GitHub check");
+            return;
+        }
         let info = check_for_update().await.expect("github check");
         assert!(!info.current_version.is_empty());
         if info.available {

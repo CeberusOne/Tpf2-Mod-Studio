@@ -234,7 +234,17 @@ function resourceReferenceDiagnostics(
       continue;
     }
 
+    // matchAll yields ascending offsets, so newlines are counted forward once
+    // per file instead of re-slicing the whole content for every reference.
+    let scannedUpTo = 0;
+    let line = 1;
+
     for (const match of file.content.matchAll(RESOURCE_REFERENCE_PATTERN)) {
+      const offset = match.index ?? 0;
+      for (; scannedUpTo < offset; scannedUpTo += 1) {
+        if (file.content.charCodeAt(scannedUpTo) === 10) line += 1;
+      }
+
       const reference = match[2];
       if (reference === undefined || !reference.includes("/")) continue;
       const candidates = referenceCandidates(reference);
@@ -243,9 +253,6 @@ function resourceReferenceDiagnostics(
       const caseMatch = candidates
         .flatMap((candidate) => portable.get(portablePathKey(candidate)) ?? [])
         .at(0);
-      const offset = match.index ?? 0;
-      const prefix = file.content.slice(0, offset);
-      const line = prefix.split(/\r?\n/u).length;
 
       if (caseMatch !== undefined) {
         const key = `CASE:${file.relativePath}:${reference}:${line}`;
