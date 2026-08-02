@@ -4,6 +4,11 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import {
+  DEFAULT_AI_SETTINGS,
+  isAiConfigured,
+  requestAiAssistance
+} from "./ai-assist.js";
 import { analyzeTf2Log, parseTf2Log } from "./log-parser.js";
 import { analyzeTf2Registrations } from "./modifier-analyzer.js";
 import {
@@ -281,6 +286,32 @@ describe("resource index", () => {
 
     expect(index.entries).toHaveLength(810);
     expect(index.counts.model).toBe(810);
+  });
+});
+
+describe("optional AI assist", () => {
+  it("defaults to disabled with no provider preselected", () => {
+    expect(DEFAULT_AI_SETTINGS).toEqual({
+      enabled: false,
+      baseUrl: "",
+      apiKey: "",
+      model: ""
+    });
+    expect(isAiConfigured(DEFAULT_AI_SETTINGS)).toBe(false);
+    expect(
+      isAiConfigured({
+        enabled: true,
+        baseUrl: "https://example.invalid/v1",
+        apiKey: "secret",
+        model: "my-model"
+      })
+    ).toBe(true);
+  });
+
+  it("refuses requests when AI is not configured", async () => {
+    await expect(
+      requestAiAssistance(DEFAULT_AI_SETTINGS, "test")
+    ).rejects.toThrow(/optional/i);
   });
 });
 

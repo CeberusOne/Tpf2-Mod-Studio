@@ -1268,9 +1268,10 @@ mod tests {
     }
 
     #[test]
-    fn linux_runtime_workaround_sets_dmabuf_default() {
-        // Remove any inherited value for the duration of the assertion.
+    fn linux_runtime_workaround_sets_default_and_preserves_override() {
+        // Env vars are process-global; serialize both checks in one test.
         let previous = env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER");
+
         env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
         apply_linux_runtime_workarounds();
         #[cfg(target_os = "linux")]
@@ -1284,21 +1285,18 @@ mod tests {
         {
             assert!(env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none());
         }
-        match previous {
-            Some(value) => env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", value),
-            None => env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER"),
-        }
-    }
 
-    #[test]
-    fn linux_runtime_workaround_preserves_user_override() {
         env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "0");
         apply_linux_runtime_workarounds();
         assert_eq!(
             env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok().as_deref(),
             Some("0")
         );
-        env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
+
+        match previous {
+            Some(value) => env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", value),
+            None => env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER"),
+        }
     }
 
     #[test]

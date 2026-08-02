@@ -225,18 +225,24 @@ const english = {
   logAffectedFiles: "Affected files",
   logAffectedMods: "Affected mods",
   askAi: "Ask AI",
-  aiAssist: "AI assist",
-  aiEnabled: "Enable AI assist",
-  aiBaseUrl: "API base URL",
+  aiAssist: "Optional AI help",
+  aiEnabled: "Use optional AI assist",
+  aiBaseUrl: "API base URL (your choice)",
   aiApiKey: "API key",
-  aiModel: "Model",
-  aiBaseUrlHint: "OpenAI-compatible endpoint (default: SpaceXAI / xAI).",
-  aiSaved: "AI settings saved locally on this computer.",
-  aiNotConfigured: "Configure AI under Game paths to use assist.",
+  aiModel: "Model name (your choice)",
+  aiBaseUrlHint:
+    "Optional. Any OpenAI-compatible endpoint you prefer (cloud or local). Leave empty to work without AI.",
+  aiSaved: "Save AI settings",
+  aiNotConfigured:
+    "AI is optional. Enter your own API details under Game paths only if you want help.",
   aiWorking: "Asking AI…",
   aiResponse: "AI response",
   aiClear: "Clear AI answer",
-  navAi: "AI"
+  navAi: "AI",
+  aiOptionalNote:
+    "AI is never required. The Studio works fully without any API key.",
+  aiBaseUrlPlaceholder: "https://…/v1",
+  aiModelPlaceholder: "your-model-id"
 
 } as const;
 
@@ -458,18 +464,24 @@ const german: TranslationCatalog = {
   logAffectedFiles: "Betroffene Dateien",
   logAffectedMods: "Betroffene Mods",
   askAi: "KI fragen",
-  aiAssist: "KI-Hilfe",
-  aiEnabled: "KI-Hilfe aktivieren",
-  aiBaseUrl: "API-Basis-URL",
+  aiAssist: "Optionale KI-Hilfe",
+  aiEnabled: "Optionale KI-Hilfe nutzen",
+  aiBaseUrl: "API-Basis-URL (frei wählbar)",
   aiApiKey: "API-Schlüssel",
-  aiModel: "Modell",
-  aiBaseUrlHint: "OpenAI-kompatibler Endpunkt (Standard: SpaceXAI / xAI).",
-  aiSaved: "KI-Einstellungen lokal auf diesem Rechner gespeichert.",
-  aiNotConfigured: "KI unter Spielpfade konfigurieren, um die Hilfe zu nutzen.",
+  aiModel: "Modellname (frei wählbar)",
+  aiBaseUrlHint:
+    "Optional. Beliebiger OpenAI-kompatibler Endpunkt (Cloud oder lokal). Leer lassen = ohne KI arbeiten.",
+  aiSaved: "KI-Einstellungen speichern",
+  aiNotConfigured:
+    "KI ist optional. Nur unter Spielpfade eigene API-Daten eintragen, wenn du sie nutzen willst.",
   aiWorking: "KI wird befragt…",
   aiResponse: "KI-Antwort",
   aiClear: "KI-Antwort löschen",
-  navAi: "KI"
+  navAi: "KI",
+  aiOptionalNote:
+    "KI ist nie Pflicht. Das Studio funktioniert vollständig ohne API-Schlüssel.",
+  aiBaseUrlPlaceholder: "https://…/v1",
+  aiModelPlaceholder: "dein-modell-id"
 
 };
 
