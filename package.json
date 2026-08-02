@@ -1,6 +1,6 @@
 {
   "name": "tpf2-mod-studio",
-  "version": "0.1.0-alpha.7",
+  "version": "0.1.0-alpha.8",
   "private": true,
   "license": "GPL-3.0-only",
   "description": "Standalone desktop workbench for Transport Fever 2 mod development.",

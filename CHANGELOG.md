@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0-alpha.8 — 2026-08-02
+
+- Fixed validation refusing to install valid mods: 225 of 709 installed
+  `mod.lua` files start with a UTF-8 byte order mark, which the Lua parser
+  reported as a syntax error. It is now stripped before parsing.
+- Mod library shows a three-state health light per mod (green / amber / red)
+  with per-mod findings, causes and fixes behind Info.
+- Workshop folder ids no longer trigger the mod-folder naming convention
+  (618 unactionable warnings removed); findings that could not be proven
+  statically no longer colour the light.
+- Mod library groups mods by source and shows preview images, decoding
+  `image_00.tga` natively and loading previews per visible card.
+- Added a 3D model viewer for `.mdl` assets (Advanced level): LOD switching,
+  wireframe, bounding box and collider, part and triangle counts.
+- Added in-place editing of a mod's text files from the library
+  (Advanced level), using the existing backup and atomic-replace path.
+
 ## 0.1.0-alpha.7 — 2026-08-02
 
 - Fixed opening real `stdout.txt` files, which failed with
