@@ -67,6 +67,7 @@ import {
 } from "react";
 
 import type { DesktopBridge } from "./bridge";
+import ErrorBoundary from "./ErrorBoundary";
 import { tauriBridge } from "./bridge";
 import {
   I18nProvider,
@@ -173,7 +174,9 @@ function EmptyState({
 export default function App(props: AppProps) {
   return (
     <I18nProvider>
-      <Workbench {...props} />
+      <ErrorBoundary>
+        <Workbench {...props} />
+      </ErrorBoundary>
     </I18nProvider>
   );
 }
@@ -1119,6 +1122,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
                         {t("selectFileDescription")}
                       </EmptyState>
                     ) : (
+                      <ErrorBoundary label={t("editorLoading")}>
                       <Suspense
                         fallback={
                           <div className="editor-loading">
@@ -1137,6 +1141,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
                           value={activeTab.content}
                         />
                       </Suspense>
+                      </ErrorBoundary>
                     )}
                   </div>
                   <div className="editor-status">

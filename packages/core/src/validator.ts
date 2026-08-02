@@ -393,18 +393,36 @@ function pathDiagnostics(snapshot: ProjectSnapshot): Diagnostic[] {
  * Folder-name convention check, usable without a full project scan.
  */
 export function folderNameDiagnostics(folderName: string): Diagnostic[] {
-  if (/^[a-z0-9][a-z0-9_-]*_[1-9][0-9]*$/u.test(folderName)) return [];
-  return [
-    diagnostic(
-      "MOD_FOLDER_CONVENTION",
-      "warning",
-      "official-guidance",
-      "Non-standard mod folder name",
-      `\`${folderName}\` does not end in a positive major-version suffix such as \`_1\`.`,
-      "TF2 uses the mod folder's major-version suffix to distinguish installed versions.",
-      "Use a lower-case identifier ending in `_1` or another positive major version."
-    )
-  ];
+  const diagnostics: Diagnostic[] = [];
+  // Report the two rules separately. Reporting a missing version suffix for a
+  // folder that plainly ends in `_1` — because it also contains upper-case
+  // letters — sent people looking for the wrong problem.
+  if (!/_[1-9][0-9]*$/u.test(folderName)) {
+    diagnostics.push(
+      diagnostic(
+        "MOD_FOLDER_VERSION_SUFFIX",
+        "warning",
+        "official-guidance",
+        "Mod folder has no version suffix",
+        `\`${folderName}\` does not end in a positive major-version suffix such as \`_1\`.`,
+        "TF2 uses the mod folder's major-version suffix to distinguish installed versions.",
+        "Rename the folder to end in `_1` or another positive major version."
+      )
+    );
+  } else if (!/^[a-z0-9][a-z0-9_-]*$/u.test(folderName.replace(/_[1-9][0-9]*$/u, ""))) {
+    diagnostics.push(
+      diagnostic(
+        "MOD_FOLDER_NOT_LOWERCASE",
+        "warning",
+        "official-guidance",
+        "Mod folder name is not lower-case",
+        `\`${folderName}\` has the expected version suffix, but its name is not fully lower-case.`,
+        "Upper-case folder names load on Linux and Windows alike; the official guidance recommends lower-case for portable, predictable paths.",
+        "Rename the folder to lower-case if you publish it. An existing installed mod keeps working as it is."
+      )
+    );
+  }
+  return diagnostics;
 }
 
 /**

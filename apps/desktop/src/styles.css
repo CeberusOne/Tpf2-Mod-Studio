@@ -329,12 +329,18 @@ nav {
 
 .topbar-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 }
 
 .segmented {
   display: flex;
+  /* Without this the detail-level switch is squeezed to zero width in a
+     narrow window while the language switch keeps its size, so Advanced
+     mode becomes unreachable. */
+  flex: 0 0 auto;
   padding: 3px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -343,6 +349,7 @@ nav {
 
 .segmented button {
   padding: 6px 9px;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
@@ -1854,6 +1861,7 @@ nav {
 /* UI scale control */
 .font-size-control {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 0.5rem;
   min-width: 9.5rem;
@@ -2102,4 +2110,40 @@ nav {
 
 .model-viewer-error {
   color: #e5484d;
+}
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: 100%;
+  margin: 16px;
+  padding: 16px;
+  overflow: auto;
+  color: var(--text);
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
+  border-radius: 8px;
+}
+
+.error-boundary p {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.85rem;
+}
+
+.error-boundary pre {
+  max-height: 260px;
+  margin: 8px 0 0;
+  overflow: auto;
+  font-size: 0.7rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.error-boundary summary {
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
 }

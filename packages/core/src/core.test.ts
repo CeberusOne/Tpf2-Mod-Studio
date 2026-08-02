@@ -360,8 +360,37 @@ end`;
 
     expect(workshop.status).toBe("ok");
     expect(local.diagnostics.map((item) => item.code)).toContain(
-      "MOD_FOLDER_CONVENTION"
+      "MOD_FOLDER_VERSION_SUFFIX"
     );
+  });
+
+  it("does not claim a missing suffix for a folder that plainly has one", () => {
+    // `Autobahn_Kreuz_1` ends in `_1`; only its capitals break the convention.
+    // Reporting a missing version suffix sent people looking for the wrong thing.
+    const health = classifyModHealth({
+      folderName: "Autobahn_Kreuz_1",
+      source: "local",
+      modLua: VALID_MOD_LUA
+    });
+    const codes = health.diagnostics.map((item) => item.code);
+
+    expect(codes).toContain("MOD_FOLDER_NOT_LOWERCASE");
+    expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
+    expect(
+      health.diagnostics.find(
+        (item) => item.code === "MOD_FOLDER_NOT_LOWERCASE"
+      )?.description
+    ).toContain("has the expected version suffix");
+  });
+
+  it("accepts a fully lower-case folder with a version suffix", () => {
+    expect(
+      classifyModHealth({
+        folderName: "sebbe_hv69signale_erw1_1",
+        source: "local",
+        modLua: VALID_MOD_LUA
+      }).diagnostics.map((item) => item.code)
+    ).toEqual([]);
   });
 });
 
