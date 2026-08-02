@@ -723,8 +723,25 @@ fn launch_game(executable_path: String) -> Result<u32, String> {
     Ok(child.id())
 }
 
+/// Apply Linux runtime workarounds before WebKitGTK starts.
+///
+/// WebKitGTK 2.42+ can abort on start with
+/// `Could not create GBM EGL display` when the DMA-BUF renderer is enabled on
+/// some NVIDIA / hybrid-GPU / Wayland setups. Prefer the legacy path unless the
+/// user has already set `WEBKIT_DISABLE_DMABUF_RENDERER`.
+fn apply_linux_runtime_workarounds() {
+    #[cfg(target_os = "linux")]
+    {
+        if env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+            env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    apply_linux_runtime_workarounds();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -879,5 +896,39 @@ mod tests {
         let error = read_tf2_log(path_string(&unsupported))
             .expect_err("unsupported log extension should be rejected");
         assert!(error.contains("Only .txt and .log"));
+    }
+
+    #[test]
+    fn linux_runtime_workaround_sets_dmabuf_default() {
+        // Remove any inherited value for the duration of the assertion.
+        let previous = env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER");
+        env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
+        apply_linux_runtime_workarounds();
+        #[cfg(target_os = "linux")]
+        {
+            assert_eq!(
+                env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok().as_deref(),
+                Some("1")
+            );
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            assert!(env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none());
+        }
+        match previous {
+            Some(value) => env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", value),
+            None => env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER"),
+        }
+    }
+
+    #[test]
+    fn linux_runtime_workaround_preserves_user_override() {
+        env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "0");
+        apply_linux_runtime_workarounds();
+        assert_eq!(
+            env::var("WEBKIT_DISABLE_DMABUF_RENDERER").ok().as_deref(),
+            Some("0")
+        );
+        env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
     }
 }

@@ -98,6 +98,8 @@ jobs:
         shell: bash
         run: |
           set +e
+          # Match the shipped runtime default (also applied inside the binary).
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
           timeout 12s xvfb-run -a \
             apps/desktop/src-tauri/target/release/tpf2-mod-studio \
             > native-smoke.log 2>&1
