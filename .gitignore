@@ -44,3 +44,6 @@ desktop.ini
 
 # Generated Tauri schemas
 apps/desktop/src-tauri/gen/
+
+# Local launcher: contains absolute paths of this machine
+"Tpf2 Mod Studio.desktop"

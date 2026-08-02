@@ -2,7 +2,7 @@
 name = "tpf2-mod-studio"
 version = "0.1.0-alpha.8"
 description = "Standalone Transport Fever 2 mod development workbench"
-authors = ["Tpf2 Mod Studio contributors"]
+authors = ["Mike Hering"]
 license = "GPL-3.0-only"
 edition = "2021"
 rust-version = "1.77.2"
@@ -26,3 +26,4 @@ tauri = { version = "2.11.5", features = [] }
 tauri-plugin-dialog = "2.7.2"
 tokio = { version = "1.53.1", features = ["fs", "io-util", "macros", "rt-multi-thread"] }
 zip = { version = "2", features = ["deflate"] }
+zstd = "0.13.3"

@@ -98,9 +98,8 @@ Detailed setup, build and verification instructions:
 - Imported ZIP archives are extracted with per-entry path validation and hard
   entry/size caps.
 - Game launch uses a direct process API, never a shell.
-- Telemetry is absent. The only outbound requests are the startup GitHub
-  release check and — if you explicitly enable and configure it — the optional
-  AI assist to your own endpoint.
+- Telemetry is absent. The only outbound request is the startup GitHub
+  release check. Mod content never leaves the machine.
 
 See [`docs/security-model.md`](docs/security-model.md) for details.
 
@@ -139,7 +138,11 @@ Windows + Linux from source). See [docs/build-and-packaging.md](docs/build-and-p
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
-## License
+## Author and license
+
+Developed by **Mike Hering**.
+
+Copyright © 2026 Mike Hering.
 
 Tpf2 Mod Studio is licensed under the
 [GNU General Public License version 3](LICENSE), using the SPDX identifier

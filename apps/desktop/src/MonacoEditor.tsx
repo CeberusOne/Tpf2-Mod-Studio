@@ -12,7 +12,14 @@ type MonacoEnvironment = {
   MonacoEnvironment: MonacoEnvironment;
 }).MonacoEnvironment = {
   getWorker() {
-    return new editorWorker();
+    // Diagnostics only: worker startup failures are otherwise invisible in a
+    // packaged build. The error is still propagated to Monaco unchanged.
+    try {
+      return new editorWorker();
+    } catch (error) {
+      console.error("Monaco worker failed to start", error);
+      throw error;
+    }
   }
 };
 

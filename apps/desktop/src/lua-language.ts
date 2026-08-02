@@ -3,12 +3,11 @@ import type { editor, Position } from "monaco-editor";
 
 let configured = false;
 
-export function configureLuaLanguage(monaco: Monaco): void {
-  if (configured) return;
-  configured = true;
-
-  monaco.languages.register({ id: "lua" });
-  monaco.languages.setMonarchTokensProvider("lua", {
+/**
+ * Monarch grammar for Lua. Exported so its `@name` references can be checked
+ * without booting Monaco: an unresolved one aborts compilation at runtime.
+ */
+export const LUA_MONARCH_LANGUAGE = {
     defaultToken: "",
     tokenPostfix: ".lua",
     keywords: [
@@ -35,6 +34,12 @@ export function configureLuaLanguage(monaco: Monaco): void {
       "until",
       "while"
     ],
+    // The tokenizer references `@symbols` below. Monarch resolves an `@name`
+    // against a top-level attribute of the same name and aborts compilation
+    // with "language definition does not contain attribute 'symbols'" when it
+    // is missing — which threw while opening any Lua file and took the whole
+    // window down with it.
+    symbols: /[=><!~?:&|+\-*/^%#.]+/u,
     operators: [
       "+",
       "-",
@@ -94,7 +99,14 @@ export function configureLuaLanguage(monaco: Monaco): void {
         [/'/u, "string", "@pop"]
       ]
     }
-  });
+  };
+
+export function configureLuaLanguage(monaco: Monaco): void {
+  if (configured) return;
+  configured = true;
+
+  monaco.languages.register({ id: "lua" });
+  monaco.languages.setMonarchTokensProvider("lua", LUA_MONARCH_LANGUAGE);
 
   monaco.languages.registerCompletionItemProvider("lua", {
     provideCompletionItems(model: editor.ITextModel, position: Position) {

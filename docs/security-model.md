@@ -39,18 +39,13 @@ No shell command string is constructed. The app does not terminate the game.
 
 ## Network and telemetry
 
-There is no analytics and no telemetry. Two features do reach the network.
-Both are scoped and neither runs without being visible to the user.
+There is no analytics and no telemetry. Exactly one feature reaches the
+network, and it is scoped and visible to the user.
 
 - **Update check.** At startup the app issues one unauthenticated `GET` to
   `api.github.com/repos/CeberusOne/Tpf2-Mod-Studio/releases`. It reads release
   metadata only; nothing is uploaded. Downloading and installing an update
   requires an explicit user action, is capped at 512 MiB, and never restarts
   the application on its own.
-- **Optional AI assist.** Disabled by default with no provider preselected.
-  Once the user enables it and supplies their own base URL, API key and model,
-  the selected log group or diagnostic is sent to that endpoint as a chat
-  completion request. The API key is stored in this application's WebView
-  `localStorage` and is transmitted only to the configured base URL.
 
-No other outbound request is made.
+No other outbound request is made. Mod content is never uploaded anywhere.

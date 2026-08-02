@@ -147,6 +147,15 @@ function bridge(native = true): DesktopBridge {
     scanModLibrary: vi.fn(async (): Promise<InstalledMod[]> => []),
     readModPreview: vi.fn(async () => "data:image/jpeg;base64,AAAA"),
     readModelFile: vi.fn(async () => ({ relativePath: "m.mdl", text: "" })),
+    listSavegames: vi.fn(async () => []),
+    readSavegameMods: vi.fn(async () => ({
+      path: "/tf2/save/x.sav",
+      mods: [],
+      complete: true
+    })),
+    listModPresets: vi.fn(async () => []),
+    readModPreset: vi.fn(async () => ""),
+    writeModPreset: vi.fn(async () => "/tf2/userdata/mod_presets/x.lua"),
     listLogFiles: vi.fn(async () => []),
     archiveStdout: vi.fn(async () => "/tmp/stdout-archive.txt"),
     exportProjectZip: vi.fn(async () => "/exports/test_mod_1.zip"),

@@ -21,7 +21,6 @@
 - ZIP mod import with path-validated, size-capped extraction
 - Clean project ZIP export to a user-chosen target
 - Installed-mod library scan across local, staging, builtin and workshop paths
-- Optional, user-configured AI assist (disabled by default, no preset provider)
 - Startup update check against GitHub Releases; install stays a user action
 - Light/dark UI and beginner/expert information levels
 

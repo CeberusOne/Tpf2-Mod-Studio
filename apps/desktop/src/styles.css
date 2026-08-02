@@ -117,9 +117,20 @@ button:disabled {
 
 .brand {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 11px;
   padding: 0 8px 24px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.brand:hover strong {
+  color: var(--accent);
 }
 
 .brand-mark {
@@ -329,12 +340,18 @@ nav {
 
 .topbar-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 }
 
 .segmented {
   display: flex;
+  /* Without this the detail-level switch is squeezed to zero width in a
+     narrow window while the language switch keeps its size, so Advanced
+     mode becomes unreachable. */
+  flex: 0 0 auto;
   padding: 3px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -343,6 +360,7 @@ nav {
 
 .segmented button {
   padding: 6px 9px;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 700;
@@ -1854,6 +1872,7 @@ nav {
 /* UI scale control */
 .font-size-control {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 0.5rem;
   min-width: 9.5rem;
@@ -1994,32 +2013,9 @@ nav {
   font-size: 0.9rem;
 }
 
-.ai-answer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.75rem 0.85rem;
-  background: color-mix(in srgb, var(--info) 10%, var(--surface));
-  border: 1px solid color-mix(in srgb, var(--info) 28%, var(--border));
-  border-radius: 0.55rem;
-}
 
-.ai-answer p {
-  margin: 0;
-  white-space: pre-wrap;
-  line-height: 1.45;
-}
 
-.ai-settings-card {
-  margin-bottom: 1rem;
-}
 
-.ai-optional-note {
-  margin: 0 0 0.75rem;
-  color: var(--muted-strong);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
 
 .log-file-row {
   width: 100%;
@@ -2102,4 +2098,267 @@ nav {
 
 .model-viewer-error {
   color: #e5484d;
+}
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  max-width: 100%;
+  margin: 16px;
+  padding: 16px;
+  overflow: auto;
+  color: var(--text);
+  background: color-mix(in srgb, var(--error) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--error) 35%, transparent);
+  border-radius: 8px;
+}
+
+.error-boundary p {
+  margin: 0;
+  color: var(--error);
+  font-size: 0.85rem;
+}
+
+.error-boundary pre {
+  max-height: 260px;
+  margin: 8px 0 0;
+  overflow: auto;
+  font-size: 0.7rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.error-boundary summary {
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+/* A maximised mod card covers the workbench so the 3D view gets real room. */
+.mod-card.is-maximized {
+  position: fixed;
+  z-index: 60;
+  inset: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.mod-card.is-maximized .mod-preview {
+  max-width: 420px;
+}
+
+.mod-card.is-maximized .model-viewer-canvas {
+  height: auto;
+  min-height: 420px;
+  flex: 1 1 auto;
+}
+
+.mod-card.is-maximized .model-browser {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.mod-card.is-maximized .mod-editor-body {
+  height: auto;
+  min-height: 420px;
+  flex: 1 1 auto;
+}
+
+.mod-maximize {
+  flex: 0 0 auto;
+  min-width: 40px;
+}
+
+.model-parts {
+  margin: 8px 0;
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.model-parts summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.model-parts .check-row {
+  margin-top: 5px;
+}
+
+.model-parts .check-row span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.model-viewer-toolbar button {
+  padding: 4px 9px;
+  font-size: 0.74rem;
+}
+
+.sidebar-author {
+  color: var(--muted);
+  font-size: 0.74rem;
+  opacity: 0.85;
+}
+
+.save-columns {
+  display: grid;
+  grid-template-columns: minmax(220px, 28%) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+.save-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 70vh;
+  padding: 10px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.save-sources h3 {
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: 0.76rem;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.save-row span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.save-row small {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.save-row:hover,
+.save-row.is-active {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.save-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.save-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.save-name {
+  min-width: 200px;
+  margin-left: auto;
+}
+
+.save-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.78rem;
+}
+
+.save-added { color: var(--info); }
+.save-missing { color: var(--warning); }
+.save-unverifiable { color: var(--muted); }
+
+.save-issue {
+  display: flex;
+  gap: 9px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  border-left: 3px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+}
+
+.save-issue.error { border-left-color: var(--error); }
+.save-issue.warning { border-left-color: var(--warning); }
+.save-issue code,
+.save-order-row code {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.save-issue p { margin: 4px 0; color: var(--muted); }
+
+.save-order,
+.save-picker {
+  padding: 10px 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.save-order summary,
+.save-picker summary {
+  color: var(--muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.save-order-row {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 0.74rem;
+}
+
+.save-order-row span { color: var(--muted); text-align: right; }
+
+.save-picker-list {
+  max-height: 320px;
+  margin-top: 8px;
+  overflow-y: auto;
+}
+
+.save-footnote {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.76rem;
 }

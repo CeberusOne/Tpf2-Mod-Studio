@@ -4,11 +4,6 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-  DEFAULT_AI_SETTINGS,
-  isAiConfigured,
-  requestAiAssistance
-} from "./ai-assist.js";
 import { analyzeTf2Log, parseTf2Log } from "./log-parser.js";
 import { classifyModHealth } from "./mod-health.js";
 import { parseLuaData } from "./lua-data.js";
@@ -360,8 +355,37 @@ end`;
 
     expect(workshop.status).toBe("ok");
     expect(local.diagnostics.map((item) => item.code)).toContain(
-      "MOD_FOLDER_CONVENTION"
+      "MOD_FOLDER_VERSION_SUFFIX"
     );
+  });
+
+  it("does not claim a missing suffix for a folder that plainly has one", () => {
+    // `Autobahn_Kreuz_1` ends in `_1`; only its capitals break the convention.
+    // Reporting a missing version suffix sent people looking for the wrong thing.
+    const health = classifyModHealth({
+      folderName: "Autobahn_Kreuz_1",
+      source: "local",
+      modLua: VALID_MOD_LUA
+    });
+    const codes = health.diagnostics.map((item) => item.code);
+
+    expect(codes).toContain("MOD_FOLDER_CHARACTERS");
+    expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
+    expect(
+      health.diagnostics.find(
+        (item) => item.code === "MOD_FOLDER_CHARACTERS"
+      )?.description
+    ).toContain("has the expected version suffix");
+  });
+
+  it("accepts a fully lower-case folder with a version suffix", () => {
+    expect(
+      classifyModHealth({
+        folderName: "sebbe_hv69signale_erw1_1",
+        source: "local",
+        modLua: VALID_MOD_LUA
+      }).diagnostics.map((item) => item.code)
+    ).toEqual([]);
   });
 });
 
@@ -535,32 +559,6 @@ describe("resource index", () => {
 
     expect(index.entries).toHaveLength(810);
     expect(index.counts.model).toBe(810);
-  });
-});
-
-describe("optional AI assist", () => {
-  it("defaults to disabled with no provider preselected", () => {
-    expect(DEFAULT_AI_SETTINGS).toEqual({
-      enabled: false,
-      baseUrl: "",
-      apiKey: "",
-      model: ""
-    });
-    expect(isAiConfigured(DEFAULT_AI_SETTINGS)).toBe(false);
-    expect(
-      isAiConfigured({
-        enabled: true,
-        baseUrl: "https://example.invalid/v1",
-        apiKey: "secret",
-        model: "my-model"
-      })
-    ).toBe(true);
-  });
-
-  it("refuses requests when AI is not configured", async () => {
-    await expect(
-      requestAiAssistance(DEFAULT_AI_SETTINGS, "test")
-    ).rejects.toThrow(/optional/i);
   });
 });
 

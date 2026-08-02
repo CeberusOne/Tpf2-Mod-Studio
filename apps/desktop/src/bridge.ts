@@ -12,6 +12,27 @@ import type {
   ProjectSnapshot
 } from "@tpf2-mod-studio/core";
 
+export interface SavegameInfo {
+  path: string;
+  name: string;
+  size: number;
+  modifiedMs: number;
+}
+
+export interface PresetInfo {
+  path: string;
+  name: string;
+  modifiedMs: number;
+}
+
+export interface SavegameMods {
+  path: string;
+  /** Candidate ids from the header; filter against installed mods. */
+  mods: string[];
+  complete: boolean;
+  note?: string;
+}
+
 export interface ModelFile {
   relativePath: string;
   text?: string;
@@ -72,6 +93,15 @@ export interface DesktopBridge {
   readModPreview(modPath: string): Promise<string>;
   /** Read a `.mdl`/`.msh`/`.mtl`/`.ani` as text or a `.blob` as base64. */
   readModelFile(rootPath: string, relativePath: string): Promise<ModelFile>;
+  listSavegames(userDataPath: string): Promise<SavegameInfo[]>;
+  readSavegameMods(savePath: string): Promise<SavegameMods>;
+  listModPresets(userDataPath: string): Promise<PresetInfo[]>;
+  readModPreset(presetPath: string): Promise<string>;
+  writeModPreset(
+    userDataPath: string,
+    name: string,
+    content: string
+  ): Promise<string>;
   listLogFiles(userDataPath: string): Promise<LogFileInfo[]>;
   archiveStdout(userDataPath: string): Promise<string>;
   exportProjectZip(
@@ -210,6 +240,31 @@ export const tauriBridge: DesktopBridge = {
   async readModelFile(rootPath, relativePath) {
     requireNative();
     return invoke<ModelFile>("read_model_file", { rootPath, relativePath });
+  },
+
+  async listSavegames(userDataPath) {
+    requireNative();
+    return invoke<SavegameInfo[]>("list_savegames", { userDataPath });
+  },
+
+  async readSavegameMods(savePath) {
+    requireNative();
+    return invoke<SavegameMods>("read_savegame_mods", { savePath });
+  },
+
+  async listModPresets(userDataPath) {
+    requireNative();
+    return invoke<PresetInfo[]>("list_mod_presets", { userDataPath });
+  },
+
+  async readModPreset(presetPath) {
+    requireNative();
+    return invoke<string>("read_mod_preset", { presetPath });
+  },
+
+  async writeModPreset(userDataPath, name, content) {
+    requireNative();
+    return invoke<string>("write_mod_preset", { userDataPath, name, content });
   },
 
   async listLogFiles(userDataPath) {
