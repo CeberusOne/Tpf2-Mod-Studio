@@ -48,9 +48,14 @@ if needs_build; then
   fi
   [ -d "$ROOT/node_modules" ] || (cd "$ROOT" && npm ci) || exit 1
   (cd "$ROOT" && npm run build) || { echo "!! Frontend build failed." >&2; exit 1; }
-  # Developer tools stay enabled: right-click -> Inspect shows the console,
-  # which is what identifies UI failures in a packaged build.
-  (cd "$ROOT/apps/desktop/src-tauri" && cargo build --release --features tauri/devtools) \
+  # `custom-protocol` is what makes Tauri serve the embedded frontend. Without
+  # it a plain `cargo build --release` still expects the Vite dev server and
+  # the window only shows "Could not connect to 127.0.0.1: Connection refused".
+  # The tauri CLI adds this feature itself; building through cargo does not.
+  # `devtools` keeps right-click -> Inspect available, which is how UI failures
+  # are identified in a packaged build.
+  (cd "$ROOT/apps/desktop/src-tauri" \
+     && cargo build --release --features "tauri/custom-protocol,tauri/devtools") \
     || { echo "!! Rust build failed." >&2; exit 1; }
   echo "==> Build finished."
 fi

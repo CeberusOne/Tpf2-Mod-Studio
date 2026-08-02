@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Tpf2 Mod Studio (lokaler Build)
+Comment=Startet den lokal gebauten Stand aus diesem Ordner, mit Entwicklerwerkzeugen
+Exec=/home/mikeh/Schreibtisch/claude Tpf2 Mod-Studio/Tpf2-Mod-Studio-starten.sh
+Path=/home/mikeh/Schreibtisch/claude Tpf2 Mod-Studio
+Icon=/home/mikeh/Schreibtisch/claude Tpf2 Mod-Studio/apps/desktop/src-tauri/icons/128x128.png
+Categories=Development;
+Terminal=false
+StartupNotify=true
