@@ -1,0 +1,41 @@
+name: Refresh updater Cargo lock
+
+on:
+  push:
+    branches:
+      - agent/secure-updater-checksums
+    paths:
+      - .github/workflows/refresh-updater-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/secure-updater-checksums
+          persist-credentials: true
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Regenerate Cargo lockfile
+        working-directory: apps/desktop/src-tauri
+        run: cargo generate-lockfile
+
+      - name: Commit lockfile when changed
+        shell: bash
+        run: |
+          if git diff --quiet -- apps/desktop/src-tauri/Cargo.lock; then
+            echo "Cargo.lock is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/desktop/src-tauri/Cargo.lock
+          git commit -m "chore(rust): refresh updater lockfile"
+          git push origin HEAD:agent/secure-updater-checksums
