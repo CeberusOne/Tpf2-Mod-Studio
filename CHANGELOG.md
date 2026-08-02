@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.0-alpha.9 — 2026-08-02
+
+- Added a Savegames tab: reads which mods a savegame used, checks their
+  dependencies against the installed library and writes a `mod_presets` entry
+  with a valid load order. Savegames are only read, never modified.
+- Dependency check pulls required mods in, orders them before their dependents,
+  reports cycles, and names which mods still have to be installed. Download
+  links in dependency fields are reported as not verifiable instead of missing.
+- Fixed the editor blanking the whole window when opening a Lua file: the Lua
+  syntax definition referenced `@symbols` without defining it, which aborted
+  Monaco's grammar compiler. Added a test that resolves every `@reference`.
+- Added an error boundary so a failing area reports its error in place instead
+  of unmounting the interface.
+- Fixed the Standard/Advanced switch being squeezed to zero width in narrow
+  windows, which also made the model viewer and mod file editor unreachable.
+- Fixed the mod folder warning describing the wrong problem; it now names the
+  offending characters and states the mod still loads.
+- Model viewer: fit view, grid, axes, auto-rotate, light background, per-part
+  visibility and a size readout in metres.
+- Mod cards can be maximised to full screen; Escape leaves it.
+- Clicking the sidebar logo returns to the main view.
+- Removed the optional AI assist entirely. The only outbound request is the
+  startup release check.
+- Set Mike Hering as author across manifests, bundle metadata and the app.
+
 ## 0.1.0-alpha.8 — 2026-08-02
 
 - Fixed validation refusing to install valid mods: 225 of 709 installed

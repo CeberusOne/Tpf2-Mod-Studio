@@ -37,22 +37,40 @@ fetch_release_json() {
     curl -fsSL "https://api.github.com/repos/${REPO}/releases/tags/${TAG}"
     return
   fi
-  if curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null; then
-    return
-  fi
-  # Fall back to the newest non-draft release, including pre-releases.
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=20" \
+  # `/releases/latest` skips pre-releases by design. Every release here is a
+  # pre-release, so relying on it returns nothing today and, once a stable
+  # release exists, would keep installing that one while ignoring newer
+  # pre-releases. Pick the highest version from the list instead.
+  curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=50" \
     | if command -v python3 >/dev/null 2>&1; then
         python3 -c '
 import json, sys
-releases = json.load(sys.stdin)
-for release in releases:
-    if release.get("draft"):
-        continue
-    json.dump(release, sys.stdout)
-    break
-else:
+
+def sort_key(tag):
+    """Zero-pad numeric parts so 10 outranks 9, and rank a final release above
+    any pre-release of the same core version."""
+    text = tag.lstrip("v")
+    core, _, pre = text.partition("-")
+    parts = (core.split(".") + ["0", "0", "0"])[:3]
+    numbers = []
+    for part in parts:
+        try:
+            numbers.append(int(part))
+        except ValueError:
+            numbers.append(0)
+    head = "%06d.%06d.%06d" % tuple(numbers)
+    if not pre:
+        return head + ".1."
+    ids = []
+    for ident in pre.split("."):
+        ids.append("0%010d" % int(ident) if ident.isdigit() else "1" + ident)
+    return head + ".0." + ".".join(ids)
+
+releases = [r for r in json.load(sys.stdin) if not r.get("draft")]
+if not releases:
     sys.exit(1)
+releases.sort(key=lambda r: sort_key(r.get("tag_name") or ""), reverse=True)
+json.dump(releases[0], sys.stdout)
 '
       else
         # Minimal fallback without Python: first object in the array.
@@ -73,13 +91,19 @@ import json, sys, shlex
 r = json.load(sys.stdin)
 tag = r.get("tag_name") or ""
 url = ""
+asset = ""
+sums = ""
 for a in r.get("assets") or []:
     name = a.get("name") or ""
     if name.endswith(".AppImage"):
         url = a.get("browser_download_url") or ""
-        break
+        asset = name
+    elif name == "SHA256SUMS.txt":
+        sums = a.get("browser_download_url") or ""
 print("tag_name=" + shlex.quote(tag))
 print("download_url=" + shlex.quote(url))
+print("asset_name=" + shlex.quote(asset))
+print("sums_url=" + shlex.quote(sums))
 '
   )"
 else
@@ -111,6 +135,31 @@ tmp_file="$(mktemp "${TMPDIR:-/tmp}/tpf2-mod-studio.XXXXXX.AppImage")"
 trap 'rm -f "$tmp_file"' EXIT
 
 curl -fL --progress-bar -o "$tmp_file" "$download_url"
+
+# Packages are unsigned, so the published checksum is the only integrity check
+# available. This script is meant to be piped into a shell, which makes
+# verifying the download worth the extra request.
+if [ "${TPF2_SKIP_CHECKSUM:-0}" = "1" ]; then
+  echo "!! Checksum verification skipped (TPF2_SKIP_CHECKSUM=1)."
+elif [ -n "${sums_url:-}" ] && [ -n "${asset_name:-}" ] && command -v sha256sum >/dev/null 2>&1; then
+  echo "==> Verifying SHA-256..."
+  expected="$(curl -fsSL "$sums_url" | awk -v n="$asset_name" '{ f=$2; sub(/^\*/, "", f); if (f == n) { print $1; exit } }')"
+  if [ -z "$expected" ]; then
+    echo "SHA256SUMS.txt has no entry for ${asset_name}." >&2
+    exit 1
+  fi
+  actual="$(sha256sum "$tmp_file" | awk '{print $1}')"
+  if [ "$actual" != "$expected" ]; then
+    echo "Checksum mismatch for ${asset_name}." >&2
+    echo "  expected ${expected}" >&2
+    echo "  actual   ${actual}" >&2
+    exit 1
+  fi
+  echo "    OK ${actual}"
+else
+  echo "!! No SHA256SUMS.txt or sha256sum available; the download is unverified."
+fi
+
 chmod +x "$tmp_file"
 
 target_appimage="${INSTALL_DIR}/${APPIMAGE_NAME}"

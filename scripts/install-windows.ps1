@@ -1,4 +1,4 @@
-# Install Tpf2 Mod Studio (Windows) from the latest GitHub release.
+# Install Tpf2 Mod Studio (Windows) from a GitHub release.
 # Usage (PowerShell):
 #   irm https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-windows.ps1 | iex
 # Or from a local clone:
@@ -9,55 +9,94 @@ param(
     [string]$Tag = $(if ($env:TPF2_TAG) { $env:TPF2_TAG } else { "latest" }),
     [ValidateSet("nsis", "msi")]
     [string]$Package = "nsis",
-    [switch]$Silent
+    [switch]$Silent,
+    # Only for recovering from a broken checksum file; leaves the download unverified.
+    [switch]$SkipChecksum
 )
 
 $ErrorActionPreference = "Stop"
 
+$headers = @{
+    "User-Agent" = "Tpf2-Mod-Studio-Installer"
+    "Accept"     = "application/vnd.github+json"
+}
+
+# Order releases by version, newest first.
+#
+# `/releases/latest` deliberately skips pre-releases. Every release of this
+# project is a pre-release, so relying on it would return nothing today and,
+# once a stable release exists, would silently keep installing that stable one
+# while ignoring every newer pre-release. The list endpoint is used instead.
+function Get-VersionKey {
+    param([string]$TagName)
+    $text = $TagName -replace '^v', ''
+    $split = $text -split '-', 2
+    $core = $split[0]
+    $pre = if ($split.Count -gt 1) { $split[1] } else { "" }
+
+    $parts = @($core -split '\.') + @('0', '0', '0')
+    $numbers = @()
+    foreach ($part in $parts[0..2]) {
+        $value = 0
+        [void][int]::TryParse($part, [ref]$value)
+        $numbers += $value
+    }
+    # Zero-pad so 10 sorts above 9 instead of below it as plain text would.
+    $key = "{0:D6}.{1:D6}.{2:D6}" -f $numbers[0], $numbers[1], $numbers[2]
+    if ([string]::IsNullOrEmpty($pre)) {
+        # A release without a pre-release part outranks any pre-release of the
+        # same core version.
+        return "$key.1."
+    }
+    $identifiers = @()
+    foreach ($identifier in ($pre -split '\.')) {
+        if ($identifier -match '^\d+$') {
+            $identifiers += "0" + ("{0:D10}" -f [int]$identifier)
+        } else {
+            $identifiers += "1" + $identifier
+        }
+    }
+    return "$key.0." + ($identifiers -join '.')
+}
+
 function Get-Release {
     param([string]$Repository, [string]$ReleaseTag)
-    $headers = @{
-        "User-Agent" = "Tpf2-Mod-Studio-Installer"
-        "Accept"     = "application/vnd.github+json"
-    }
     if ($ReleaseTag -ne "latest") {
-        $uri = "https://api.github.com/repos/$Repository/releases/tags/$ReleaseTag"
-        return Invoke-RestMethod -Uri $uri -Headers $headers
+        return Invoke-RestMethod -Uri "https://api.github.com/repos/$Repository/releases/tags/$ReleaseTag" -Headers $headers
     }
-
-    # Prefer /latest, then fall back to newest non-draft (includes pre-releases).
-    try {
-        return Invoke-RestMethod -Uri "https://api.github.com/repos/$Repository/releases/latest" -Headers $headers
-    } catch {
-        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repository/releases?per_page=20" -Headers $headers
-        $candidate = $releases | Where-Object { -not $_.draft } | Select-Object -First 1
-        if (-not $candidate) {
-            throw "No published release found for $Repository."
-        }
-        return $candidate
+    $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repository/releases?per_page=50" -Headers $headers
+    $usable = @($releases | Where-Object { -not $_.draft })
+    if ($usable.Count -eq 0) {
+        throw "No published release found for $Repository."
     }
+    return $usable |
+        Sort-Object -Property @{ Expression = { Get-VersionKey $_.tag_name } } -Descending |
+        Select-Object -First 1
 }
 
 Write-Host "==> Resolving release ($Tag) from $Repo..."
 $release = Get-Release -Repository $Repo -ReleaseTag $Tag
 $tagName = $release.tag_name
 
-$pattern = if ($Package -eq "msi") { "\.msi$" } else { "setup\.exe$|\.exe$" }
-$asset = $release.assets | Where-Object { $_.name -match $pattern } | Select-Object -First 1
-
-if (-not $asset) {
-    # Prefer NSIS setup when multiple EXEs exist.
-    $asset = $release.assets | Where-Object { $_.name -like "*setup*.exe" } | Select-Object -First 1
-}
-if (-not $asset -and $Package -eq "nsis") {
+# Prefer the NSIS setup; only fall back to MSI when no setup exists.
+if ($Package -eq "msi") {
     $asset = $release.assets | Where-Object { $_.name -like "*.msi" } | Select-Object -First 1
-    if ($asset) {
-        Write-Host "NSIS setup not found; falling back to MSI: $($asset.name)"
+} else {
+    $asset = $release.assets | Where-Object { $_.name -like "*setup*.exe" } | Select-Object -First 1
+    if (-not $asset) {
+        $asset = $release.assets | Where-Object { $_.name -like "*.msi" } | Select-Object -First 1
+        if ($asset) { Write-Host "No NSIS setup on this release; using MSI: $($asset.name)" }
     }
 }
-
 if (-not $asset) {
-    throw "No Windows installer asset found on release $Tag. Open https://github.com/$Repo/releases"
+    throw "No Windows installer asset on release $tagName. See https://github.com/$Repo/releases"
+}
+
+# The asset file name carries the package version. If it disagrees with the
+# resolved tag, something other than the intended release is about to install.
+$version = $tagName -replace '^v', ''
+if ($asset.name -notlike "*$version*") {
+    throw "Asset '$($asset.name)' does not carry version '$version' from tag '$tagName'. Aborting rather than installing an unexpected build."
 }
 
 $downloadDir = Join-Path $env:TEMP "tpf2-mod-studio-install"
@@ -66,7 +105,37 @@ $installerPath = Join-Path $downloadDir $asset.name
 
 Write-Host "==> Release: $tagName"
 Write-Host "==> Download: $($asset.browser_download_url)"
-Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath
+Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -Headers @{ "User-Agent" = "Tpf2-Mod-Studio-Installer" }
+
+# Packages are unsigned, so the published checksum is the only integrity check
+# available. This script is meant to be piped into PowerShell, which makes
+# verifying the download worth the extra request.
+$checksumAsset = $release.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" } | Select-Object -First 1
+if ($SkipChecksum) {
+    Write-Host "!! Checksum verification skipped on request."
+} elseif (-not $checksumAsset) {
+    Write-Host "!! Release $tagName publishes no SHA256SUMS.txt; cannot verify the download."
+} else {
+    Write-Host "==> Verifying SHA-256..."
+    $sums = (Invoke-WebRequest -Uri $checksumAsset.browser_download_url -Headers @{ "User-Agent" = "Tpf2-Mod-Studio-Installer" }).Content
+    $expected = $null
+    foreach ($line in ($sums -split "`n")) {
+        $fields = ($line.Trim() -split '\s+')
+        if ($fields.Count -ge 2 -and ($fields[1].TrimStart('*')) -eq $asset.name) {
+            $expected = $fields[0].ToLowerInvariant()
+            break
+        }
+    }
+    if (-not $expected) {
+        throw "SHA256SUMS.txt contains no entry for $($asset.name)."
+    }
+    $actual = (Get-FileHash -Path $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $expected) {
+        Remove-Item -Path $installerPath -Force -ErrorAction SilentlyContinue
+        throw "Checksum mismatch for $($asset.name). Expected $expected, got $actual. The download was deleted."
+    }
+    Write-Host "    OK $actual"
+}
 
 Write-Host "==> Starting installer..."
 if ($asset.name -like "*.msi") {
