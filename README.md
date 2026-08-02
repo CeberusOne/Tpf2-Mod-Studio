@@ -98,9 +98,8 @@ Detailed setup, build and verification instructions:
 - Imported ZIP archives are extracted with per-entry path validation and hard
   entry/size caps.
 - Game launch uses a direct process API, never a shell.
-- Telemetry is absent. The only outbound requests are the startup GitHub
-  release check and — if you explicitly enable and configure it — the optional
-  AI assist to your own endpoint.
+- Telemetry is absent. The only outbound request is the startup GitHub
+  release check. Mod content never leaves the machine.
 
 See [`docs/security-model.md`](docs/security-model.md) for details.
 

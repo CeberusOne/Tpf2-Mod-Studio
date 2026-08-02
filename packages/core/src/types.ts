@@ -166,13 +166,6 @@ export interface ModArchiveInfo {
   nestedRoot?: string;
 }
 
-export interface AiAssistSettings {
-  enabled: boolean;
-  baseUrl: string;
-  apiKey: string;
-  model: string;
-}
-
 export type Tf2RegistrationKind = "modifier" | "file-filter";
 
 export interface Tf2ModifierDefinition {

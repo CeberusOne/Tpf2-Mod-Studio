@@ -5,6 +5,7 @@ import {
   type ModelLod,
   type Tf2Model
 } from "@tpf2-mod-studio/core";
+import { Crosshair } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -98,6 +99,7 @@ async function buildLod(
       if (sub.normals === undefined) geometry.computeVertexNormals();
 
       const object = new THREE.Mesh(geometry, material);
+      object.userData["partName"] = part.name;
       object.applyMatrix4(toMatrix(part.transform));
       group.add(object);
       triangles += sub.indices.length / 3;
@@ -123,6 +125,12 @@ export default function ModelViewer({
   const [lodIndex, setLodIndex] = useState(0);
   const [showCollider, setShowCollider] = useState(true);
   const [wireframe, setWireframe] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [showAxes, setShowAxes] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [lightBackground, setLightBackground] = useState(false);
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const [fitToken, setFitToken] = useState(0);
   const [stats, setStats] = useState<{
     triangles: number;
     parts: number;
@@ -166,7 +174,7 @@ export default function ModelViewer({
 
     let disposed = false;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x14181d);
+    scene.background = new THREE.Color(lightBackground ? 0xd8dde2 : 0x14181d);
     const camera = new THREE.PerspectiveCamera(
       50,
       mount.clientWidth / Math.max(1, mount.clientHeight),
@@ -180,6 +188,8 @@ export default function ModelViewer({
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.autoRotate = autoRotate;
+    controls.autoRotateSpeed = 1.6;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 2.2);
@@ -189,12 +199,33 @@ export default function ModelViewer({
     fill.position.set(-6, 3, -4);
     scene.add(fill);
     // Transport Fever 2 is Z-up; rotate so the ground plane reads correctly.
-    scene.add(new THREE.GridHelper(40, 40, 0x2a3038, 0x20252b));
+    if (showGrid) {
+      scene.add(
+        new THREE.GridHelper(
+          40,
+          40,
+          lightBackground ? 0x9aa4ad : 0x2a3038,
+          lightBackground ? 0xb9c1c8 : 0x20252b
+        )
+      );
+    }
+    // Transport Fever 2 is Z-up; the model group is rotated below, so the
+    // helper is rotated with it to keep the axis colours meaningful.
+    if (showAxes) {
+      const axes = new THREE.AxesHelper(5);
+      axes.rotation.x = -Math.PI / 2;
+      scene.add(axes);
+    }
 
     let frame = 0;
     void buildLod(bridge, rootPath, lod).then((built) => {
       if (disposed) return;
       built.group.rotation.x = -Math.PI / 2;
+      for (const object of built.group.children) {
+        if (object.userData["partName"] !== undefined) {
+          object.visible = !hidden.has(String(object.userData["partName"]));
+        }
+      }
       scene.add(built.group);
       setStats({
         triangles: built.triangles,
@@ -274,7 +305,20 @@ export default function ModelViewer({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [bridge, model, lodIndex, rootPath, showCollider, wireframe]);
+  }, [
+    bridge,
+    model,
+    lodIndex,
+    rootPath,
+    showCollider,
+    wireframe,
+    showGrid,
+    showAxes,
+    autoRotate,
+    lightBackground,
+    hidden,
+    fitToken
+  ]);
 
   if (error !== undefined) {
     return <p className="model-viewer-error">{error}</p>;
@@ -286,6 +330,15 @@ export default function ModelViewer({
   return (
     <div className="model-viewer">
       <div className="model-viewer-toolbar">
+        <button
+          className="secondary-button"
+          onClick={() => setFitToken((value) => value + 1)}
+          title={t("modelFitHint")}
+          type="button"
+        >
+          <Crosshair size={15} />
+          {t("modelFit")}
+        </button>
         {model.lods.length > 1 ? (
           <label className="model-lod">
             <span>{t("modelLod")}</span>
@@ -320,7 +373,65 @@ export default function ModelViewer({
           />
           <span>{t("modelShowBounds")}</span>
         </label>
+        <label className="check-row">
+          <input
+            checked={showGrid}
+            onChange={(event) => setShowGrid(event.target.checked)}
+            type="checkbox"
+          />
+          <span>{t("modelGrid")}</span>
+        </label>
+        <label className="check-row">
+          <input
+            checked={showAxes}
+            onChange={(event) => setShowAxes(event.target.checked)}
+            type="checkbox"
+          />
+          <span>{t("modelAxes")}</span>
+        </label>
+        <label className="check-row">
+          <input
+            checked={autoRotate}
+            onChange={(event) => setAutoRotate(event.target.checked)}
+            type="checkbox"
+          />
+          <span>{t("modelAutoRotate")}</span>
+        </label>
+        <label className="check-row">
+          <input
+            checked={lightBackground}
+            onChange={(event) => setLightBackground(event.target.checked)}
+            type="checkbox"
+          />
+          <span>{t("modelLightBackground")}</span>
+        </label>
       </div>
+      {(model.lods[lodIndex]?.parts.length ?? 0) > 1 ? (
+        <details className="model-parts">
+          <summary>
+            {t("modelParts", {
+              count: model.lods[lodIndex]?.parts.length ?? 0
+            })}
+          </summary>
+          {(model.lods[lodIndex]?.parts ?? []).map((part) => (
+            <label className="check-row" key={`${part.name}:${part.mesh}`}>
+              <input
+                checked={!hidden.has(part.name)}
+                onChange={(event) =>
+                  setHidden((current) => {
+                    const next = new Set(current);
+                    if (event.target.checked) next.delete(part.name);
+                    else next.add(part.name);
+                    return next;
+                  })
+                }
+                type="checkbox"
+              />
+              <span title={part.mesh}>{part.name}</span>
+            </label>
+          ))}
+        </details>
+      ) : null}
       <div className="model-viewer-canvas" ref={mountRef} />
       <div className="model-viewer-stats">
         {stats === undefined ? (
@@ -333,6 +444,15 @@ export default function ModelViewer({
                 triangles: stats.triangles.toLocaleString()
               })}
             </span>
+            {model.boundingBox === undefined ? null : (
+              <span>
+                {t("modelSize", {
+                  x: (model.boundingBox.max[0] - model.boundingBox.min[0]).toFixed(2),
+                  y: (model.boundingBox.max[1] - model.boundingBox.min[1]).toFixed(2),
+                  z: (model.boundingBox.max[2] - model.boundingBox.min[2]).toFixed(2)
+                })}
+              </span>
+            )}
             {model.collider === undefined ? null : (
               <span>
                 {t("modelCollider", { type: model.collider.type })}

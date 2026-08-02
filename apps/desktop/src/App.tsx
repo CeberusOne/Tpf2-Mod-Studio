@@ -12,6 +12,8 @@ import {
   FolderOpen,
   HardDrive,
   LoaderCircle,
+  Maximize2,
+  Minimize2,
   Moon,
   PackageCheck,
   Play,
@@ -21,7 +23,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Sparkles,
   Sun,
   TerminalSquare,
   TriangleAlert,
@@ -29,16 +30,11 @@ import {
 } from "lucide-react";
 import {
   analyzeTf2Log,
-  buildLogAssistPrompt,
   buildResourceIndex,
   classifyModHealth,
-  DEFAULT_AI_SETTINGS,
-  isAiConfigured,
-  requestAiAssistance,
   validateProject
 } from "@tpf2-mod-studio/core";
 import type {
-  AiAssistSettings,
   CreateProjectRequest,
   Diagnostic,
   InstallationCandidate,
@@ -46,7 +42,6 @@ import type {
   LogAnalysis,
   LogFileInfo,
   LogFilterMode,
-  LogGroup,
   ModHealth,
   ModHealthStatus,
   ProjectFile,
@@ -182,29 +177,9 @@ export default function App(props: AppProps) {
 }
 
 const FONT_SIZE_STORAGE_KEY = "tpf2-mod-studio.ui-font-size.v1";
-const AI_SETTINGS_STORAGE_KEY = "tpf2-mod-studio.ai-settings.v1";
 const FONT_SIZE_MIN = 13;
 const FONT_SIZE_MAX = 20;
 const FONT_SIZE_DEFAULT = 16;
-
-function readStoredAiSettings(): AiAssistSettings {
-  if (typeof window === "undefined") return { ...DEFAULT_AI_SETTINGS };
-  try {
-    const raw = window.localStorage.getItem(AI_SETTINGS_STORAGE_KEY);
-    if (raw === null) return { ...DEFAULT_AI_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<AiAssistSettings>;
-    return {
-      ...DEFAULT_AI_SETTINGS,
-      ...parsed,
-      enabled: Boolean(parsed.enabled),
-      baseUrl: String(parsed.baseUrl ?? DEFAULT_AI_SETTINGS.baseUrl),
-      apiKey: String(parsed.apiKey ?? ""),
-      model: String(parsed.model ?? DEFAULT_AI_SETTINGS.model)
-    };
-  } catch {
-    return { ...DEFAULT_AI_SETTINGS };
-  }
-}
 
 function readStoredFontSize(): number {
   if (typeof window === "undefined") return FONT_SIZE_DEFAULT;
@@ -243,9 +218,6 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   const [logFilterMode, setLogFilterMode] = useState<LogFilterMode>("problems");
   const [logContent, setLogContent] = useState("");
   const [expandedLogId, setExpandedLogId] = useState<string>();
-  const [aiSettings, setAiSettings] = useState<AiAssistSettings>(readStoredAiSettings);
-  const [aiAnswers, setAiAnswers] = useState<Record<string, string>>({});
-  const [aiBusyId, setAiBusyId] = useState<string>();
   const [installations, setInstallations] = useState<InstallationCandidate[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [logFiles, setLogFiles] = useState<LogFileInfo[]>([]);
@@ -600,36 +572,6 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     if (logContent.length === 0) return;
     setLogAnalysis(analyzeTf2Log(logContent, { filterMode: logFilterMode }));
   }, [logFilterMode, logContent]);
-
-  function persistAiSettings(next: AiAssistSettings): void {
-    setAiSettings(next);
-    try {
-      window.localStorage.setItem(AI_SETTINGS_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // Session-only AI settings still apply.
-    }
-    setNotice({ tone: "success", message: t("aiSettingsSaved") });
-  }
-
-  async function askAiForLog(group: LogGroup): Promise<void> {
-    if (!isAiConfigured(aiSettings)) {
-      setNotice({ tone: "error", message: t("aiNotConfigured") });
-      setView("settings");
-      return;
-    }
-    setAiBusyId(group.id);
-    try {
-      const answer = await requestAiAssistance(
-        aiSettings,
-        buildLogAssistPrompt(group, language)
-      );
-      setAiAnswers((current) => ({ ...current, [group.id]: answer }));
-    } catch (error) {
-      setNotice({ tone: "error", message: errorMessage(error) });
-    } finally {
-      setAiBusyId(undefined);
-    }
-  }
 
   async function importZipMod(): Promise<void> {
     if (modsDirectory.length === 0) {
@@ -1230,9 +1172,6 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
 
           {view === "logs" ? (
             <LogView
-              aiAnswers={aiAnswers}
-              aiConfigured={isAiConfigured(aiSettings)}
-              {...(aiBusyId === undefined ? {} : { aiBusyId })}
               analysis={logAnalysis}
               {...(expandedLogId === undefined ? {} : { expandedLogId })}
               experience={experience}
@@ -1240,15 +1179,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               logFiles={logFiles}
               logPath={logPath}
               native={bridge.isNative}
-              onAskAi={(group) => void askAiForLog(group)}
               onChooseLog={() => void chooseAndReadLog()}
-              onClearAi={(id) =>
-                setAiAnswers((current) => {
-                  const next = { ...current };
-                  delete next[id];
-                  return next;
-                })
-              }
               onFilterModeChange={setLogFilterMode}
               onOpenLatestLog={() => void openLatestDetectedLog()}
               onOpenLogPath={(path) => void analyzeLogAt(path)}
@@ -1263,10 +1194,8 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
 
           {view === "settings" ? (
             <SetupView
-              aiSettings={aiSettings}
               installations={installations}
               native={bridge.isNative}
-              onAiSettingsChange={persistAiSettings}
               onDetect={() => void detectInstallations()}
               onLaunch={(executablePath) => void launchGame(executablePath)}
               onUseModsPath={(path) => setModsDirectory(path)}
@@ -1977,6 +1906,17 @@ function ManageView({
   const [expandedMod, setExpandedMod] = useState<string>();
   const [editingMod, setEditingMod] = useState<string>();
   const [viewingMod, setViewingMod] = useState<string>();
+  const [maximizedMod, setMaximizedMod] = useState<string>();
+
+  // Escape leaves the full-screen mod without reaching for the mouse.
+  useEffect(() => {
+    if (maximizedMod === undefined) return undefined;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setMaximizedMod(undefined);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [maximizedMod]);
 
   const onToggleView = (path: string): void =>
     setViewingMod((current) => (current === path ? undefined : path));
@@ -2081,7 +2021,9 @@ function ManageView({
                 const expanded = expandedMod === mod.path;
                 return (
                   <article
-                    className={`installation-card mod-card ${health.status}`}
+                    className={`installation-card mod-card ${health.status} ${
+                      maximizedMod === mod.path ? "is-maximized" : ""
+                    }`}
                     key={mod.path}
                   >
                     <ModPreview
@@ -2109,6 +2051,31 @@ function ManageView({
                       <p>{t("modDuplicate", { path: mod.duplicateOf })}</p>
                     )}
                     <div className="mod-card-actions">
+                      <button
+                        aria-label={
+                          maximizedMod === mod.path
+                            ? t("modRestore")
+                            : t("modMaximize")
+                        }
+                        className="secondary-button mod-maximize"
+                        onClick={() =>
+                          setMaximizedMod((current) =>
+                            current === mod.path ? undefined : mod.path
+                          )
+                        }
+                        title={
+                          maximizedMod === mod.path
+                            ? t("modRestore")
+                            : t("modMaximize")
+                        }
+                        type="button"
+                      >
+                        {maximizedMod === mod.path ? (
+                          <Minimize2 size={16} />
+                        ) : (
+                          <Maximize2 size={16} />
+                        )}
+                      </button>
                       <button
                         aria-expanded={expanded}
                         className="secondary-button"
@@ -2177,9 +2144,6 @@ function ManageView({
 }
 
 function LogView({
-  aiAnswers,
-  aiBusyId,
-  aiConfigured,
   analysis,
   expandedLogId,
   experience,
@@ -2187,18 +2151,13 @@ function LogView({
   logFiles,
   logPath,
   native,
-  onAskAi,
   onChooseLog,
-  onClearAi,
   onFilterModeChange,
   onOpenLatestLog,
   onOpenLogPath,
   onRefreshLogFiles,
   onToggleExpand
 }: {
-  aiAnswers: Record<string, string>;
-  aiBusyId?: string;
-  aiConfigured: boolean;
   analysis: LogAnalysis | undefined;
   expandedLogId?: string;
   experience: ExperienceMode;
@@ -2206,9 +2165,7 @@ function LogView({
   logFiles: LogFileInfo[];
   logPath: string;
   native: boolean;
-  onAskAi: (group: LogGroup) => void;
   onChooseLog: () => void;
-  onClearAi: (id: string) => void;
   onFilterModeChange: (mode: LogFilterMode) => void;
   onOpenLatestLog: () => void;
   onOpenLogPath: (path: string) => void;
@@ -2406,34 +2363,6 @@ function LogView({
                         ))}
                       </details>
                     )}
-                    {aiConfigured ? (
-                      <div className="section-actions">
-                        <button
-                          className="secondary-button"
-                          disabled={aiBusyId === group.id}
-                          onClick={() => onAskAi(group)}
-                          type="button"
-                        >
-                          <Sparkles size={16} />
-                          {aiBusyId === group.id ? t("aiWorking") : t("askAi")}
-                        </button>
-                        {aiAnswers[group.id] === undefined ? null : (
-                          <button
-                            className="secondary-button"
-                            onClick={() => onClearAi(group.id)}
-                            type="button"
-                          >
-                            {t("aiClear")}
-                          </button>
-                        )}
-                      </div>
-                    ) : null}
-                    {aiAnswers[group.id] === undefined ? null : (
-                      <div className="ai-answer">
-                        <strong>{t("aiResponse")}</strong>
-                        <p>{aiAnswers[group.id]}</p>
-                      </div>
-                    )}
                   </div>
                 ) : null}
               </article>
@@ -2446,29 +2375,19 @@ function LogView({
 }
 
 function SetupView({
-  aiSettings,
   installations,
   native,
-  onAiSettingsChange,
   onDetect,
   onLaunch,
   onUseModsPath
 }: {
-  aiSettings: AiAssistSettings;
   installations: InstallationCandidate[];
   native: boolean;
-  onAiSettingsChange: (settings: AiAssistSettings) => void;
   onDetect: () => void;
   onLaunch: (executablePath: string) => void;
   onUseModsPath: (path: string) => void;
 }) {
   const { t } = useI18n();
-  const [draft, setDraft] = useState(aiSettings);
-
-  useEffect(() => {
-    setDraft(aiSettings);
-  }, [aiSettings]);
-
   return (
     <div className="setup-page">
       <div className="section-intro">
@@ -2486,78 +2405,6 @@ function SetupView({
           {t("checkDefaultPaths")}
         </button>
       </div>
-
-      <section className="task-card ai-settings-card">
-        <span className="eyebrow">{t("aiAssist")}</span>
-        <h2>{t("aiAssist")}</h2>
-        <p className="ai-optional-note">{t("aiOptionalNote")}</p>
-        <label className="check-row">
-          <input
-            checked={draft.enabled}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                enabled: event.target.checked
-              }))
-            }
-            type="checkbox"
-          />
-          <span>{t("aiEnabled")}</span>
-        </label>
-        <label className="field">
-          <span>{t("aiBaseUrl")}</span>
-          <input
-            disabled={!draft.enabled}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                baseUrl: event.target.value
-              }))
-            }
-            placeholder={t("aiBaseUrlPlaceholder")}
-            value={draft.baseUrl}
-          />
-          <small>{t("aiBaseUrlHint")}</small>
-        </label>
-        <label className="field">
-          <span>{t("aiApiKey")}</span>
-          <input
-            autoComplete="off"
-            disabled={!draft.enabled}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                apiKey: event.target.value
-              }))
-            }
-            type="password"
-            value={draft.apiKey}
-          />
-        </label>
-        <label className="field">
-          <span>{t("aiModel")}</span>
-          <input
-            disabled={!draft.enabled}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                model: event.target.value
-              }))
-            }
-            placeholder={t("aiModelPlaceholder")}
-            value={draft.model}
-          />
-        </label>
-        <button
-          className="secondary-button"
-          disabled={!draft.enabled}
-          onClick={() => onAiSettingsChange(draft)}
-          type="button"
-        >
-          <Sparkles size={16} />
-          {t("aiSaved")}
-        </button>
-      </section>
 
       {installations.length === 0 ? (
         <EmptyState
