@@ -213,6 +213,7 @@ const english = {
   importZipMod: "Import ZIP to mods folder",
   dialogSelectZip: "Select a Transport Fever 2 mod ZIP",
   dialogZipFilter: "ZIP archives",
+  dialogSelectExportTarget: "Save the mod ZIP as",
   busyInspectZip: "Inspecting ZIP mod…",
   busyImportZip: "Importing ZIP mod…",
   noticeZipInspected: "ZIP mod recognized: {projectId} ({count} files).",
@@ -233,6 +234,7 @@ const english = {
   aiBaseUrlHint:
     "Optional. Any OpenAI-compatible endpoint you prefer (cloud or local). Leave empty to work without AI.",
   aiSaved: "Save AI settings",
+  aiSettingsSaved: "AI settings saved.",
   aiNotConfigured:
     "AI is optional. Enter your own API details under Game paths only if you want help.",
   aiWorking: "Asking AI…",
@@ -489,6 +491,7 @@ const german: TranslationCatalog = {
   importZipMod: "ZIP in Mods-Ordner importieren",
   dialogSelectZip: "Transport-Fever-2-Mod-ZIP auswählen",
   dialogZipFilter: "ZIP-Archive",
+  dialogSelectExportTarget: "Mod-ZIP speichern unter",
   busyInspectZip: "ZIP-Mod wird geprüft…",
   busyImportZip: "ZIP-Mod wird importiert…",
   noticeZipInspected: "ZIP-Mod erkannt: {projectId} ({count} Dateien).",
@@ -509,6 +512,7 @@ const german: TranslationCatalog = {
   aiBaseUrlHint:
     "Optional. Beliebiger OpenAI-kompatibler Endpunkt (Cloud oder lokal). Leer lassen = ohne KI arbeiten.",
   aiSaved: "KI-Einstellungen speichern",
+  aiSettingsSaved: "KI-Einstellungen gespeichert.",
   aiNotConfigured:
     "KI ist optional. Nur unter Spielpfade eigene API-Daten eintragen, wenn du sie nutzen willst.",
   aiWorking: "KI wird befragt…",

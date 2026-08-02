@@ -18,6 +18,8 @@ const MAX_SCANNED_FILES: usize = 20_000;
 const MAX_TEXT_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_EDIT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_LOG_BYTES: u64 = 32 * 1024 * 1024;
+const MAX_ARCHIVE_ENTRIES: usize = 20_000;
+const MAX_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -696,16 +698,19 @@ fn install_project(
     })
 }
 
-fn candidate(root: PathBuf, executable_name: &str) -> InstallationCandidate {
+fn candidate(
+    root: PathBuf,
+    executable_name: &str,
+    user_data_path: Option<&Path>,
+) -> InstallationCandidate {
     let executable = root.join(executable_name);
     let valid = root.join("res").is_dir() && executable.is_file();
-    let user_data_path = find_user_data_directory();
-    let mods_path = resolve_mods_directory(&root, user_data_path.as_deref());
-    let stdout_path = resolve_stdout_path(user_data_path.as_deref());
+    let mods_path = resolve_mods_directory(&root, user_data_path);
+    let stdout_path = resolve_stdout_path(user_data_path);
     InstallationCandidate {
         root_path: path_string(&root),
         executable_path: path_string(&executable),
-        user_data_path: user_data_path.map(|path| path_string(&path)),
+        user_data_path: user_data_path.map(path_string),
         mods_path: mods_path.map(|path| path_string(&path)),
         stdout_path: stdout_path.map(|path| path_string(&path)),
         source: "steam-default",
@@ -882,6 +887,8 @@ fn detect_installations() -> Vec<InstallationCandidate> {
             ]);
         }
     }
+    // Resolve the Steam user-data folder once; it is identical for every root.
+    let user_data = find_user_data_directory();
     let mut seen = HashSet::new();
     roots
         .into_iter()
@@ -891,7 +898,7 @@ fn detect_installations() -> Vec<InstallationCandidate> {
             if !seen.insert(key) {
                 return None;
             }
-            Some(candidate(root, executable))
+            Some(candidate(root, executable, user_data.as_deref()))
         })
         .collect()
 }
@@ -916,10 +923,15 @@ fn read_tf2_log(log_path: String) -> Result<String, String> {
         return Err("The log exceeds the current 32 MiB analysis limit.".into());
     }
     let mut file = fs::File::open(path).map_err(|error| format!("Cannot open log: {error}"))?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)
-        .map_err(|error| format!("Cannot decode log as UTF-8: {error}"))?;
-    Ok(content)
+    // TF2 writes stdout from several threads without locking, which shreds
+    // lines into each other and tears multi-byte UTF-8 sequences apart. Those
+    // bytes are unrecoverable, so decode lossily: a strict decode rejects the
+    // whole file over a handful of torn characters (observed: 26 damaged spots
+    // in a 24 MB log) and makes log analysis unusable.
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.read_to_end(&mut bytes)
+        .map_err(|error| format!("Cannot read log: {error}"))?;
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
 #[tauri::command]
@@ -1111,40 +1123,68 @@ fn import_mod_archive(
         .map_err(|error| format!("Cannot create staging directory: {error}"))?;
 
     let path = PathBuf::from(&info.archive_path);
-    let mut archive = open_zip_archive(&path)?;
     let prefix = info.nested_root.as_deref();
-    let mut file_count = 0usize;
 
-    for index in 0..archive.len() {
-        let mut entry = archive
-            .by_index(index)
-            .map_err(|error| format!("Cannot read ZIP entry: {error}"))?;
-        let Some(relative) = strip_zip_prefix(entry.name(), prefix) else {
-            continue;
-        };
-        if relative.is_empty() {
-            continue;
+    let extraction = (|| -> Result<usize, String> {
+        let mut archive = open_zip_archive(&path)?;
+        if archive.len() > MAX_ARCHIVE_ENTRIES {
+            return Err(format!(
+                "The archive declares more than {MAX_ARCHIVE_ENTRIES} entries."
+            ));
         }
-        // Reject path traversal in archive entries.
-        if relative.split('/').any(|part| part == ".." || part == ".") {
-            return Err(format!("Archive entry uses an unsafe path: {relative}"));
+        let mut file_count = 0usize;
+        let mut extracted_bytes = 0u64;
+
+        for index in 0..archive.len() {
+            let mut entry = archive
+                .by_index(index)
+                .map_err(|error| format!("Cannot read ZIP entry: {error}"))?;
+            let Some(relative) = strip_zip_prefix(entry.name(), prefix) else {
+                continue;
+            };
+            let trimmed = relative.trim_end_matches('/');
+            if trimmed.is_empty() {
+                continue;
+            }
+            // Reject traversal, absolute and drive-prefixed archive entries.
+            // `Path::join` silently escapes the staging directory for those.
+            let safe_relative = safe_relative_path(trimmed).map_err(|error| {
+                format!("Archive entry uses an unsafe path `{relative}`: {error}")
+            })?;
+            let out_path = staging.join(&safe_relative);
+            if entry.is_dir() || relative.ends_with('/') {
+                fs::create_dir_all(&out_path)
+                    .map_err(|error| format!("Cannot create directory from archive: {error}"))?;
+                continue;
+            }
+            if let Some(parent) = out_path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|error| format!("Cannot create parent directory: {error}"))?;
+            }
+            let mut outfile = fs::File::create(&out_path)
+                .map_err(|error| format!("Cannot write extracted file: {error}"))?;
+            // Cap the decompressed payload so a crafted archive cannot fill the disk.
+            let budget = MAX_ARCHIVE_BYTES - extracted_bytes;
+            let written = io::copy(&mut entry.by_ref().take(budget + 1), &mut outfile)
+                .map_err(|error| format!("Cannot extract archive entry: {error}"))?;
+            if written > budget {
+                return Err(format!(
+                    "The archive expands beyond the {MAX_ARCHIVE_BYTES} byte extraction limit."
+                ));
+            }
+            extracted_bytes += written;
+            file_count += 1;
         }
-        let out_path = staging.join(&relative);
-        if entry.is_dir() || relative.ends_with('/') {
-            fs::create_dir_all(&out_path)
-                .map_err(|error| format!("Cannot create directory from archive: {error}"))?;
-            continue;
+        Ok(file_count)
+    })();
+
+    let file_count = match extraction {
+        Ok(count) => count,
+        Err(error) => {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(error);
         }
-        if let Some(parent) = out_path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|error| format!("Cannot create parent directory: {error}"))?;
-        }
-        let mut outfile = fs::File::create(&out_path)
-            .map_err(|error| format!("Cannot write extracted file: {error}"))?;
-        io::copy(&mut entry, &mut outfile)
-            .map_err(|error| format!("Cannot extract archive entry: {error}"))?;
-        file_count += 1;
-    }
+    };
 
     if !staging.join("mod.lua").is_file() {
         let _ = fs::remove_dir_all(&staging);
@@ -1213,6 +1253,18 @@ fn export_project_zip(root_path: String, destination_path: String) -> Result<Str
     library::export_project_zip(root_path, destination_path)
 }
 
+/// Resolve `<user data>/staging_area`, creating it when Transport Fever 2 has
+/// not used its in-game mod manager yet. Installing to staging fails otherwise.
+#[tauri::command]
+fn ensure_staging_directory(user_data_path: String) -> Result<String, String> {
+    let user_data = canonical_directory(&user_data_path)?;
+    let staging = user_data.join("staging_area");
+    if !staging.is_dir() {
+        ensure_dir(&staging)?;
+    }
+    Ok(path_string(&staging))
+}
+
 #[tauri::command]
 async fn check_for_update() -> Result<updater::UpdateInfo, String> {
     updater::check_for_update().await
@@ -1249,6 +1301,7 @@ pub fn run() {
             list_log_files,
             archive_stdout,
             export_project_zip,
+            ensure_staging_directory,
             check_for_update,
             apply_update,
             restart_after_update
@@ -1493,6 +1546,41 @@ mod tests {
             .join("mod.lua")
             .is_file());
         assert!(installed.file_count >= 2);
+    }
+
+    #[test]
+    fn import_mod_archive_rejects_traversal_entries() {
+        use std::io::Write;
+        let workspace = TemporaryDirectory::new("zip-slip");
+        let zip_path = workspace.path().join("evil_mod_1.zip");
+        {
+            let file = fs::File::create(&zip_path).expect("zip file");
+            let mut zip = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("mod.lua", options).expect("start mod.lua");
+            zip.write_all(b"function data() return {} end")
+                .expect("write mod.lua");
+            zip.start_file("../escaped.txt", options)
+                .expect("start traversal entry");
+            zip.write_all(b"owned").expect("write traversal entry");
+            zip.finish().expect("finish zip");
+        }
+        let mods = workspace.path().join("mods");
+        fs::create_dir(&mods).expect("mods dir");
+
+        let error = import_mod_archive(path_string(&zip_path), path_string(&mods), false)
+            .expect_err("archive entries must not escape the staging directory");
+        assert!(error.contains("unsafe path"), "unexpected error: {error}");
+        assert!(!workspace.path().join("escaped.txt").exists());
+        assert!(!mods.join("escaped.txt").exists());
+        // A rejected import must not leave staging directories behind.
+        assert!(!mods.join("evil_mod_1").exists());
+        let leftovers = fs::read_dir(&mods)
+            .expect("mods readable")
+            .flatten()
+            .count();
+        assert_eq!(leftovers, 0, "staging directory survived a rejected import");
     }
 
     #[test]

@@ -278,6 +278,13 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  // Startup detection must not re-run when the user switches language, so the
+  // effect reads the translator through a ref instead of depending on it.
+  const translateRef = useRef(t);
+  useEffect(() => {
+    translateRef.current = t;
+  }, [t]);
+
   useEffect(() => {
     if (!bridge.isNative) return;
     let cancelled = false;
@@ -304,7 +311,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
         }
         setNotice({
           tone: "success",
-          message: t("noticeAutoDetected")
+          message: translateRef.current("noticeAutoDetected")
         });
       } catch {
         // Silent on startup; user can rescan from Game paths.
@@ -313,7 +320,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     return () => {
       cancelled = true;
     };
-  }, [bridge, t]);
+  }, [bridge]);
 
   // Startup update check ONLY — never auto-download, never auto-restart.
   // Auto install+restart caused endless relaunch loops when the GitHub asset
@@ -477,8 +484,27 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
           : tab
       )
     );
-    const scanned = await bridge.scanProject(snapshot.rootPath);
-    setSnapshot(scanned);
+    // Patch the saved file in place instead of re-walking the whole project.
+    // A full rescan re-read every text file and re-parsed every Lua file on
+    // each save; the explicit Rescan button still picks up outside changes.
+    const savedSize = new TextEncoder().encode(activeTab.content).length;
+    setSnapshot((current) =>
+      current === undefined
+        ? current
+        : {
+            ...current,
+            files: current.files.map((file) =>
+              file.relativePath === activeTab.path
+                ? {
+                    ...file,
+                    content: activeTab.content,
+                    size: savedSize,
+                    modifiedMs: Date.now()
+                  }
+                : file
+            )
+          }
+    );
     setNotice({
       tone: "success",
       message: t("noticeFileSaved", { path: activeTab.path })
@@ -574,7 +600,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     } catch {
       // Session-only AI settings still apply.
     }
-    setNotice({ tone: "success", message: t("aiSaved") });
+    setNotice({ tone: "success", message: t("aiSettingsSaved") });
   }
 
   async function askAiForLog(group: LogGroup): Promise<void> {
@@ -740,8 +766,14 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
 
   async function exportCurrentProjectZip(): Promise<void> {
     if (snapshot === undefined) return;
-    const defaultName = `${snapshot.folderName}.zip`;
-    const destination = `${snapshot.rootPath}/../${defaultName}`;
+    const destination = await withBusy(t("busyOpenFolderPicker"), () =>
+      bridge.chooseExportTarget(
+        t("dialogSelectExportTarget"),
+        t("dialogZipFilter"),
+        `${snapshot.folderName}.zip`
+      )
+    );
+    if (destination === undefined || destination === null) return;
     const exported = await withBusy(t("busyExportZip"), () =>
       bridge.exportProjectZip(snapshot.rootPath, destination)
     );
@@ -764,7 +796,12 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
       setNotice({ tone: "error", message: t("noticeNoInstallation") });
       return;
     }
-    const staging = `${userData.replace(/\/$/u, "")}/staging_area`;
+    // TF2 only creates staging_area once its in-game mod manager ran, so the
+    // native side resolves and creates it before the install is attempted.
+    const staging = await withBusy(t("busyInstall"), () =>
+      bridge.ensureStagingDirectory(userData)
+    );
+    if (staging === undefined) return;
     const result = await withBusy(t("busyInstall"), () =>
       bridge.installProject(snapshot.rootPath, staging, allowOverwrite)
     );
@@ -1023,33 +1060,36 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
                   {tabs.length > 0 ? (
                     <div className="tab-strip">
                       {tabs.map((tab) => (
-                        <button
+                        <div
                           className={`editor-tab ${
                             tab.path === activePath ? "is-active" : ""
                           }`}
                           key={tab.path}
-                          onClick={() => setActivePath(tab.path)}
-                          type="button"
                         >
-                          <span
-                            className={`dirty-dot ${
-                              tab.content !== tab.savedContent ? "is-dirty" : ""
-                            }`}
-                          />
-                          {fileName(tab.path)}
-                          <span
+                          <button
+                            className="editor-tab-label"
+                            onClick={() => setActivePath(tab.path)}
+                            title={tab.path}
+                            type="button"
+                          >
+                            <span
+                              className={`dirty-dot ${
+                                tab.content !== tab.savedContent
+                                  ? "is-dirty"
+                                  : ""
+                              }`}
+                            />
+                            {fileName(tab.path)}
+                          </button>
+                          <button
                             aria-label={t("closeTab", { path: tab.path })}
                             className="tab-close"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              closeTab(tab.path);
-                            }}
-                            role="button"
-                            tabIndex={0}
+                            onClick={() => closeTab(tab.path)}
+                            type="button"
                           >
                             <X size={13} />
-                          </span>
-                        </button>
+                          </button>
+                        </div>
                       ))}
                       <button
                         className="save-button"
@@ -1821,8 +1861,8 @@ function LogView({
                             count: group.stackTrace.length
                           })}
                         </summary>
-                        {group.stackTrace.map((frame) => (
-                          <code key={frame.raw}>{frame.raw}</code>
+                        {group.stackTrace.map((frame, index) => (
+                          <code key={`${frame.raw}#${index}`}>{frame.raw}</code>
                         ))}
                       </details>
                     )}

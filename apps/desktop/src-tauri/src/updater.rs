@@ -712,6 +712,13 @@ mod tests {
 
     #[tokio::test]
     async fn check_for_update_returns_structured_result() {
+        // Live GitHub call: opt in with `TPF2_UPDATER_NETWORK_TESTS=1`.
+        // Unauthenticated api.github.com allows 60 requests/hour per IP, so this
+        // must not run on every `cargo test` or in offline environments.
+        if env::var_os("TPF2_UPDATER_NETWORK_TESTS").is_none() {
+            eprintln!("skipped: set TPF2_UPDATER_NETWORK_TESTS=1 to run the live GitHub check");
+            return;
+        }
         let info = check_for_update().await.expect("github check");
         assert!(!info.current_version.is_empty());
         if info.available {
