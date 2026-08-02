@@ -1,0 +1,311 @@
+name: Publish Release
+
+# Builds Windows + Linux installers from source and publishes a GitHub Release.
+# Manual: Actions → Publish Release → Run workflow
+# Automatic: push a version tag (v*)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (for example v0.1.0-alpha.2)"
+        required: true
+        default: "v0.1.0-alpha.2"
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        default: true
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-22.04
+            artifact: release-linux-x64
+          - name: Windows x64
+            os: windows-2022
+            artifact: release-windows-x64
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libxdo-dev \
+            patchelf \
+            xvfb \
+            xdg-utils
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Verify TypeScript, tests and frontend build
+        run: npm run verify
+
+      - name: Check Rust formatting
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --check
+
+      - name: Run Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --all-targets
+
+      - name: Run Rust lints
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Build native Tauri bundles
+        run: npm run desktop:build
+
+      - name: Smoke-test native application on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set +e
+          # Binary also applies WEBKIT_DISABLE_DMABUF_RENDERER; set explicitly for CI clarity.
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          timeout 12s xvfb-run -a \
+            apps/desktop/src-tauri/target/release/tpf2-mod-studio \
+            > native-smoke.log 2>&1
+          exit_code=$?
+          set -e
+          cat native-smoke.log
+          if [ "$exit_code" -ne 124 ]; then
+            echo "Expected the desktop process to remain open until timeout; exit code was $exit_code."
+            exit 1
+          fi
+
+      - name: Smoke-test native application on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process `
+            -FilePath "apps/desktop/src-tauri/target/release/tpf2-mod-studio.exe" `
+            -PassThru
+          Start-Sleep -Seconds 10
+          if ($process.HasExited) {
+            throw "Desktop process exited early with code $($process.ExitCode)."
+          }
+          Stop-Process -Id $process.Id
+          Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
+
+      - name: Stage Linux packages with stable names
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p staged
+          find apps/desktop/src-tauri/target/release/bundle -type f \( \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \
+          \) -print0 | while IFS= read -r -d '' file; do
+            base="$(basename "$file")"
+            # Spaces break curl installers and checksum tools; normalize.
+            safe="${base// /.}"
+            cp "$file" "staged/$safe"
+          done
+          ls -la staged
+
+      - name: Stage Windows packages with stable names
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staged | Out-Null
+          Get-ChildItem -Path apps/desktop/src-tauri/target/release/bundle -Recurse -File |
+            Where-Object { $_.Extension -in '.msi', '.exe' } |
+            ForEach-Object {
+              $safe = $_.Name -replace ' ', '.'
+              Copy-Item $_.FullName -Destination (Join-Path 'staged' $safe)
+            }
+          Get-ChildItem staged
+
+      - name: Upload staged packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: staged/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Check out release notes
+        uses: actions/checkout@v7
+
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+            prerelease="${{ inputs.prerelease }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+            prerelease=true
+            case "$tag" in
+              *-alpha*|*-beta*|*-rc*) prerelease=true ;;
+              *)
+                # Keep 0.x releases as prerelease by default.
+                if [[ "$tag" == v0.* ]]; then prerelease=true; else prerelease=false; fi
+                ;;
+            esac
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "title=Tpf2 Mod Studio ${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download Linux packages
+        uses: actions/download-artifact@v4
+        with:
+          name: release-linux-x64
+          path: release-packages
+
+      - name: Download Windows packages
+        uses: actions/download-artifact@v4
+        with:
+          name: release-windows-x64
+          path: release-packages
+
+      - name: Require expected installers
+        shell: bash
+        working-directory: release-packages
+        run: |
+          ls -la
+          test "$(find . -maxdepth 1 -type f -name '*.AppImage' | wc -l)" -eq 1
+          test "$(find . -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
+          test "$(find . -maxdepth 1 -type f -name '*.rpm' | wc -l)" -eq 1
+          test "$(find . -maxdepth 1 -type f -name '*.msi' | wc -l)" -eq 1
+          # NSIS setup EXE
+          test "$(find . -maxdepth 1 -type f -name '*.exe' | wc -l)" -ge 1
+
+      - name: Create SHA256SUMS.txt
+        shell: bash
+        working-directory: release-packages
+        run: |
+          find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | sed 's#  \./#  #' \
+            > SHA256SUMS.txt
+          sha256sum -c SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Build release notes
+        shell: bash
+        run: |
+          tag="${{ steps.meta.outputs.tag }}"
+          notes="docs/release-notes-${tag#v}.md"
+          if [ -f "$notes" ]; then
+            cp "$notes" release-notes.md
+          else
+            {
+              echo "# Tpf2 Mod Studio ${tag#v}"
+              echo
+              echo "Fresh Windows and Linux installers built from this tag."
+              echo
+              echo "## Install (simple)"
+              echo
+              echo "**Linux (AppImage):**"
+              echo
+              echo '```bash'
+              echo 'curl -fsSL https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-linux.sh | bash'
+              echo '```'
+              echo
+              echo "**Windows (PowerShell):**"
+              echo
+              echo '```powershell'
+              echo 'irm https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-windows.ps1 | iex'
+              echo '```'
+              echo
+              echo "Or download a package below and run it."
+              echo
+              echo "| Platform | Package |"
+              echo "| --- | --- |"
+              echo "| Windows | \`.msi\` or NSIS \`.exe\` setup |"
+              echo "| Linux | \`.AppImage\` (recommended), \`.deb\`, \`.rpm\` |"
+              echo
+              echo "Packages are unsigned. Verify with \`SHA256SUMS.txt\` when needed."
+              echo
+              echo "See [docs/installation.md](https://github.com/CeberusOne/Tpf2-Mod-Studio/blob/main/docs/installation.md)."
+            } > release-notes.md
+          fi
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.meta.outputs.tag }}"
+          title="${{ steps.meta.outputs.title }}"
+          prerelease="${{ steps.meta.outputs.prerelease }}"
+
+          mapfile -d '' assets < <(
+            find release-packages -maxdepth 1 -type f -print0 | sort -z
+          )
+          test "${#assets[@]}" -ge 6
+
+          extra_args=()
+          if [ "$prerelease" = "true" ]; then
+            extra_args+=(--prerelease)
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists; refreshing assets."
+            gh release upload "$tag" "${assets[@]}" --clobber
+            gh release edit "$tag" --title "$title" --notes-file release-notes.md "${extra_args[@]}"
+          else
+            gh release create "$tag" \
+              "${assets[@]}" \
+              --target "${{ github.sha }}" \
+              --title "$title" \
+              --notes-file release-notes.md \
+              "${extra_args[@]}"
+          fi
+
+          echo "Published https://github.com/${{ github.repository }}/releases/tag/$tag"

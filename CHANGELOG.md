@@ -1,7 +1,17 @@
 # Changelog
 
-## Unreleased — 2026-07-30
+## 0.1.0-alpha.2 — 2026-08-02
 
+- Fixed Linux startup abort (`Could not create GBM EGL display`) by defaulting
+  `WEBKIT_DISABLE_DMABUF_RENDERER=1` inside the native binary (user override
+  preserved).
+- Added one-command installers: `scripts/install-linux.sh` and
+  `scripts/install-windows.ps1`, plus `scripts/uninstall-linux.sh`.
+- Added **Publish Release** workflow that builds Windows MSI/NSIS and Linux
+  AppImage/DEB/RPM from source, smoke-starts both platforms, writes
+  `SHA256SUMS.txt` and publishes a GitHub Release.
+- Simplified end-user installation docs in `README.md` and
+  `docs/installation.md`.
 - Added the complete documented vanilla TF2 resource-modifier and file-filter
   category catalog with load-phase and chaining semantics.
 - Added static checks for registration phase, category, callback inputs and

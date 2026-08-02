@@ -50,27 +50,43 @@ test. Successful runs upload:
 Artifacts are retained for seven days. They are unsigned development artifacts,
 not a durable release.
 
-## Public Alpha release pipeline
+## Publish Release pipeline (current)
 
-`.github/workflows/public-alpha-release.yml` is a version-specific publication
-workflow. It runs when its release-critical files reach `main` and also supports
-a manual dispatch. For Alpha 1 it:
+`.github/workflows/publish-release.yml` builds installers from source on
+Ubuntu 22.04 and Windows Server 2022, then publishes a GitHub Release.
 
-1. refuses to run without the approved GPL-3.0-only license metadata;
-2. downloads the Linux and Windows artifacts from final Native CI run
-   `30484600653`;
-3. verifies their GitHub-recorded SHA-256 archive digests;
-4. requires MSI, NSIS EXE, AppImage, DEB and RPM bundles;
-5. generates a package-level `SHA256SUMS.txt`;
-6. creates `v0.1.0-alpha.1` as a GitHub pre-release.
+Triggers:
 
-The source CI run passed the complete JavaScript, Rust, packaging and native
-process-start gates on both operating systems. Reusing those immutable
-GitHub Actions artifacts avoids an unnecessary second native compilation while
-preserving exact provenance. The workflow uses job-scoped `actions: read` and
-`contents: write` permissions. Checkout credentials are not persisted. It
-refuses non-`main` publication and treats an existing immutable release as a
-successful idempotent result.
+- **Actions → Publish Release → Run workflow** (choose tag, e.g.
+  `v0.1.0-alpha.2`);
+- push of a `v*` tag.
+
+It:
+
+1. runs `npm ci`, `npm run verify`, Rust fmt/test/clippy;
+2. builds Tauri bundles on each OS;
+3. smoke-starts the compiled process (Linux under Xvfb with the WebKit DMA-BUF
+   workaround env; Windows process start);
+4. stages MSI, NSIS EXE, AppImage, DEB and RPM with space-free file names;
+5. generates package-level `SHA256SUMS.txt`;
+6. creates or refreshes the GitHub Release for the chosen tag.
+
+End users install with:
+
+```bash
+# Linux
+curl -fsSL https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-linux.sh | bash
+```
+
+```powershell
+# Windows
+irm https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-windows.ps1 | iex
+```
+
+### Legacy Alpha 1 workflow
+
+`.github/workflows/public-alpha-release.yml` remains for historical Alpha 1
+artifact republishing only. Prefer **Publish Release** for new packages.
 
 ### Release gate
 

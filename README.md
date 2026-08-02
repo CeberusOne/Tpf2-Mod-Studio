@@ -42,7 +42,26 @@ with checksums and explicit acceptance limits.
 The choice and its boundaries are documented in
 [`docs/adr/0001-desktop-architecture.md`](docs/adr/0001-desktop-architecture.md).
 
-## Commands
+## Install (end users)
+
+**Linux** (AppImage → menu entry + `tpf2-mod-studio` command):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-linux.sh | bash
+```
+
+**Windows** (PowerShell, downloads the NSIS/MSI installer):
+
+```powershell
+irm https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-windows.ps1 | iex
+```
+
+Packages are also on the
+[Releases page](https://github.com/CeberusOne/Tpf2-Mod-Studio/releases)
+(AppImage / DEB / RPM / MSI / Setup EXE). Full notes:
+[`docs/installation.md`](docs/installation.md).
+
+## Commands (developers)
 
 ```bash
 npm ci
@@ -101,10 +120,13 @@ versioned API source are available.
 
 ## Public Alpha
 
-The first durable tester release is prepared as `v0.1.0-alpha.1`. It remains a
-**Public Alpha** and does not change the product status from **PARTIAL**.
-Interactive installation, uninstall and a complete real-game Transport Fever 2
-workflow on clean user systems still require community acceptance testing.
+Tester packages ship as unsigned pre-releases (currently aimed at
+`v0.1.0-alpha.2` and later). Product status remains **PARTIAL**. Interactive
+installation, uninstall and a complete real-game Transport Fever 2 workflow on
+clean user systems still require community acceptance testing.
+
+Maintainers publish installers with **Actions → Publish Release** (builds
+Windows + Linux from source). See [docs/build-and-packaging.md](docs/build-and-packaging.md).
 
 - [Installation and tester workflow](docs/installation.md)
 - [Known features and limits](docs/supported-features.md)
