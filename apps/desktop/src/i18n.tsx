@@ -275,6 +275,11 @@ const english = {
   modUnprovenCount: "{count} check(s) could not be proven",
   modUnprovenNote:
     "These say something could not be verified statically — usually a callback defined in another file. They do not mean the mod is broken and never change the light.",
+  modEditFiles: "Edit files",
+  modEditNoTextFiles:
+    "This mod has no editable text files. Meshes, textures and sounds need dedicated editors.",
+  modEditWorkshopWarning:
+    "Steam Workshop content is managed by Steam and can be overwritten on the next update. Copy the mod into your local mods folder for lasting changes.",
   modMissingLua: "No mod.lua",
   modDuplicate: "Duplicate of {path}",
   modsFound: "{count} mods found",
@@ -568,6 +573,11 @@ const german: TranslationCatalog = {
   modUnprovenCount: "{count} Prüfung(en) nicht belegbar",
   modUnprovenNote:
     "Diese Hinweise besagen, dass etwas statisch nicht überprüfbar war — meist ein Callback in einer anderen Datei. Sie bedeuten nicht, dass die Mod defekt ist, und beeinflussen die Ampel nie.",
+  modEditFiles: "Dateien bearbeiten",
+  modEditNoTextFiles:
+    "Diese Mod hat keine bearbeitbaren Textdateien. Meshes, Texturen und Sounds brauchen eigene Editoren.",
+  modEditWorkshopWarning:
+    "Steam-Workshop-Inhalte verwaltet Steam; Änderungen können beim nächsten Update überschrieben werden. Kopiere die Mod für dauerhafte Änderungen in deinen lokalen Mods-Ordner.",
   modMissingLua: "Keine mod.lua",
   modDuplicate: "Duplikat von {path}",
   modsFound: "{count} Mods gefunden",

@@ -916,6 +916,106 @@ nav {
   font-size: 0.74rem;
 }
 
+.mod-editor {
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.mod-editor-warning {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 9px;
+  padding: 7px 9px;
+  color: #f5a524;
+  font-size: 0.74rem;
+  background: #f5a5241a;
+  border-radius: 5px;
+}
+
+.mod-editor-body {
+  display: grid;
+  grid-template-columns: minmax(140px, 34%) 1fr;
+  gap: 9px;
+  height: 340px;
+}
+
+.mod-editor-files {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.mod-editor-file {
+  padding: 5px 8px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.mod-editor-file:hover {
+  color: var(--text);
+}
+
+.mod-editor-file.is-active {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.mod-editor-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.mod-editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 7px;
+  font-size: 0.72rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mod-editor-bar span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mod-editor-bar button {
+  margin-left: auto;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+}
+
+.mod-editor-pane > :last-child {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mod-editor-hint {
+  display: grid;
+  height: 100%;
+  padding: 12px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
 .mod-card code {
   overflow: hidden;
   font-size: 0.7rem;

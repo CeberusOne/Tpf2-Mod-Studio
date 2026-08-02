@@ -384,6 +384,92 @@ describe("desktop workbench", () => {
     expect(screen.getByText(/Place `mod.lua` directly/u)).toBeTruthy();
   });
 
+  it("edits and saves mod text files in advanced mode, skipping binaries", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.scanModLibrary = vi.fn(
+      async (): Promise<InstalledMod[]> => [
+        {
+          id: "editable_mod_1",
+          path: "/tf2/mods/editable_mod_1",
+          source: "local",
+          hasModLua: true,
+          fileCount: 3,
+          modLua: MOD_LUA
+        }
+      ]
+    );
+    desktopBridge.scanProject = vi.fn(async () => ({
+      rootPath: "/tf2/mods/editable_mod_1",
+      folderName: "editable_mod_1",
+      mode: "vanilla" as const,
+      scannedAt: "2026-08-02T00:00:00.000Z",
+      files: [
+        {
+          relativePath: "mod.lua",
+          size: MOD_LUA.length,
+          modifiedMs: 1,
+          text: true,
+          content: MOD_LUA
+        },
+        {
+          relativePath: "res/scripts/init.lua",
+          size: 10,
+          modifiedMs: 1,
+          text: true,
+          content: "return {}"
+        },
+        // Binary mesh: needs a model editor, must not be offered as text.
+        {
+          relativePath: "res/models/mesh/train/body.msh.blob",
+          size: 2048,
+          modifiedMs: 1,
+          text: false
+        }
+      ]
+    }));
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan mod library" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit files" }));
+
+    expect(await screen.findByText("res/scripts/init.lua")).toBeTruthy();
+    expect(
+      screen.queryByText("res/models/mesh/train/body.msh.blob")
+    ).toBeNull();
+
+    fireEvent.click(screen.getByText("res/scripts/init.lua"));
+    expect((await screen.findByTestId("monaco-editor")).textContent).toContain(
+      "return {}"
+    );
+  });
+
+  it("hides the mod file editor outside advanced mode", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.scanModLibrary = vi.fn(
+      async (): Promise<InstalledMod[]> => [
+        {
+          id: "editable_mod_1",
+          path: "/tf2/mods/editable_mod_1",
+          source: "local",
+          hasModLua: true,
+          fileCount: 3,
+          modLua: MOD_LUA
+        }
+      ]
+    );
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan mod library" }));
+    await screen.findByText("/tf2/mods/editable_mod_1");
+
+    expect(screen.queryByRole("button", { name: "Edit files" })).toBeNull();
+    // Info stays available at every detail level.
+    expect(screen.getByRole("button", { name: "Info" })).toBeTruthy();
+  });
+
   it("switches to German and persists the explicit language selection", () => {
     const firstRender = render(<App bridge={bridge(false)} />);
 

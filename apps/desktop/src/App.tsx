@@ -1202,10 +1202,14 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
           {view === "manage" ? (
             <ManageView
               bridge={bridge}
+              experience={experience}
+              fontSize={fontSize}
               mods={installedMods}
               native={bridge.isNative}
+              onNotice={setNotice}
               onOpen={(path) => void loadProject(path)}
               onScan={() => void refreshModLibrary()}
+              theme={theme}
             />
           ) : null}
 
@@ -1631,6 +1635,164 @@ function ModPreview({
 
 const MOD_SOURCE_ORDER = ["local", "staging", "workshop", "builtin"] as const;
 
+/**
+ * In-place editor for a mod's text resources.
+ *
+ * Only files the native scanner classified as text are offered. Meshes,
+ * textures and sounds are binary and need dedicated editors, so they are not
+ * listed here rather than opened as broken text.
+ */
+function ModFileEditor({
+  bridge,
+  fontSize,
+  mod,
+  onNotice,
+  theme
+}: {
+  bridge: DesktopBridge;
+  fontSize: number;
+  mod: InstalledMod;
+  onNotice: (notice: Notice) => void;
+  theme: Theme;
+}) {
+  const { t } = useI18n();
+  const [files, setFiles] = useState<ProjectFile[]>();
+  const [activePath, setActivePath] = useState<string>();
+  const [content, setContent] = useState("");
+  const [savedContent, setSavedContent] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBusy(true);
+    void bridge
+      .scanProject(mod.path)
+      .then((snapshot) => {
+        if (cancelled) return;
+        setFiles(snapshot.files.filter((file) => file.text));
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) onNotice({ tone: "error", message: errorMessage(error) });
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, mod.path, onNotice]);
+
+  async function openFile(file: ProjectFile): Promise<void> {
+    setBusy(true);
+    try {
+      const text =
+        file.content ??
+        (await bridge.readProjectFile(mod.path, file.relativePath));
+      setActivePath(file.relativePath);
+      setContent(text);
+      setSavedContent(text);
+    } catch (error) {
+      onNotice({ tone: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function save(): Promise<void> {
+    if (activePath === undefined || content === savedContent) return;
+    setBusy(true);
+    try {
+      await bridge.saveProjectFile(mod.path, activePath, content);
+      setSavedContent(content);
+      onNotice({
+        tone: "success",
+        message: t("noticeFileSaved", { path: activePath })
+      });
+    } catch (error) {
+      onNotice({ tone: "error", message: errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const dirty = activePath !== undefined && content !== savedContent;
+
+  return (
+    <div className="mod-editor">
+      {mod.source === "workshop" ? (
+        <p className="mod-editor-warning">
+          <TriangleAlert size={15} />
+          {t("modEditWorkshopWarning")}
+        </p>
+      ) : null}
+      <div className="mod-editor-body">
+        <div className="mod-editor-files">
+          {files === undefined ? (
+            <span className="mod-editor-hint">{t("busyIndexProject")}</span>
+          ) : files.length === 0 ? (
+            <span className="mod-editor-hint">{t("modEditNoTextFiles")}</span>
+          ) : (
+            files.map((file) => (
+              <button
+                className={`mod-editor-file ${
+                  activePath === file.relativePath ? "is-active" : ""
+                }`}
+                key={file.relativePath}
+                onClick={() => void openFile(file)}
+                title={file.relativePath}
+                type="button"
+              >
+                {file.relativePath}
+              </button>
+            ))
+          )}
+        </div>
+        <div className="mod-editor-pane">
+          {activePath === undefined ? (
+            <span className="mod-editor-hint">{t("selectFile")}</span>
+          ) : (
+            <>
+              <div className="mod-editor-bar">
+                <span>
+                  {activePath}
+                  {dirty ? " ·" : ""}
+                </span>
+                <button
+                  className="secondary-button"
+                  disabled={!dirty || busy}
+                  onClick={() => void save()}
+                  type="button"
+                >
+                  <Save size={15} />
+                  {t("save")}
+                </button>
+              </div>
+              <Suspense
+                fallback={
+                  <div className="editor-loading">
+                    <LoaderCircle className="spin" size={18} />
+                    {t("editorLoading")}
+                  </div>
+                }
+              >
+                <MonacoEditor
+                  expert
+                  fontSize={fontSize - 2}
+                  language={editorLanguage(activePath)}
+                  onChange={(value) => setContent(value ?? "")}
+                  path={`${mod.path}/${activePath}`}
+                  theme={theme}
+                  value={content}
+                />
+              </Suspense>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModHealthLight({ status }: { status: ModHealthStatus }) {
   const { t } = useI18n();
   const label =
@@ -1704,19 +1866,31 @@ function ModFindings({ diagnostics }: { diagnostics: Diagnostic[] }) {
 
 function ManageView({
   bridge,
+  experience,
+  fontSize,
   mods,
   native,
+  onNotice,
   onOpen,
-  onScan
+  onScan,
+  theme
 }: {
   bridge: DesktopBridge;
+  experience: ExperienceMode;
+  fontSize: number;
   mods: InstalledMod[];
   native: boolean;
+  onNotice: (notice: Notice) => void;
   onOpen: (path: string) => void;
   onScan: () => void;
+  theme: Theme;
 }) {
   const { t } = useI18n();
   const [expandedMod, setExpandedMod] = useState<string>();
+  const [editingMod, setEditingMod] = useState<string>();
+
+  const onToggleEdit = (path: string): void =>
+    setEditingMod((current) => (current === path ? undefined : path));
 
   // Classifying a real 710-mod library takes ~83 ms, so the lights are ready
   // with the list instead of appearing later.
@@ -1852,6 +2026,17 @@ function ManageView({
                         <AlertCircle size={16} />
                         {t("modInfo")}
                       </button>
+                      {experience === "expert" ? (
+                        <button
+                          aria-expanded={editingMod === mod.path}
+                          className="secondary-button"
+                          onClick={() => onToggleEdit(mod.path)}
+                          type="button"
+                        >
+                          <Code2 size={16} />
+                          {t("modEditFiles")}
+                        </button>
+                      ) : null}
                       <button
                         className="secondary-button"
                         disabled={!mod.hasModLua}
@@ -1864,6 +2049,15 @@ function ManageView({
                     </div>
                     {expanded ? (
                       <ModFindings diagnostics={health.diagnostics} />
+                    ) : null}
+                    {editingMod === mod.path ? (
+                      <ModFileEditor
+                        bridge={bridge}
+                        fontSize={fontSize}
+                        mod={mod}
+                        onNotice={onNotice}
+                        theme={theme}
+                      />
                     ) : null}
                   </article>
                 );
