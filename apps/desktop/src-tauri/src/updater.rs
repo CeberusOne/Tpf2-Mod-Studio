@@ -62,11 +62,11 @@ fn platform_asset_name(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     #[cfg(target_os = "linux")]
     {
-        return lower.ends_with(".appimage");
+        lower.ends_with(".appimage")
     }
     #[cfg(target_os = "windows")]
     {
-        return lower.contains("setup") && lower.ends_with(".exe") || lower.ends_with(".msi");
+        lower.contains("setup") && lower.ends_with(".exe") || lower.ends_with(".msi")
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
@@ -333,11 +333,11 @@ pub async fn apply_update(info: UpdateInfo) -> Result<String, String> {
             }
         }
         let _ = fs::remove_dir_all(&temp_dir);
-        return Ok(format!(
+        Ok(format!(
             "Updated to {} at {}",
             info.latest_version,
             target.display()
-        ));
+        ))
     }
 
     #[cfg(target_os = "windows")]
@@ -367,10 +367,10 @@ pub async fn apply_update(info: UpdateInfo) -> Result<String, String> {
             }
         }
         let _ = fs::remove_dir_all(&temp_dir);
-        return Ok(format!(
+        Ok(format!(
             "Installed update {}. Restart the application if it does not relaunch automatically.",
             info.latest_version
-        ));
+        ))
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
