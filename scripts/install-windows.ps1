@@ -15,6 +15,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$InstallerScriptVersion = "2026.08.02.3"
 
 $headers = @{
     "User-Agent" = "Tpf2-Mod-Studio-Installer"
@@ -74,17 +75,7 @@ function Get-Release {
         Select-Object -First 1
 }
 
-function ConvertTo-Utf8Text {
-    param($Content)
-
-    # Windows PowerShell commonly exposes text downloads as String, while
-    # newer PowerShell versions may expose GitHub release assets as Byte[].
-    if ($Content -is [byte[]]) {
-        return [System.Text.Encoding]::UTF8.GetString($Content)
-    }
-    return [string]$Content
-}
-
+Write-Host "==> Installer script: $InstallerScriptVersion"
 Write-Host "==> Resolving release ($Tag) from $Repo..."
 $release = Get-Release -Repository $Repo -ReleaseTag $Tag
 $tagName = $release.tag_name
@@ -119,8 +110,9 @@ Write-Host "==> Download: $($asset.browser_download_url)"
 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath -Headers @{ "User-Agent" = "Tpf2-Mod-Studio-Installer" }
 
 # Packages are unsigned, so the published checksum is the only integrity check
-# available. This script is meant to be piped into PowerShell, which makes
-# verifying the download worth the extra request.
+# available. Download the checksum asset to disk and read it explicitly as
+# UTF-8. This avoids differing Invoke-WebRequest.Content types between Windows
+# PowerShell 5.1 and newer PowerShell releases.
 $checksumAsset = $release.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" } | Select-Object -First 1
 if ($SkipChecksum) {
     Write-Host "!! Checksum verification skipped on request."
@@ -128,8 +120,9 @@ if ($SkipChecksum) {
     Write-Host "!! Release $tagName publishes no SHA256SUMS.txt; cannot verify the download."
 } else {
     Write-Host "==> Verifying SHA-256..."
-    $checksumResponse = Invoke-WebRequest -Uri $checksumAsset.browser_download_url -Headers @{ "User-Agent" = "Tpf2-Mod-Studio-Installer" }
-    $sums = (ConvertTo-Utf8Text $checksumResponse.Content).TrimStart([char]0xFEFF)
+    $checksumPath = Join-Path $downloadDir "SHA256SUMS-$tagName.txt"
+    Invoke-WebRequest -Uri $checksumAsset.browser_download_url -OutFile $checksumPath -Headers @{ "User-Agent" = "Tpf2-Mod-Studio-Installer" }
+    $sums = [System.IO.File]::ReadAllText($checksumPath, [System.Text.Encoding]::UTF8).TrimStart([char]0xFEFF)
     $expected = $null
 
     foreach ($line in ($sums -split "`r?`n")) {
