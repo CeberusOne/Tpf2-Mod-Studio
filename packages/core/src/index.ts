@@ -1,3 +1,4 @@
+export * from "./ai-assist.js";
 export * from "./log-parser.js";
 export * from "./modifier-analyzer.js";
 export * from "./path-utils.js";

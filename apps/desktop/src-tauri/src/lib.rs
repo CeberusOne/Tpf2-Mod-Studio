@@ -4,11 +4,12 @@ use std::{
     env,
     ffi::OsStr,
     fs,
-    io::Read,
+    io::{self, Read},
     path::{Component, Path, PathBuf},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
+use zip::ZipArchive;
 
 const MAX_SCANNED_FILES: usize = 20_000;
 const MAX_TEXT_FILE_BYTES: u64 = 2 * 1024 * 1024;
@@ -85,6 +86,18 @@ struct InstallationCandidate {
     valid: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModArchiveInfo {
+    archive_path: String,
+    project_id: String,
+    has_mod_lua: bool,
+    entry_count: usize,
+    mod_lua_path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nested_root: Option<String>,
 }
 
 fn now_millis() -> u128 {
@@ -849,6 +862,234 @@ fn launch_game(executable_path: String) -> Result<u32, String> {
     Ok(child.id())
 }
 
+fn normalize_zip_path(name: &str) -> String {
+    name.replace('\\', "/")
+        .trim_start_matches("./")
+        .trim_matches('/')
+        .to_string()
+}
+
+fn open_zip_archive(path: &Path) -> Result<ZipArchive<fs::File>, String> {
+    let file = fs::File::open(path).map_err(|error| format!("Cannot open archive: {error}"))?;
+    ZipArchive::new(file).map_err(|error| format!("Invalid ZIP archive: {error}"))
+}
+
+fn find_mod_lua_in_zip(
+    archive: &mut ZipArchive<fs::File>,
+) -> Result<(String, Option<String>), String> {
+    let mut candidates = Vec::new();
+    for index in 0..archive.len() {
+        let entry = archive
+            .by_index(index)
+            .map_err(|error| format!("Cannot read ZIP entry: {error}"))?;
+        if entry.is_dir() {
+            continue;
+        }
+        let name = normalize_zip_path(entry.name());
+        if name.eq_ignore_ascii_case("mod.lua") || name.to_ascii_lowercase().ends_with("/mod.lua") {
+            candidates.push(name);
+        }
+    }
+    if candidates.is_empty() {
+        return Err(
+            "No mod.lua found in the archive. TF2 mods must contain a root mod.lua (wiki: extract so the mod has its own folder)."
+                .into(),
+        );
+    }
+    candidates.sort_by_key(|path| path.matches('/').count());
+    let mod_lua_path = candidates.into_iter().next().expect("candidates not empty");
+    let nested_root = Path::new(&mod_lua_path)
+        .parent()
+        .map(path_string)
+        .filter(|value| !value.is_empty());
+    Ok((mod_lua_path, nested_root))
+}
+
+fn project_id_from_archive(path: &Path, nested_root: Option<&str>) -> String {
+    if let Some(root) = nested_root {
+        if let Some(name) = Path::new(root).file_name().and_then(OsStr::to_str) {
+            if is_valid_project_id(name) {
+                return name.to_string();
+            }
+            return sanitize_project_id_hint(name);
+        }
+    }
+    let stem = path
+        .file_stem()
+        .and_then(OsStr::to_str)
+        .unwrap_or("imported_mod");
+    sanitize_project_id_hint(stem)
+}
+
+fn sanitize_project_id_hint(value: &str) -> String {
+    let mut chars: String = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    while chars.contains("__") {
+        chars = chars.replace("__", "_");
+    }
+    let trimmed = chars.trim_matches('_');
+    if is_valid_project_id(trimmed) {
+        return trimmed.to_string();
+    }
+    let base = if trimmed.is_empty() {
+        "imported_mod"
+    } else {
+        trimmed
+    };
+    if base.rsplit_once('_').is_some_and(|(_, version)| {
+        version.chars().all(|c| c.is_ascii_digit()) && !version.is_empty()
+    }) {
+        base.to_string()
+    } else {
+        format!("{base}_1")
+    }
+}
+
+fn strip_zip_prefix(path: &str, prefix: Option<&str>) -> Option<String> {
+    let normalized = normalize_zip_path(path);
+    match prefix {
+        None | Some("") => Some(normalized),
+        Some(root) => {
+            let root = root.trim_matches('/');
+            if normalized == root {
+                None
+            } else if let Some(rest) = normalized.strip_prefix(&format!("{root}/")) {
+                Some(rest.to_string())
+            } else {
+                None
+            }
+        }
+    }
+}
+
+#[tauri::command]
+fn inspect_mod_archive(archive_path: String) -> Result<ModArchiveInfo, String> {
+    let path = fs::canonicalize(&archive_path)
+        .map_err(|error| format!("Cannot access archive: {error}"))?;
+    if !path.is_file() {
+        return Err("The selected archive is not a file.".into());
+    }
+    let extension = path
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(str::to_ascii_lowercase);
+    if !matches!(extension.as_deref(), Some("zip")) {
+        return Err("Only .zip mod archives are supported in this version.".into());
+    }
+    let mut archive = open_zip_archive(&path)?;
+    let entry_count = archive.len();
+    let (mod_lua_path, nested_root) = find_mod_lua_in_zip(&mut archive)?;
+    let project_id = project_id_from_archive(&path, nested_root.as_deref());
+    Ok(ModArchiveInfo {
+        archive_path: path_string(&path),
+        project_id,
+        has_mod_lua: true,
+        entry_count,
+        mod_lua_path,
+        nested_root,
+    })
+}
+
+#[tauri::command]
+fn import_mod_archive(
+    archive_path: String,
+    mods_directory: String,
+    overwrite: bool,
+) -> Result<InstallResult, String> {
+    let info = inspect_mod_archive(archive_path.clone())?;
+    let mods_root = canonical_directory(&mods_directory)?;
+    let destination = mods_root.join(&info.project_id);
+    if destination.exists() && !overwrite {
+        return Err(format!(
+            "A mod folder named {} already exists. Enable overwrite to replace it after backup.",
+            info.project_id
+        ));
+    }
+
+    let staging = mods_root.join(format!(
+        ".tpf2-zip-import-{}-{}",
+        std::process::id(),
+        timestamp()
+    ));
+    if staging.exists() {
+        fs::remove_dir_all(&staging)
+            .map_err(|error| format!("Cannot clear staging directory: {error}"))?;
+    }
+    fs::create_dir_all(&staging)
+        .map_err(|error| format!("Cannot create staging directory: {error}"))?;
+
+    let path = PathBuf::from(&info.archive_path);
+    let mut archive = open_zip_archive(&path)?;
+    let prefix = info.nested_root.as_deref();
+    let mut file_count = 0usize;
+
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| format!("Cannot read ZIP entry: {error}"))?;
+        let Some(relative) = strip_zip_prefix(entry.name(), prefix) else {
+            continue;
+        };
+        if relative.is_empty() {
+            continue;
+        }
+        // Reject path traversal in archive entries.
+        if relative.split('/').any(|part| part == ".." || part == ".") {
+            return Err(format!("Archive entry uses an unsafe path: {relative}"));
+        }
+        let out_path = staging.join(&relative);
+        if entry.is_dir() || relative.ends_with('/') {
+            fs::create_dir_all(&out_path)
+                .map_err(|error| format!("Cannot create directory from archive: {error}"))?;
+            continue;
+        }
+        if let Some(parent) = out_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("Cannot create parent directory: {error}"))?;
+        }
+        let mut outfile = fs::File::create(&out_path)
+            .map_err(|error| format!("Cannot write extracted file: {error}"))?;
+        io::copy(&mut entry, &mut outfile)
+            .map_err(|error| format!("Cannot extract archive entry: {error}"))?;
+        file_count += 1;
+    }
+
+    if !staging.join("mod.lua").is_file() {
+        let _ = fs::remove_dir_all(&staging);
+        return Err("Extracted archive does not contain mod.lua at the mod root.".into());
+    }
+
+    let mut backup_path = None;
+    if destination.exists() {
+        let backup_root = mods_root.join(".tpf2-mod-studio-backups");
+        fs::create_dir_all(&backup_root)
+            .map_err(|error| format!("Cannot create backup directory: {error}"))?;
+        let backup = backup_root.join(format!("{}-{}", info.project_id, timestamp()));
+        fs::rename(&destination, &backup)
+            .map_err(|error| format!("Cannot move existing mod to backup: {error}"))?;
+        backup_path = Some(path_string(&backup));
+    }
+
+    fs::rename(&staging, &destination).map_err(|error| {
+        let _ = fs::remove_dir_all(&staging);
+        format!("Cannot finalize imported mod: {error}")
+    })?;
+
+    Ok(InstallResult {
+        installed_path: path_string(&destination),
+        backup_path,
+        file_count,
+    })
+}
+
 /// Apply Linux runtime workarounds before WebKitGTK starts.
 ///
 /// WebKitGTK 2.42+ can abort on start with
@@ -878,7 +1119,9 @@ pub fn run() {
             install_project,
             detect_installations,
             read_tf2_log,
-            launch_game
+            launch_game,
+            inspect_mod_archive,
+            import_mod_archive
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tpf2 Mod Studio");
@@ -1056,6 +1299,41 @@ mod tests {
             Some("0")
         );
         env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER");
+    }
+
+    #[test]
+    fn inspect_mod_archive_finds_nested_mod_lua() {
+        use std::io::Write;
+        let workspace = TemporaryDirectory::new("zip-mod");
+        let zip_path = workspace.path().join("demo_mod_1.zip");
+        {
+            let file = fs::File::create(&zip_path).expect("zip file");
+            let mut zip = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            zip.start_file("demo_mod_1/mod.lua", options)
+                .expect("start mod.lua");
+            zip.write_all(b"function data() return { info = { name = \"Demo\" } } end")
+                .expect("write mod.lua");
+            zip.start_file("demo_mod_1/strings.lua", options)
+                .expect("start strings");
+            zip.write_all(b"function data() return {} end")
+                .expect("write strings");
+            zip.finish().expect("finish zip");
+        }
+        let info = inspect_mod_archive(path_string(&zip_path)).expect("inspect");
+        assert!(info.has_mod_lua);
+        assert_eq!(info.project_id, "demo_mod_1");
+        assert_eq!(info.mod_lua_path, "demo_mod_1/mod.lua");
+
+        let mods = workspace.path().join("mods");
+        fs::create_dir(&mods).expect("mods dir");
+        let installed =
+            import_mod_archive(path_string(&zip_path), path_string(&mods), false).expect("import");
+        assert!(Path::new(&installed.installed_path)
+            .join("mod.lua")
+            .is_file());
+        assert!(installed.file_count >= 2);
     }
 
     #[test]

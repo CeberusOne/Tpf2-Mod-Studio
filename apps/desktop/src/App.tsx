@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Code2,
   Database,
+  FileArchive,
   FilePlus2,
   Files,
   FolderOpen,
@@ -20,6 +21,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Sparkles,
   Sun,
   TerminalSquare,
   TriangleAlert,
@@ -27,14 +29,21 @@ import {
 } from "lucide-react";
 import {
   analyzeTf2Log,
+  buildLogAssistPrompt,
   buildResourceIndex,
+  DEFAULT_AI_SETTINGS,
+  isAiConfigured,
+  requestAiAssistance,
   validateProject
 } from "@tpf2-mod-studio/core";
 import type {
+  AiAssistSettings,
   CreateProjectRequest,
   Diagnostic,
   InstallationCandidate,
   LogAnalysis,
+  LogFilterMode,
+  LogGroup,
   ProjectFile,
   ProjectMode,
   ProjectSnapshot,
@@ -154,9 +163,29 @@ export default function App(props: AppProps) {
 }
 
 const FONT_SIZE_STORAGE_KEY = "tpf2-mod-studio.ui-font-size.v1";
+const AI_SETTINGS_STORAGE_KEY = "tpf2-mod-studio.ai-settings.v1";
 const FONT_SIZE_MIN = 13;
 const FONT_SIZE_MAX = 20;
 const FONT_SIZE_DEFAULT = 16;
+
+function readStoredAiSettings(): AiAssistSettings {
+  if (typeof window === "undefined") return { ...DEFAULT_AI_SETTINGS };
+  try {
+    const raw = window.localStorage.getItem(AI_SETTINGS_STORAGE_KEY);
+    if (raw === null) return { ...DEFAULT_AI_SETTINGS };
+    const parsed = JSON.parse(raw) as Partial<AiAssistSettings>;
+    return {
+      ...DEFAULT_AI_SETTINGS,
+      ...parsed,
+      enabled: Boolean(parsed.enabled),
+      baseUrl: String(parsed.baseUrl ?? DEFAULT_AI_SETTINGS.baseUrl),
+      apiKey: String(parsed.apiKey ?? ""),
+      model: String(parsed.model ?? DEFAULT_AI_SETTINGS.model)
+    };
+  } catch {
+    return { ...DEFAULT_AI_SETTINGS };
+  }
+}
 
 function readStoredFontSize(): number {
   if (typeof window === "undefined") return FONT_SIZE_DEFAULT;
@@ -192,6 +221,12 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   const [installResult, setInstallResult] = useState<string>();
   const [logPath, setLogPath] = useState("");
   const [logAnalysis, setLogAnalysis] = useState<LogAnalysis>();
+  const [logFilterMode, setLogFilterMode] = useState<LogFilterMode>("problems");
+  const [logContent, setLogContent] = useState("");
+  const [expandedLogId, setExpandedLogId] = useState<string>();
+  const [aiSettings, setAiSettings] = useState<AiAssistSettings>(readStoredAiSettings);
+  const [aiAnswers, setAiAnswers] = useState<Record<string, string>>({});
+  const [aiBusyId, setAiBusyId] = useState<string>();
   const [installations, setInstallations] = useState<InstallationCandidate[]>([]);
 
   const validation = useMemo(
@@ -468,11 +503,83 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     );
     if (content === undefined) return;
     setLogPath(path);
-    setLogAnalysis(analyzeTf2Log(content));
+    setLogContent(content);
+    setLogAnalysis(analyzeTf2Log(content, { filterMode: logFilterMode }));
+    setExpandedLogId(undefined);
     setNotice({
       tone: "success",
       message: t("noticeLogLoaded", { path })
     });
+  }
+
+  useEffect(() => {
+    if (logContent.length === 0) return;
+    setLogAnalysis(analyzeTf2Log(logContent, { filterMode: logFilterMode }));
+  }, [logFilterMode, logContent]);
+
+  function persistAiSettings(next: AiAssistSettings): void {
+    setAiSettings(next);
+    try {
+      window.localStorage.setItem(AI_SETTINGS_STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // Session-only AI settings still apply.
+    }
+    setNotice({ tone: "success", message: t("aiSaved") });
+  }
+
+  async function askAiForLog(group: LogGroup): Promise<void> {
+    if (!isAiConfigured(aiSettings)) {
+      setNotice({ tone: "error", message: t("aiNotConfigured") });
+      setView("settings");
+      return;
+    }
+    setAiBusyId(group.id);
+    try {
+      const answer = await requestAiAssistance(
+        aiSettings,
+        buildLogAssistPrompt(group, language)
+      );
+      setAiAnswers((current) => ({ ...current, [group.id]: answer }));
+    } catch (error) {
+      setNotice({ tone: "error", message: errorMessage(error) });
+    } finally {
+      setAiBusyId(undefined);
+    }
+  }
+
+  async function importZipMod(): Promise<void> {
+    if (modsDirectory.length === 0) {
+      setNotice({ tone: "error", message: t("noticeChooseModsForZip") });
+      return;
+    }
+    const selected = await withBusy(t("busyOpenFolderPicker"), () =>
+      bridge.chooseModArchive(t("dialogSelectZip"), t("dialogZipFilter"))
+    );
+    if (selected === undefined || selected === null) return;
+    const info = await withBusy(t("busyInspectZip"), () =>
+      bridge.inspectModArchive(selected)
+    );
+    if (info === undefined) return;
+    setNotice({
+      tone: "neutral",
+      message: t("noticeZipInspected", {
+        projectId: info.projectId,
+        count: info.entryCount
+      })
+    });
+    const result = await withBusy(t("busyImportZip"), () =>
+      bridge.importModArchive(selected, modsDirectory, allowOverwrite)
+    );
+    if (result === undefined) return;
+    setInstallResult(result.installedPath);
+    setNotice({
+      tone: "success",
+      message: t("noticeZipImported", {
+        projectId: info.projectId,
+        count: result.fileCount
+      })
+    });
+    await loadProject(result.installedPath);
   }
 
   async function chooseAndReadLog(): Promise<void> {
@@ -899,6 +1006,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               modsDirectory={modsDirectory}
               native={bridge.isNative}
               onChooseDirectory={() => void chooseModsDirectory()}
+              onImportZip={() => void importZipMod()}
               onInstall={() => void installProject()}
               onOverwriteChange={setAllowOverwrite}
             />
@@ -906,19 +1014,39 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
 
           {view === "logs" ? (
             <LogView
+              aiAnswers={aiAnswers}
+              {...(aiBusyId === undefined ? {} : { aiBusyId })}
               analysis={logAnalysis}
+              {...(expandedLogId === undefined ? {} : { expandedLogId })}
               experience={experience}
+              filterMode={logFilterMode}
               logPath={logPath}
               native={bridge.isNative}
+              onAskAi={(group) => void askAiForLog(group)}
               onChooseLog={() => void chooseAndReadLog()}
+              onClearAi={(id) =>
+                setAiAnswers((current) => {
+                  const next = { ...current };
+                  delete next[id];
+                  return next;
+                })
+              }
+              onFilterModeChange={setLogFilterMode}
               onOpenLatestLog={() => void openLatestDetectedLog()}
+              onToggleExpand={(id) =>
+                setExpandedLogId((current) =>
+                  current === id ? undefined : id
+                )
+              }
             />
           ) : null}
 
           {view === "settings" ? (
             <SetupView
+              aiSettings={aiSettings}
               installations={installations}
               native={bridge.isNative}
+              onAiSettingsChange={persistAiSettings}
               onDetect={() => void detectInstallations()}
               onLaunch={(executablePath) => void launchGame(executablePath)}
               onUseModsPath={(path) => setModsDirectory(path)}
@@ -1115,6 +1243,7 @@ function InstallView({
   modsDirectory,
   native,
   onChooseDirectory,
+  onImportZip,
   onInstall,
   onOverwriteChange
 }: {
@@ -1126,6 +1255,7 @@ function InstallView({
   modsDirectory: string;
   native: boolean;
   onChooseDirectory: () => void;
+  onImportZip: () => void;
   onInstall: () => void;
   onOverwriteChange: (value: boolean) => void;
 }) {
@@ -1174,6 +1304,15 @@ function InstallView({
           <PackageCheck size={18} />
           {t("installModLocally")}
         </button>
+        <button
+          className="secondary-button large full"
+          disabled={!native || modsDirectory.length === 0}
+          onClick={onImportZip}
+          type="button"
+        >
+          <FileArchive size={18} />
+          {t("importZipMod")}
+        </button>
         {installResult === undefined ? null : (
           <div className="success-box">
             <CheckCircle2 size={18} />
@@ -1209,19 +1348,35 @@ function InstallView({
 }
 
 function LogView({
+  aiAnswers,
+  aiBusyId,
   analysis,
+  expandedLogId,
   experience,
+  filterMode,
   logPath,
   native,
+  onAskAi,
   onChooseLog,
-  onOpenLatestLog
+  onClearAi,
+  onFilterModeChange,
+  onOpenLatestLog,
+  onToggleExpand
 }: {
+  aiAnswers: Record<string, string>;
+  aiBusyId?: string;
   analysis: LogAnalysis | undefined;
+  expandedLogId?: string;
   experience: ExperienceMode;
+  filterMode: LogFilterMode;
   logPath: string;
   native: boolean;
+  onAskAi: (group: LogGroup) => void;
   onChooseLog: () => void;
+  onClearAi: (id: string) => void;
+  onFilterModeChange: (mode: LogFilterMode) => void;
   onOpenLatestLog: () => void;
+  onToggleExpand: (id: string) => void;
 }) {
   const { t } = useI18n();
   const groups = analysis?.groups ?? [];
@@ -1234,6 +1389,22 @@ function LogView({
           <h2>{t("logsTitle")}</h2>
         </div>
         <div className="section-actions">
+          <div className="segmented" aria-label={t("logsTitle")}>
+            <button
+              className={filterMode === "problems" ? "is-selected" : ""}
+              onClick={() => onFilterModeChange("problems")}
+              type="button"
+            >
+              {t("logShowProblems")}
+            </button>
+            <button
+              className={filterMode === "all" ? "is-selected" : ""}
+              onClick={() => onFilterModeChange("all")}
+              type="button"
+            >
+              {t("logShowAll")}
+            </button>
+          </div>
           <button
             className="primary-button"
             disabled={!native}
@@ -1275,6 +1446,9 @@ function LogView({
             {t("logUnclassifiedCount", {
               count: analysis.unclassifiedErrorCount
             })}
+            {analysis.noiseSkipped > 0
+              ? ` · ${t("logNoiseSkipped", { count: analysis.noiseSkipped })}`
+              : ""}
           </span>
           <span>{t("logReliabilityDetail", { reason: analysis.reliabilityReason })}</span>
         </section>
@@ -1288,38 +1462,57 @@ function LogView({
         </EmptyState>
       ) : (
         <div className="log-list">
-          {groups.map((group) => (
-            <article className={`log-row ${group.severity}`} key={group.id}>
-              <span className="log-count">{group.count}×</span>
-              <div>
-                <strong>{group.message}</strong>
-                <small>
-                  {t("logLine", { line: group.firstLine })}
-                  {group.lastLine === group.firstLine
-                    ? ""
-                    : `–${group.lastLine}`}
-                  {group.modId === undefined
-                    ? ""
-                    : ` · ${t("modReference", { modId: group.modId })}`}
-                  {" · "}
-                  {group.causeStatus === "root-cause"
-                    ? t("logRootCause")
-                    : group.causeStatus === "consequence"
-                      ? t("logConsequence")
-                      : t("causeUnclassified")}
-                </small>
-                {group.technicalCause === undefined ? null : (
-                  <p className="log-cause">
-                    <b>{t("showCauseAlways")}:</b> {group.technicalCause}
-                  </p>
-                )}
-                {group.recommendedFix === undefined ? null : (
-                  <p className="log-fix">
-                    <b>{t("correction")}:</b> {group.recommendedFix}
-                  </p>
-                )}
-                {experience === "expert" ? (
-                  <>
+          {groups.map((group) => {
+            const expanded = expandedLogId === group.id;
+            return (
+              <article
+                className={`log-row is-interactive ${group.severity} ${
+                  expanded ? "is-expanded" : ""
+                }`}
+                key={group.id}
+              >
+                <button
+                  className="log-row-main"
+                  onClick={() => onToggleExpand(group.id)}
+                  type="button"
+                >
+                  <span className="log-count">{group.count}×</span>
+                  <div className="log-row-copy">
+                    <strong>{group.message}</strong>
+                    <small>
+                      {t("logLine", { line: group.firstLine })}
+                      {group.lastLine === group.firstLine
+                        ? ""
+                        : `–${group.lastLine}`}
+                      {group.modId === undefined
+                        ? ""
+                        : ` · ${t("modReference", { modId: group.modId })}`}
+                      {" · "}
+                      {group.causeStatus === "root-cause"
+                        ? t("logRootCause")
+                        : group.causeStatus === "consequence"
+                          ? t("logConsequence")
+                          : t("causeUnclassified")}
+                      {" · "}
+                      {t("logOpenDetails")}
+                    </small>
+                  </div>
+                  <span className="severity-label">
+                    {localizedSeverity(group.severity, t)}
+                  </span>
+                </button>
+                {expanded ? (
+                  <div className="log-details">
+                    {group.technicalCause === undefined ? null : (
+                      <p className="log-cause">
+                        <b>{t("showCauseAlways")}:</b> {group.technicalCause}
+                      </p>
+                    )}
+                    {group.recommendedFix === undefined ? null : (
+                      <p className="log-fix">
+                        <b>{t("correction")}:</b> {group.recommendedFix}
+                      </p>
+                    )}
                     <code>
                       {group.file ?? t("noFileAssigned")}
                       {group.sourceLine === undefined
@@ -1327,8 +1520,20 @@ function LogView({
                         : `:${group.sourceLine}`}{" "}
                       · {group.causeCode ?? t("causeUnclassified")}
                     </code>
+                    {group.affectedMods.length === 0 ? null : (
+                      <p className="log-meta">
+                        <b>{t("logAffectedMods")}:</b>{" "}
+                        {group.affectedMods.join(", ")}
+                      </p>
+                    )}
+                    {group.affectedFiles.length === 0 ? null : (
+                      <p className="log-meta">
+                        <b>{t("logAffectedFiles")}:</b>{" "}
+                        {group.affectedFiles.slice(0, 8).join(", ")}
+                      </p>
+                    )}
                     {group.stackTrace.length === 0 ? null : (
-                      <details className="log-stack">
+                      <details className="log-stack" open={experience === "expert"}>
                         <summary>
                           {t("logStackFrames", {
                             count: group.stackTrace.length
@@ -1339,14 +1544,37 @@ function LogView({
                         ))}
                       </details>
                     )}
-                  </>
+                    <div className="section-actions">
+                      <button
+                        className="secondary-button"
+                        disabled={aiBusyId === group.id}
+                        onClick={() => onAskAi(group)}
+                        type="button"
+                      >
+                        <Sparkles size={16} />
+                        {aiBusyId === group.id ? t("aiWorking") : t("askAi")}
+                      </button>
+                      {aiAnswers[group.id] === undefined ? null : (
+                        <button
+                          className="secondary-button"
+                          onClick={() => onClearAi(group.id)}
+                          type="button"
+                        >
+                          {t("aiClear")}
+                        </button>
+                      )}
+                    </div>
+                    {aiAnswers[group.id] === undefined ? null : (
+                      <div className="ai-answer">
+                        <strong>{t("aiResponse")}</strong>
+                        <p>{aiAnswers[group.id]}</p>
+                      </div>
+                    )}
+                  </div>
                 ) : null}
-              </div>
-              <span className="severity-label">
-                {localizedSeverity(group.severity, t)}
-              </span>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1354,19 +1582,28 @@ function LogView({
 }
 
 function SetupView({
+  aiSettings,
   installations,
   native,
+  onAiSettingsChange,
   onDetect,
   onLaunch,
   onUseModsPath
 }: {
+  aiSettings: AiAssistSettings;
   installations: InstallationCandidate[];
   native: boolean;
+  onAiSettingsChange: (settings: AiAssistSettings) => void;
   onDetect: () => void;
   onLaunch: (executablePath: string) => void;
   onUseModsPath: (path: string) => void;
 }) {
   const { t } = useI18n();
+  const [draft, setDraft] = useState(aiSettings);
+
+  useEffect(() => {
+    setDraft(aiSettings);
+  }, [aiSettings]);
 
   return (
     <div className="setup-page">
@@ -1385,6 +1622,72 @@ function SetupView({
           {t("checkDefaultPaths")}
         </button>
       </div>
+
+      <section className="task-card ai-settings-card">
+        <span className="eyebrow">{t("aiAssist")}</span>
+        <h2>{t("aiAssist")}</h2>
+        <label className="check-row">
+          <input
+            checked={draft.enabled}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                enabled: event.target.checked
+              }))
+            }
+            type="checkbox"
+          />
+          <span>{t("aiEnabled")}</span>
+        </label>
+        <label className="field">
+          <span>{t("aiBaseUrl")}</span>
+          <input
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                baseUrl: event.target.value
+              }))
+            }
+            value={draft.baseUrl}
+          />
+          <small>{t("aiBaseUrlHint")}</small>
+        </label>
+        <label className="field">
+          <span>{t("aiApiKey")}</span>
+          <input
+            autoComplete="off"
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                apiKey: event.target.value
+              }))
+            }
+            type="password"
+            value={draft.apiKey}
+          />
+        </label>
+        <label className="field">
+          <span>{t("aiModel")}</span>
+          <input
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                model: event.target.value
+              }))
+            }
+            value={draft.model}
+          />
+        </label>
+        <button
+          className="secondary-button"
+          onClick={() => onAiSettingsChange(draft)}
+          type="button"
+        >
+          <Sparkles size={16} />
+          {t("aiSaved")}
+        </button>
+      </section>
+
       {installations.length === 0 ? (
         <EmptyState
           icon={<HardDrive size={26} />}

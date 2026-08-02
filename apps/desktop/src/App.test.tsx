@@ -79,6 +79,7 @@ function bridge(native = true): DesktopBridge {
     isNative: native,
     chooseDirectory: vi.fn(async () => "/real/project/test_mod_1"),
     chooseLogFile: vi.fn(async () => null),
+    chooseModArchive: vi.fn(async () => null),
     detectInstallations: vi.fn(async (): Promise<InstallationCandidate[]> => []),
     createProject: vi.fn(
       async (): Promise<CreatedProject> => ({
@@ -94,6 +95,19 @@ function bridge(native = true): DesktopBridge {
       async (): Promise<InstallResult> => ({
         installedPath: "/tf2/mods/test_mod_1",
         fileCount: 2
+      })
+    ),
+    inspectModArchive: vi.fn(async () => ({
+      archivePath: "/tmp/mod.zip",
+      projectId: "sample_mod_1",
+      hasModLua: true,
+      entryCount: 3,
+      modLuaPath: "mod.lua"
+    })),
+    importModArchive: vi.fn(
+      async (): Promise<InstallResult> => ({
+        installedPath: "/tf2/mods/sample_mod_1",
+        fileCount: 3
       })
     ),
     readLog: vi.fn(async () => ""),
@@ -188,9 +202,14 @@ describe("desktop workbench", () => {
     expect(
       await screen.findByText("Root-cause analysis complete")
     ).toBeTruthy();
+    // Open the problem row to reveal cause/fix details.
+    const detailButtons = screen.getAllByRole("button", {
+      name: /Details/u
+    });
+    fireEvent.click(detailButtons[0]!);
+    expect(await screen.findByText(/Check the module path/u)).toBeTruthy();
     expect(screen.getAllByText(/Root cause/u).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Follow-up/u).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Check the module path/u)).toBeTruthy();
   });
 
   it("switches to German and persists the explicit language selection", () => {
