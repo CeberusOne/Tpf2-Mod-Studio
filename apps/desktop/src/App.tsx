@@ -59,6 +59,7 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
 
@@ -174,9 +175,43 @@ export default function App(props: AppProps) {
 
 const FONT_SIZE_STORAGE_KEY = "tpf2-mod-studio.ui-font-size.v1";
 const AI_SETTINGS_STORAGE_KEY = "tpf2-mod-studio.ai-settings.v1";
+/** Release tag last successfully installed by the auto-updater (survives restarts). */
+const UPDATE_APPLIED_TAG_KEY = "tpf2-mod-studio.update-applied-tag.v1";
 const FONT_SIZE_MIN = 13;
 const FONT_SIZE_MAX = 20;
 const FONT_SIZE_DEFAULT = 16;
+
+function readAppliedUpdateTag(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(UPDATE_APPLIED_TAG_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberAppliedUpdateTag(tag: string): void {
+  if (typeof window === "undefined" || tag.length === 0) return;
+  try {
+    window.localStorage.setItem(UPDATE_APPLIED_TAG_KEY, tag);
+  } catch {
+    // Skip-list is best-effort; in-memory ref still blocks same-session restarts.
+  }
+}
+
+function wasUpdateAlreadyApplied(info: {
+  releaseTag: string;
+  latestVersion: string;
+}): boolean {
+  const applied = readAppliedUpdateTag();
+  if (applied.length === 0) return false;
+  const candidates = new Set(
+    [info.releaseTag, info.latestVersion, `v${info.latestVersion}`].filter(
+      (value) => value.length > 0
+    )
+  );
+  return candidates.has(applied);
+}
 
 function readStoredAiSettings(): AiAssistSettings {
   if (typeof window === "undefined") return { ...DEFAULT_AI_SETTINGS };
@@ -314,52 +349,77 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     };
   }, [bridge, t]);
 
-  // Auto-update from GitHub Releases on startup (Linux AppImage / Windows installer).
+  // One-shot update check at process start — never on an interval and never
+  // when language/`t` changes. Deferred slightly so React StrictMode's
+  // mount→cleanup→remount does not double-hit GitHub or cancel a real check.
+  // If the embedded package version lags the release tag, remember the applied
+  // tag so install+restart cannot loop forever.
+  const updateCheckStartedRef = useRef(false);
   useEffect(() => {
     if (!bridge.isNative) return;
+
     let cancelled = false;
-    void (async () => {
-      try {
-        const info = await bridge.checkForUpdate();
-        if (cancelled || !info.available) return;
-        setNotice({
-          tone: "neutral",
-          message: t("updateAvailable", { version: info.latestVersion })
-        });
-        setNotice({
-          tone: "neutral",
-          message: t("updateInstalling", { version: info.latestVersion })
-        });
-        const result = await bridge.applyUpdate(info);
-        if (cancelled) return;
-        setNotice({
-          tone: "success",
-          message: result || t("updateInstalled")
-        });
-        window.setTimeout(() => {
-          void bridge.restartAfterUpdate().catch(() => {
-            setNotice({
-              tone: "success",
-              message: t("updateInstalled")
-            });
-          });
-        }, 1200);
-      } catch (error) {
-        if (cancelled) return;
-        // Network/offline failures stay quiet; only surface real update errors.
-        const message = errorMessage(error);
-        if (!/network|fetch|timed out|dns|offline/i.test(message)) {
+    const timer = window.setTimeout(() => {
+      if (cancelled || updateCheckStartedRef.current) return;
+      updateCheckStartedRef.current = true;
+
+      void (async () => {
+        try {
+          const info = await bridge.checkForUpdate();
+          if (cancelled || !info.available) return;
+          if (wasUpdateAlreadyApplied(info)) {
+            // Already installed this release; stay quiet (breaks version-lag loops).
+            return;
+          }
+
           setNotice({
-            tone: "error",
-            message: t("updateFailed", { error: message })
+            tone: "neutral",
+            message: t("updateAvailable", { version: info.latestVersion })
           });
+          setNotice({
+            tone: "neutral",
+            message: t("updateInstalling", { version: info.latestVersion })
+          });
+          const result = await bridge.applyUpdate(info);
+          if (cancelled) return;
+
+          rememberAppliedUpdateTag(
+            info.releaseTag || `v${info.latestVersion}` || info.latestVersion
+          );
+
+          setNotice({
+            tone: "success",
+            message: result || t("updateInstalled")
+          });
+          window.setTimeout(() => {
+            void bridge.restartAfterUpdate().catch(() => {
+              setNotice({
+                tone: "success",
+                message: t("updateInstalled")
+              });
+            });
+          }, 1200);
+        } catch (error) {
+          if (cancelled) return;
+          // Network/offline failures stay quiet; only surface real update errors.
+          const message = errorMessage(error);
+          if (!/network|fetch|timed out|dns|offline/i.test(message)) {
+            setNotice({
+              tone: "error",
+              message: t("updateFailed", { error: message })
+            });
+          }
         }
-      }
-    })();
+      })();
+    }, 400);
+
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [bridge, t]);
+    // Intentionally once per process: do not re-run when `t`/language changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- startup one-shot
+  }, [bridge.isNative]);
 
   async function withBusy<T>(
     label: string,
