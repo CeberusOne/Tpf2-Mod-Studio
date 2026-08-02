@@ -1,7 +1,11 @@
 import { parse } from "luaparse";
 
 import { analyzeTf2Registrations } from "./modifier-analyzer.js";
-import { normalizeResourcePath, portablePathKey } from "./path-utils.js";
+import {
+  assertSafeRelativePath,
+  normalizeResourcePath,
+  portablePathKey
+} from "./path-utils.js";
 import type {
   Diagnostic,
   ProjectFile,
@@ -28,11 +32,16 @@ type LuaParseFailure = Error & {
 };
 
 const RESOURCE_REFERENCE_PATTERN =
-  /(["'])([^"'\\\r\n]+\.(?:lua|con|mdl|msh(?:\.blob)?|mtl|tga|dds|wav|ani|fs|vs))\1/giu;
+  /(["'])([^"'\\\r\n]+\.(?:lua|con|module|mdl|msh(?:\.blob)?|mtl|tga|dds|png|jpe?g|wav|ogg|ani|fs|vs|ttf|otf|po|mo))\1/giu;
+
+// Keep syntax validation conservative until every TF2 Lua-backed resource type
+// has representative fixtures. Reference extraction still covers all text types.
+const LUA_RESOURCE_EXTENSIONS = new Set([".lua", ".con"]);
 
 const TEXT_RESOURCE_EXTENSIONS = new Set([
   ".lua",
   ".con",
+  ".module",
   ".mdl",
   ".mtl",
   ".ani",
@@ -40,7 +49,11 @@ const TEXT_RESOURCE_EXTENSIONS = new Set([
   ".vs",
   ".json",
   ".txt",
-  ".md"
+  ".md",
+  ".po",
+  ".xml",
+  ".cfg",
+  ".ini"
 ]);
 
 function diagnostic(
@@ -91,8 +104,7 @@ function findDataTable(ast: LuaNode): LuaNode | undefined {
   const body = Array.isArray(ast.body) ? ast.body : [];
   const dataFunction = body.find(
     (node) =>
-      node.type === "FunctionDeclaration" &&
-      node.identifier?.name === "data"
+      node.type === "FunctionDeclaration" && node.identifier?.name === "data"
   );
   const returnStatement = dataFunction?.body?.find(
     (node) => node.type === "ReturnStatement"
@@ -129,7 +141,7 @@ function luaDiagnostics(file: ProjectFile): Diagnostic[] {
     ];
   }
 
-  if (file.relativePath !== "mod.lua") return [];
+  if (normalizeResourcePath(file.relativePath) !== "mod.lua") return [];
 
   const dataTable = findDataTable(ast);
   if (dataTable?.type !== "TableConstructorExpression") {
@@ -203,7 +215,7 @@ function fileMap(snapshot: ProjectSnapshot): {
 function referenceCandidates(reference: string): string[] {
   const normalized = normalizeResourcePath(reference);
   if (normalized.startsWith("res/")) return [normalized];
-  const lower = normalized.toLocaleLowerCase("en-US");
+  const lower = normalized.toLowerCase();
   const candidates = [normalized, `res/${normalized}`];
   if (lower.endsWith(".mdl")) {
     candidates.push(`res/models/model/${normalized}`);
@@ -211,12 +223,18 @@ function referenceCandidates(reference: string): string[] {
     candidates.push(`res/models/material/${normalized}`);
   } else if (lower.endsWith(".msh") || lower.endsWith(".msh.blob")) {
     candidates.push(`res/models/mesh/${normalized}`);
-  } else if (lower.endsWith(".tga") || lower.endsWith(".dds")) {
+  } else if (
+    lower.endsWith(".tga") ||
+    lower.endsWith(".dds") ||
+    lower.endsWith(".png") ||
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg")
+  ) {
     candidates.push(`res/textures/${normalized}`);
-  } else if (lower.endsWith(".con")) {
+  } else if (lower.endsWith(".con") || lower.endsWith(".module")) {
     candidates.push(`res/construction/${normalized}`);
   }
-  return candidates;
+  return [...new Set(candidates)];
 }
 
 function resourceReferenceDiagnostics(
@@ -295,7 +313,7 @@ function resourceReferenceDiagnostics(
 }
 
 function extensionFor(relativePath: string): string {
-  const lower = relativePath.toLocaleLowerCase("en-US");
+  const lower = relativePath.toLowerCase();
   if (lower.endsWith(".msh.blob")) return ".msh.blob";
   const dot = lower.lastIndexOf(".");
   return dot === -1 ? "" : lower.slice(dot);
@@ -307,6 +325,23 @@ function pathDiagnostics(snapshot: ProjectSnapshot): Diagnostic[] {
 
   for (const file of snapshot.files) {
     const normalized = normalizeResourcePath(file.relativePath);
+    try {
+      assertSafeRelativePath(file.relativePath);
+    } catch (error) {
+      diagnostics.push(
+        diagnostic(
+          "UNSAFE_PORTABLE_PATH",
+          "error",
+          "confirmed",
+          "Path is not portable between Windows and Linux",
+          error instanceof Error ? error.message : String(error),
+          "The path violates cross-platform filesystem constraints used by the desktop application and release builds.",
+          "Rename the file or directory to a portable relative path, then update every resource reference.",
+          { file: file.relativePath }
+        )
+      );
+    }
+
     const key = portablePathKey(normalized);
     const matches = portable.get(key) ?? [];
     matches.push(normalized);
@@ -336,9 +371,9 @@ function pathDiagnostics(snapshot: ProjectSnapshot): Diagnostic[] {
         "error",
         "confirmed",
         "Cross-platform filename collision",
-        `These files differ only by portable case or Unicode normalization: ${matches.join(", ")}.`,
-        "Windows and Linux may resolve the paths differently, making the mod non-portable.",
-        "Rename the files to unique lower-case paths and update their references.",
+        `These files collapse to the same portable path: ${matches.join(", ")}.`,
+        "Windows and Linux can resolve case, Unicode normalization, and trailing dots or spaces differently.",
+        "Rename the files to unique lower-case portable paths and update their references.",
         { file: matches[0]! }
       )
     );
@@ -376,7 +411,7 @@ export function validateProject(snapshot: ProjectSnapshot): ValidationResult {
     if (
       file.text &&
       file.content !== undefined &&
-      [".lua", ".con"].includes(extensionFor(file.relativePath))
+      LUA_RESOURCE_EXTENSIONS.has(extensionFor(file.relativePath))
     ) {
       diagnostics.push(...luaDiagnostics(file));
     }
