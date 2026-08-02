@@ -460,6 +460,31 @@ describe("stdout.txt analysis", () => {
     expect(analysis.groups[0]?.stackTrace).toHaveLength(frames.length);
   });
 
+  it("survives shredded slash-heavy lines from unsynchronized TF2 writes", () => {
+    // TF2 writes stdout from several threads without locking, so lines get
+    // interleaved into long slash-heavy fragments with no valid extension.
+    // Those made the path regexes backtrack exponentially: a real 24 MB log
+    // produced no result after 10 minutes. 16 segments alone took ~8 s before.
+    const shredded = Array.from({ length: 40 }, (_, index) => {
+      const segments = Array.from(
+        { length: 24 },
+        (_, part) => `sha${index}re${part}Steam`
+      ).join("/");
+      return `"h4e lod scaler change -> /home/mikeh/.local/${segments}/tail_no_extension`;
+    });
+    const analysis = analyzeTf2Log(
+      ["ERROR attempt to index a nil value", ...shredded].join("\n")
+    );
+
+    expect(analysis.groups.length).toBeGreaterThan(0);
+    // Real paths inside the same input are still attributed.
+    const withFile = analyzeTf2Log(
+      "ERROR mods/broken_1/res/scripts/init.lua:9: attempt to index a nil value"
+    ).groups[0];
+    expect(withFile?.file).toBe("mods/broken_1/res/scripts/init.lua");
+    expect(withFile?.sourceLine).toBe(9);
+  });
+
   it("keeps unknown error signatures explicitly unreliable", () => {
     const analysis = analyzeTf2Log(
       "ERROR engine state rejected request 42 without diagnostic context"

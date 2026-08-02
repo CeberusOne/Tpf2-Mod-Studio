@@ -923,8 +923,11 @@ fn read_tf2_log(log_path: String) -> Result<String, String> {
         return Err("The log exceeds the current 32 MiB analysis limit.".into());
     }
     let mut file = fs::File::open(path).map_err(|error| format!("Cannot open log: {error}"))?;
-    // Real TF2 stdout.txt mixes UTF-8 with legacy code-page bytes from mod and
-    // file names. Decode lossily so a single stray byte cannot block analysis.
+    // TF2 writes stdout from several threads without locking, which shreds
+    // lines into each other and tears multi-byte UTF-8 sequences apart. Those
+    // bytes are unrecoverable, so decode lossily: a strict decode rejects the
+    // whole file over a handful of torn characters (observed: 26 damaged spots
+    // in a 24 MB log) and makes log analysis unusable.
     let mut bytes = Vec::with_capacity(metadata.len() as usize);
     file.read_to_end(&mut bytes)
         .map_err(|error| format!("Cannot read log: {error}"))?;

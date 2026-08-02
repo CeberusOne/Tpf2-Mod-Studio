@@ -16,10 +16,23 @@ const AT_FILE_REFERENCE =
   /@((?:[A-Za-z]:)?[^()\r\n]+\.(?:lua|con|mdl|mtl|msh(?:\.blob)?|txt|log))\((\d+)\)/giu;
 // Absolute or relative resource paths, including real TF2 stack lines:
 // /home/.../mod.lua:32: in function
-const FILE_REFERENCE =
-  /((?:[A-Za-z]:)?(?:\/|\\)?(?:[^\s"'<>|:[\]()]+[\\/])+[^\s"'<>|:[\]()]+\.(?:lua|con|mdl|mtl|msh(?:\.blob)?|txt|log))(?::(\d+))?/giu;
-const PLAIN_STACK_FRAME =
-  /^((?:[A-Za-z]:)?(?:\/|\\)?(?:[^\s"'<>|:[\]()]+[\\/])+[^\s"'<>|:[\]()]+\.(?:lua|con)):(\d+):\s+in\s+(?:function|main chunk)/iu;
+//
+// Path separators are excluded from the segment classes on purpose. TF2 writes
+// stdout from several threads without locking, so lines get shredded into each
+// other and produce very long slash-heavy fragments with no valid extension.
+// If a segment class can also match `/`, the split between segments becomes
+// ambiguous and such a fragment backtracks exponentially (real 24 MB log: no
+// result after 10 minutes). Excluding the separators makes each match
+// deterministic without changing which paths are recognized.
+const PATH_SEGMENT = String.raw`[^\s"'<>|:[\]()\\/]`;
+const FILE_REFERENCE = new RegExp(
+  String.raw`((?:[A-Za-z]:)?(?:\/|\\)?(?:${PATH_SEGMENT}*[\\/])+${PATH_SEGMENT}+\.(?:lua|con|mdl|mtl|msh(?:\.blob)?|txt|log))(?::(\d+))?`,
+  "giu"
+);
+const PLAIN_STACK_FRAME = new RegExp(
+  String.raw`^((?:[A-Za-z]:)?(?:\/|\\)?(?:${PATH_SEGMENT}*[\\/])+${PATH_SEGMENT}+\.(?:lua|con)):(\d+):\s+in\s+(?:function|main chunk)`,
+  "iu"
+);
 
 interface FileLocation {
   file: string;
