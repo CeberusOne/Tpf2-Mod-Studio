@@ -31,6 +31,7 @@ import {
   analyzeTf2Log,
   buildLogAssistPrompt,
   buildResourceIndex,
+  classifyModHealth,
   DEFAULT_AI_SETTINGS,
   isAiConfigured,
   requestAiAssistance,
@@ -46,6 +47,8 @@ import type {
   LogFileInfo,
   LogFilterMode,
   LogGroup,
+  ModHealth,
+  ModHealthStatus,
   ProjectFile,
   ProjectMode,
   ProjectType,
@@ -1628,6 +1631,77 @@ function ModPreview({
 
 const MOD_SOURCE_ORDER = ["local", "staging", "workshop", "builtin"] as const;
 
+function ModHealthLight({ status }: { status: ModHealthStatus }) {
+  const { t } = useI18n();
+  const label =
+    status === "ok"
+      ? t("modHealthOk")
+      : status === "warning"
+        ? t("modHealthWarning")
+        : t("modHealthError");
+  return (
+    <span className="health-light" title={label}>
+      <span className="health-lamps" aria-hidden>
+        <span className={`lamp red ${status === "error" ? "is-lit" : ""}`} />
+        <span className={`lamp amber ${status === "warning" ? "is-lit" : ""}`} />
+        <span className={`lamp green ${status === "ok" ? "is-lit" : ""}`} />
+      </span>
+      <span className={`health-label ${status}`}>{label}</span>
+    </span>
+  );
+}
+
+function ModFindings({ diagnostics }: { diagnostics: Diagnostic[] }) {
+  const { t } = useI18n();
+  const proven = diagnostics.filter((item) => item.certainty !== "heuristic");
+  const unproven = diagnostics.filter((item) => item.certainty === "heuristic");
+
+  return (
+    <div className="mod-findings">
+      {proven.length === 0 ? (
+        <p className="mod-finding-empty">{t("modNoProvenFindings")}</p>
+      ) : (
+        proven.map((item) => (
+          <div className={`mod-finding ${item.severity}`} key={item.id}>
+            <div className="mod-finding-head">
+              {severityIcon(item)}
+              <strong>{item.title}</strong>
+              <code>{item.code}</code>
+            </div>
+            <p>{item.description}</p>
+            <p className="mod-finding-cause">
+              <b>{t("cause")}:</b> {item.technicalCause}
+            </p>
+            <p className="mod-finding-fix">
+              <b>{t("correction")}:</b> {item.recommendedFix}
+            </p>
+            {item.line === undefined ? null : (
+              <small>
+                {item.file ?? "mod.lua"} · {t("line", { line: item.line })}
+              </small>
+            )}
+          </div>
+        ))
+      )}
+      {unproven.length === 0 ? null : (
+        <details className="mod-unproven">
+          <summary>{t("modUnprovenCount", { count: unproven.length })}</summary>
+          <p className="mod-unproven-note">{t("modUnprovenNote")}</p>
+          {unproven.map((item) => (
+            <div className="mod-finding info" key={item.id}>
+              <div className="mod-finding-head">
+                <strong>{item.title}</strong>
+                <code>{item.code}</code>
+              </div>
+              <p>{item.description}</p>
+            </div>
+          ))}
+        </details>
+      )}
+    </div>
+  );
+}
+
 function ManageView({
   bridge,
   mods,
@@ -1642,6 +1716,36 @@ function ManageView({
   onScan: () => void;
 }) {
   const { t } = useI18n();
+  const [expandedMod, setExpandedMod] = useState<string>();
+
+  // Classifying a real 710-mod library takes ~83 ms, so the lights are ready
+  // with the list instead of appearing later.
+  const health = useMemo(() => {
+    const byPath = new Map<string, ModHealth>();
+    for (const mod of mods) {
+      byPath.set(
+        mod.path,
+        classifyModHealth({
+          folderName: mod.id,
+          source: mod.source,
+          ...(mod.modLua === undefined ? {} : { modLua: mod.modLua })
+        })
+      );
+    }
+    return byPath;
+  }, [mods]);
+
+  const healthOf = (mod: InstalledMod): ModHealth =>
+    health.get(mod.path) ?? {
+      status: "ok",
+      errorCount: 0,
+      warningCount: 0,
+      unprovenCount: 0,
+      diagnostics: []
+    };
+
+  const onToggleInfo = (path: string): void =>
+    setExpandedMod((current) => (current === path ? undefined : path));
 
   const groups = useMemo(() => {
     const bySource = new Map<string, InstalledMod[]>();
@@ -1691,40 +1795,79 @@ function ManageView({
               <span className="mod-source-count">
                 {t("modsInSource", { count: entries.length })}
               </span>
+              <span className="mod-source-health">
+                {(["error", "warning", "ok"] as const).map((state) => {
+                  const count = entries.filter(
+                    (mod) => healthOf(mod).status === state
+                  ).length;
+                  return count === 0 ? null : (
+                    <span className={`health-tally ${state}`} key={state}>
+                      <span className={`lamp ${state} is-lit`} />
+                      {count}
+                    </span>
+                  );
+                })}
+              </span>
             </h3>
             <div className="installation-grid">
-              {entries.map((mod) => (
-                <article className="installation-card mod-card" key={mod.path}>
-                  <ModPreview
-                    bridge={bridge}
-                    modPath={mod.path}
-                    name={mod.displayName ?? mod.id}
-                  />
-                  <div className="installation-heading">
-                    <div>
-                      <strong>{mod.displayName ?? mod.id}</strong>
-                      <span>{mod.id}</span>
-                    </div>
-                    <span className={mod.hasModLua ? "valid" : "invalid"}>
-                      {mod.hasModLua ? t("valid") : t("modMissingLua")}
-                    </span>
-                  </div>
-                  <code>{mod.path}</code>
-                  <small>{t("modFiles", { count: mod.fileCount })}</small>
-                  {mod.duplicateOf === undefined ? null : (
-                    <p>{t("modDuplicate", { path: mod.duplicateOf })}</p>
-                  )}
-                  <button
-                    className="secondary-button full"
-                    disabled={!mod.hasModLua}
-                    onClick={() => onOpen(mod.path)}
-                    type="button"
+              {entries.map((mod) => {
+                const health = healthOf(mod);
+                const expanded = expandedMod === mod.path;
+                return (
+                  <article
+                    className={`installation-card mod-card ${health.status}`}
+                    key={mod.path}
                   >
-                    <FolderOpen size={16} />
-                    {t("open")}
-                  </button>
-                </article>
-              ))}
+                    <ModPreview
+                      bridge={bridge}
+                      modPath={mod.path}
+                      name={mod.displayName ?? mod.id}
+                    />
+                    <div className="installation-heading">
+                      <div>
+                        <strong>{mod.displayName ?? mod.id}</strong>
+                        <span>{mod.id}</span>
+                      </div>
+                    </div>
+                    <ModHealthLight status={health.status} />
+                    <code>{mod.path}</code>
+                    <small>
+                      {t("modFiles", { count: mod.fileCount })}
+                      {health.errorCount + health.warningCount === 0
+                        ? ""
+                        : ` · ${t("modFindingCount", {
+                            count: health.errorCount + health.warningCount
+                          })}`}
+                    </small>
+                    {mod.duplicateOf === undefined ? null : (
+                      <p>{t("modDuplicate", { path: mod.duplicateOf })}</p>
+                    )}
+                    <div className="mod-card-actions">
+                      <button
+                        aria-expanded={expanded}
+                        className="secondary-button"
+                        onClick={() => onToggleInfo(mod.path)}
+                        type="button"
+                      >
+                        <AlertCircle size={16} />
+                        {t("modInfo")}
+                      </button>
+                      <button
+                        className="secondary-button"
+                        disabled={!mod.hasModLua}
+                        onClick={() => onOpen(mod.path)}
+                        type="button"
+                      >
+                        <FolderOpen size={16} />
+                        {t("open")}
+                      </button>
+                    </div>
+                    {expanded ? (
+                      <ModFindings diagnostics={health.diagnostics} />
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
           </section>
         ))

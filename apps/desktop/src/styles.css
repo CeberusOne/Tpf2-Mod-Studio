@@ -767,6 +767,155 @@ nav {
   object-fit: cover;
 }
 
+.health-light {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 2px 0 4px;
+}
+
+.health-lamps {
+  display: flex;
+  gap: 4px;
+  padding: 3px 5px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.lamp {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+  opacity: 0.35;
+}
+
+.lamp.red.is-lit,
+.lamp.error.is-lit {
+  background: #e5484d;
+  opacity: 1;
+  box-shadow: 0 0 6px #e5484d99;
+}
+
+.lamp.amber.is-lit,
+.lamp.warning.is-lit {
+  background: #f5a524;
+  opacity: 1;
+  box-shadow: 0 0 6px #f5a52499;
+}
+
+.lamp.green.is-lit,
+.lamp.ok.is-lit {
+  background: #30a46c;
+  opacity: 1;
+  box-shadow: 0 0 6px #30a46c99;
+}
+
+.health-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.health-label.ok {
+  color: #30a46c;
+}
+
+.health-label.warning {
+  color: #f5a524;
+}
+
+.health-label.error {
+  color: #e5484d;
+}
+
+.mod-source-health {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.health-tally {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.mod-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mod-card-actions button {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.mod-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+}
+
+.mod-finding {
+  padding: 9px 10px;
+  font-size: 0.78rem;
+  background: var(--surface-raised);
+  border-left: 3px solid var(--border);
+  border-radius: 5px;
+}
+
+.mod-finding.error {
+  border-left-color: #e5484d;
+}
+
+.mod-finding.warning {
+  border-left-color: #f5a524;
+}
+
+.mod-finding-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.mod-finding-head code {
+  margin-left: auto;
+  font-size: 0.66rem;
+}
+
+.mod-finding p {
+  margin: 3px 0;
+}
+
+.mod-finding-fix {
+  color: var(--text);
+}
+
+.mod-finding-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.mod-unproven summary {
+  color: var(--muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.mod-unproven-note {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
 .mod-card code {
   overflow: hidden;
   font-size: 0.7rem;

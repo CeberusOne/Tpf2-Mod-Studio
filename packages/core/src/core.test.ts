@@ -10,6 +10,7 @@ import {
   requestAiAssistance
 } from "./ai-assist.js";
 import { analyzeTf2Log, parseTf2Log } from "./log-parser.js";
+import { classifyModHealth } from "./mod-health.js";
 import { analyzeTf2Registrations } from "./modifier-analyzer.js";
 import {
   createProjectNode,
@@ -265,6 +266,96 @@ describe("Transport Fever 2 project validation", () => {
       ])
     );
     expect(result.canInstall).toBe(false);
+  });
+});
+
+describe("mod health classification", () => {
+  it("does not reject a mod.lua that starts with a byte order mark", () => {
+    // 225 of 709 installed mod.lua files in a real library start with a BOM.
+    // Reporting those as syntax errors blocked installation of valid mods.
+    const withBom = `﻿${VALID_MOD_LUA}`;
+    expect(classifyModHealth({ folderName: "sample_mod_1", modLua: withBom }))
+      .toEqual(expect.objectContaining({ status: "ok", errorCount: 0 }));
+
+    const result = validateProject(
+      snapshot([
+        {
+          relativePath: "mod.lua",
+          size: withBom.length,
+          modifiedMs: 1,
+          text: true,
+          content: withBom
+        }
+      ])
+    );
+    expect(result.diagnostics.map((item) => item.code)).not.toContain(
+      "LUA_SYNTAX"
+    );
+    expect(result.canInstall).toBe(true);
+  });
+
+  it("reports a mod without mod.lua as not loadable", () => {
+    const health = classifyModHealth({ folderName: "broken_mod_1" });
+    expect(health.status).toBe("error");
+    expect(health.diagnostics[0]?.code).toBe("MOD_LUA_MISSING");
+  });
+
+  it("treats missing optional metadata as runnable with issues", () => {
+    const minimal = `function data()
+  return { info = { name = _("Only a name") } }
+end`;
+    const health = classifyModHealth({
+      folderName: "sample_mod_1",
+      modLua: minimal
+    });
+    expect(health.status).toBe("warning");
+    expect(health.errorCount).toBe(0);
+    expect(health.warningCount).toBeGreaterThan(0);
+  });
+
+  it("keeps unprovable findings out of the light but not out of the details", () => {
+    const dynamicCallback = `function data()
+  return {
+    info = {
+      name = _("Dynamic"),
+      description = _("d"),
+      authors = { { name = "A", role = "CREATOR" } },
+      minorVersion = 0,
+    },
+    runFn = function(settings, modParams)
+      addModifier("loadModel", someExternalFunction)
+    end,
+  }
+end`;
+    const health = classifyModHealth({
+      folderName: "sample_mod_1",
+      modLua: dynamicCallback
+    });
+
+    expect(health.status).toBe("ok");
+    expect(health.unprovenCount).toBeGreaterThan(0);
+    expect(health.diagnostics.map((item) => item.code)).toContain(
+      "TF2_CALLBACK_UNRESOLVED"
+    );
+  });
+
+  it("does not apply the folder convention to Steam Workshop ids", () => {
+    // Workshop folders are numeric publish ids assigned by Steam.
+    const workshop = classifyModHealth({
+      folderName: "2817689128",
+      source: "workshop",
+      modLua: VALID_MOD_LUA
+    });
+    const local = classifyModHealth({
+      folderName: "2817689128",
+      source: "local",
+      modLua: VALID_MOD_LUA
+    });
+
+    expect(workshop.status).toBe("ok");
+    expect(local.diagnostics.map((item) => item.code)).toContain(
+      "MOD_FOLDER_CONVENTION"
+    );
   });
 });
 

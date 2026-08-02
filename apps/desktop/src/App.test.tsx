@@ -347,6 +347,43 @@ describe("desktop workbench", () => {
     });
   });
 
+  it("shows a traffic light per mod and explains findings on Info", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.scanModLibrary = vi.fn(
+      async (): Promise<InstalledMod[]> => [
+        {
+          id: "healthy_mod_1",
+          path: "/tf2/mods/healthy_mod_1",
+          source: "local",
+          hasModLua: true,
+          fileCount: 4,
+          modLua: MOD_LUA
+        },
+        {
+          id: "broken_mod_1",
+          path: "/tf2/mods/broken_mod_1",
+          source: "local",
+          hasModLua: false,
+          fileCount: 1
+        }
+      ]
+    );
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan mod library" }));
+
+    // A mod without mod.lua cannot load; a valid one is green.
+    expect(await screen.findByText("Will not load")).toBeTruthy();
+    expect(screen.getByText("OK")).toBeTruthy();
+
+    // Info reveals the concrete cause and the fix for the broken mod.
+    const infoButtons = screen.getAllByRole("button", { name: "Info" });
+    fireEvent.click(infoButtons[1]!);
+    expect(await screen.findByText("Missing root mod.lua")).toBeTruthy();
+    expect(screen.getByText(/Place `mod.lua` directly/u)).toBeTruthy();
+  });
+
   it("switches to German and persists the explicit language selection", () => {
     const firstRender = render(<App bridge={bridge(false)} />);
 
