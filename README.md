@@ -1,67 +1,105 @@
 # Tpf2 Mod Studio
 
 Tpf2 Mod Studio is a standalone desktop workbench for creating, inspecting,
-validating, editing, indexing and installing Transport Fever 2 mods on Windows
-and Linux.
+validating, editing and managing Transport Fever 2 mods on Windows and Linux.
 
-## Current status
+> **Alpha software:** The project is under active development. Keep backups of
+> important mods and savegames. Release packages are currently unsigned.
 
-**PARTIAL — vertical slice 0.1**
+## Current version and status
 
-This repository contains the first connected workflow:
+**Current source version: `v0.1.0-alpha.9` — product status: PARTIAL**
 
-1. create a minimal, valid TF2 mod project;
-2. open and scan a real project directory;
-3. edit text resources with Monaco;
-4. validate `mod.lua`, filenames and resource references;
-5. build a resource index and detect changes;
-6. install the validated project into an explicitly selected mod directory with
-   collision protection and backups;
-7. analyze a real `stdout.txt`, identify supported root causes and separate
-   linked follow-up errors.
+The installer commands below always download the newest **published** GitHub
+release. A prepared source version or tag can temporarily be newer than the
+available installer while its release workflow is still building.
 
-No sample mods or fake log events are shown by the production UI. Test fixtures
-live only in automated tests.
+Alpha.9 adds savegame mod analysis, dependency-aware load-order presets,
+expanded 3D model-viewer tools and several editor and interface fixes.
 
-The locked native build is verified by GitHub Actions on Ubuntu 22.04 and
-Windows Server 2022. The pipeline typechecks, runs the JavaScript and Rust test
-suites, enforces Rust formatting and Clippy warnings, builds every native
-bundle, and smoke-starts the compiled desktop process on both operating
-systems. Packages are unsigned. Public Alpha releases are published separately
-with checksums and explicit acceptance limits.
+## Current capabilities
 
-## Technology
+- Create minimal valid Transport Fever 2 mod projects.
+- Open, scan and edit existing mod projects with the Monaco editor.
+- Parse Lua statically without executing mod code.
+- Validate `mod.lua`, filenames, resource references and common modifier
+  contracts.
+- Scan installed mods from local, staging, built-in and Steam Workshop sources.
+- Group the mod library by source and display available preview images.
+- Show traffic-light mod health with specific causes and suggested fixes.
+- Import ZIP mods with path and extraction-size protection.
+- Export clean project ZIP archives.
+- Install validated projects with collision protection and backups.
+- Analyze `stdout.txt`, group related events, identify supported root causes and
+  separate primary errors from follow-up failures.
+- Inspect supported Transport Fever 2 models in a 3D viewer with LOD selection,
+  wireframe, bounding boxes, grid, axes, fit view, auto-rotation, part visibility
+  and model dimensions.
+- Read the mod list used by a savegame without modifying the save file.
+- Resolve known dependencies and write a Transport Fever 2 `mod_presets` load
+  order while reporting missing, unverifiable or circular dependencies.
+- Check GitHub Releases for updates at startup. Installation remains a user
+  action.
 
-- Tauri 2 desktop shell
-- React 19 + Vite
-- TypeScript domain and validation core
-- Rust command boundary for privileged file operations
-- Monaco editor
-- Vitest and Testing Library
+No sample mods or fabricated log events are shown by the production interface.
+Test fixtures exist only in automated tests.
 
-The choice and its boundaries are documented in
-[`docs/adr/0001-desktop-architecture.md`](docs/adr/0001-desktop-architecture.md).
+## Important limits
 
-## Install (end users)
+- Savegames are read-only. The application writes load-order presets instead of
+  changing compressed `.sav` files.
+- CommonAPI2 project mode exists, but complete version-aware CommonAPI2 API
+  intelligence is not yet implemented.
+- Lua validation is static and cannot prove every runtime behavior of the game
+  engine or third-party scripts.
+- Unknown native or engine errors may still require manual investigation.
+- Windows and Linux packages are unsigned and still require broader
+  clean-machine acceptance testing.
+- The optional AI assistant has been removed. Mod content remains local.
 
-**Linux** (AppImage → menu entry + `tpf2-mod-studio` command):
+See [Supported features and known limits](docs/supported-features.md) for the
+technical scope.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-linux.sh | bash
-```
+## Install
 
-**Windows** (PowerShell, downloads the NSIS/MSI installer):
+### Windows
+
+Open PowerShell and run:
 
 ```powershell
 irm https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-windows.ps1 | iex
 ```
 
-Packages are also on the
-[Releases page](https://github.com/CeberusOne/Tpf2-Mod-Studio/releases)
-(AppImage / DEB / RPM / MSI / Setup EXE). Full notes:
-[`docs/installation.md`](docs/installation.md).
+The script downloads the newest published NSIS `*-setup.exe`, verifies the
+published SHA-256 checksum and starts the installer.
 
-## Commands (developers)
+### Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CeberusOne/Tpf2-Mod-Studio/main/scripts/install-linux.sh | bash
+```
+
+The script installs the newest published AppImage and creates the application
+launcher.
+
+Packages can also be downloaded manually from the
+[GitHub Releases page](https://github.com/CeberusOne/Tpf2-Mod-Studio/releases).
+See [Installation](docs/installation.md) for details.
+
+## Technology
+
+- Tauri 2 desktop shell
+- React 19 and Vite
+- TypeScript validation and domain core
+- Rust command boundary for privileged filesystem operations
+- Monaco editor
+- Three.js model viewer
+- Vitest, Testing Library and Rust tests
+
+The architecture decision and its boundaries are documented in
+[ADR 0001](docs/adr/0001-desktop-architecture.md).
+
+## Development
 
 ```bash
 npm ci
@@ -76,63 +114,50 @@ npm run desktop:dev
 npm run desktop:build
 ```
 
-`npm run dev` renders the frontend for inspection. Native filesystem actions are
-intentionally unavailable outside the Tauri window.
+`npm run dev` renders the frontend for inspection. Native filesystem operations
+are available only inside the Tauri application.
 
-Detailed setup, build and verification instructions:
+Further documentation:
 
-- [`docs/installation.md`](docs/installation.md)
-- [`docs/development.md`](docs/development.md)
-- [`docs/build-and-packaging.md`](docs/build-and-packaging.md)
-- [`docs/testing.md`](docs/testing.md)
+- [Development setup](docs/development.md)
+- [Build and packaging](docs/build-and-packaging.md)
+- [Testing](docs/testing.md)
+- [Architecture and data flow](docs/architecture.md)
+- [Module overview](docs/modules.md)
 
 ## Safety baseline
 
-- Game base files are read-only.
+- Transport Fever 2 base files are read-only.
 - Writes are restricted to an explicitly opened project or selected mod target.
-- Relative paths containing traversal, absolute prefixes or NUL bytes are
-  rejected.
-- Existing installed mods are never overwritten unless the user explicitly
-  requests it; an in-target backup is created first.
+- Path traversal, absolute archive paths and NUL bytes are rejected.
+- Existing installed mods are not overwritten without explicit user action; a
+  backup is created first.
 - Mod Lua is parsed statically and never executed for validation.
-- Imported ZIP archives are extracted with per-entry path validation and hard
-  entry/size caps.
-- Game launch uses a direct process API, never a shell.
-- Telemetry is absent. The only outbound request is the startup GitHub
+- ZIP imports have per-entry path validation plus entry-count and size limits.
+- Savegame files are never modified.
+- Game launch uses a direct process API rather than a shell.
+- Telemetry is absent. The only routine outbound request is the startup GitHub
   release check. Mod content never leaves the machine.
 
-See [`docs/security-model.md`](docs/security-model.md) for details.
+See the [Security model](docs/security-model.md) for details.
 
-## Scope and future support
+## Scope
 
-The current development and testing focus is Transport Fever 2.
+Development currently targets **Transport Fever 2 only**.
 
-Transport Fever 1 support is planned as a later compatibility target after the
-Transport Fever 2 workflow has reached a stable state.
+Transport Fever 1 support is a possible later compatibility target after the
+Transport Fever 2 workflow becomes stable. Transport Fever 3 support can only be
+evaluated after the game and its official modding interfaces are publicly
+available.
 
-Transport Fever 3 support is planned once the game, its final modding interfaces
-and the corresponding SDK documentation are publicly available.
+## Testing and feedback
 
-The current 0.1 release therefore supports Transport Fever 2 only. Future game
-support is part of the long-term roadmap and is not yet implemented.
+The locked native build is checked by GitHub Actions on Ubuntu 22.04 and Windows
+Server 2022. CI runs TypeScript checks, JavaScript and Rust tests, Rust formatting
+and Clippy, native bundle builds and desktop smoke tests.
 
-Vanilla projects are supported by the first slice. CommonAPI2 has a separate
-project mode. Build/native log failures are recognized, but complete API
-intelligence remains disabled until a real CommonAPI2 installation and
-versioned API source are available.
-
-## Public Alpha
-
-Tester packages ship as unsigned pre-releases (currently aimed at
-`v0.1.0-alpha.2` and later). Product status remains **PARTIAL**. Interactive
-installation, uninstall and a complete real-game Transport Fever 2 workflow on
-clean user systems still require community acceptance testing.
-
-Maintainers publish installers with **Actions → Publish Release** (builds
-Windows + Linux from source). See [docs/build-and-packaging.md](docs/build-and-packaging.md).
-
-- [Installation and tester workflow](docs/installation.md)
-- [Known features and limits](docs/supported-features.md)
+- [Release notes for alpha.9](docs/release-notes-0.1.0-alpha.9.md)
+- [Changelog](CHANGELOG.md)
 - [Report a bug](https://github.com/CeberusOne/Tpf2-Mod-Studio/issues/new?template=bug-report.yml)
 - [Request a feature](https://github.com/CeberusOne/Tpf2-Mod-Studio/issues/new?template=feature-request.yml)
 - [Contributing](CONTRIBUTING.md)
@@ -147,18 +172,14 @@ Copyright © 2026 Mike Hering.
 Tpf2 Mod Studio is licensed under the
 [GNU General Public License version 3](LICENSE), using the SPDX identifier
 `GPL-3.0-only`. Distributed modified versions must remain available under the
-same license terms. This license covers the Tpf2 Mod Studio source code; it does
+same license terms. The license covers the Tpf2 Mod Studio source code and does
 not grant rights to Transport Fever game files or third-party mod content.
 
 ## Project documentation
 
-- [Architecture and data flow](docs/architecture.md)
-- [Module overview](docs/modules.md)
 - [Supported features and known limits](docs/supported-features.md)
 - [Supported file formats](docs/file-formats.md)
 - [CommonAPI2 integration boundary](docs/commonapi2.md)
 - [Technical evidence](docs/evidence.md)
 - [TF2 core logic and modifier baseline](docs/tf2-core-logic.md)
 - [0.1 verification report](docs/status-0.1.md)
-- [Architecture decision record](docs/adr/0001-desktop-architecture.md)
-- [Changelog](CHANGELOG.md)
