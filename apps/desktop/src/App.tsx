@@ -41,11 +41,14 @@ import type {
   CreateProjectRequest,
   Diagnostic,
   InstallationCandidate,
+  InstalledMod,
   LogAnalysis,
+  LogFileInfo,
   LogFilterMode,
   LogGroup,
   ProjectFile,
   ProjectMode,
+  ProjectType,
   ProjectSnapshot,
   ResourceIndex
 } from "@tpf2-mod-studio/core";
@@ -72,7 +75,13 @@ import {
 
 const MonacoEditor = lazy(() => import("./MonacoEditor"));
 
-type View = "workspace" | "diagnostics" | "install" | "logs" | "settings";
+type View =
+  | "workspace"
+  | "diagnostics"
+  | "install"
+  | "logs"
+  | "manage"
+  | "settings";
 type ExperienceMode = "beginner" | "expert";
 type Theme = "dark" | "light";
 
@@ -96,7 +105,8 @@ const EMPTY_CREATE_REQUEST: CreateProjectRequest = {
   projectId: "",
   displayName: "",
   author: "",
-  mode: "vanilla"
+  mode: "vanilla",
+  projectType: "empty"
 };
 
 function errorMessage(error: unknown): string {
@@ -228,6 +238,8 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   const [aiAnswers, setAiAnswers] = useState<Record<string, string>>({});
   const [aiBusyId, setAiBusyId] = useState<string>();
   const [installations, setInstallations] = useState<InstallationCandidate[]>([]);
+  const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
+  const [logFiles, setLogFiles] = useState<LogFileInfo[]>([]);
 
   const validation = useMemo(
     () => (snapshot === undefined ? undefined : validateProject(snapshot)),
@@ -308,16 +320,8 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     let cancelled = false;
     void (async () => {
       try {
-        setNotice({ tone: "neutral", message: t("updateChecking") });
         const info = await bridge.checkForUpdate();
-        if (cancelled) return;
-        if (!info.available) {
-          setNotice({
-            tone: "neutral",
-            message: t("updateUpToDate", { version: info.currentVersion })
-          });
-          return;
-        }
+        if (cancelled || !info.available) return;
         setNotice({
           tone: "neutral",
           message: t("updateAvailable", { version: info.latestVersion })
@@ -332,7 +336,6 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
           tone: "success",
           message: result || t("updateInstalled")
         });
-        // Give the user a moment to see the message, then relaunch.
         window.setTimeout(() => {
           void bridge.restartAfterUpdate().catch(() => {
             setNotice({
@@ -343,10 +346,14 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
         }, 1200);
       } catch (error) {
         if (cancelled) return;
-        setNotice({
-          tone: "error",
-          message: t("updateFailed", { error: errorMessage(error) })
-        });
+        // Network/offline failures stay quiet; only surface real update errors.
+        const message = errorMessage(error);
+        if (!/network|fetch|timed out|dns|offline/i.test(message)) {
+          setNotice({
+            tone: "error",
+            message: t("updateFailed", { error: message })
+          });
+        }
       }
     })();
     return () => {
@@ -677,10 +684,22 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   }
 
   async function launchGame(executablePath: string): Promise<void> {
-    if (
-      !window.confirm(t("confirmLaunch"))
-    ) {
+    if (!window.confirm(t("confirmLaunch"))) {
       return;
+    }
+    const userData = installations.find(
+      (item) => item.userDataPath !== undefined
+    )?.userDataPath;
+    if (userData !== undefined) {
+      const archived = await withBusy(t("busyArchiveLog"), () =>
+        bridge.archiveStdout(userData)
+      );
+      if (archived !== undefined) {
+        setNotice({
+          tone: "neutral",
+          message: t("noticeLogArchived", { path: archived })
+        });
+      }
     }
     const processId = await withBusy(t("busyLaunchGame"), () =>
       bridge.launchGame(executablePath)
@@ -689,6 +708,80 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     setNotice({
       tone: "success",
       message: t("noticeGameLaunched", { processId })
+    });
+  }
+
+  async function refreshModLibrary(): Promise<void> {
+    const preferred =
+      installations.find((item) => item.valid) ?? installations[0];
+    const mods = await withBusy(t("scanModLibrary"), () =>
+      bridge.scanModLibrary({
+        ...(preferred?.modsPath === undefined
+          ? {}
+          : { modsPath: preferred.modsPath }),
+        ...(preferred?.userDataPath === undefined
+          ? {}
+          : { userDataPath: preferred.userDataPath }),
+        ...(preferred?.rootPath === undefined
+          ? {}
+          : { gameRoot: preferred.rootPath })
+      })
+    );
+    if (mods === undefined) return;
+    setInstalledMods(mods);
+    setNotice({
+      tone: "success",
+      message: t("modsFound", { count: mods.length })
+    });
+  }
+
+  async function refreshLogFiles(): Promise<void> {
+    const userData = installations.find(
+      (item) => item.userDataPath !== undefined
+    )?.userDataPath;
+    if (userData === undefined) return;
+    const files = await withBusy(t("refreshLogFiles"), () =>
+      bridge.listLogFiles(userData)
+    );
+    if (files === undefined) return;
+    setLogFiles(files);
+  }
+
+  async function exportCurrentProjectZip(): Promise<void> {
+    if (snapshot === undefined) return;
+    const defaultName = `${snapshot.folderName}.zip`;
+    const destination = `${snapshot.rootPath}/../${defaultName}`;
+    const exported = await withBusy(t("busyExportZip"), () =>
+      bridge.exportProjectZip(snapshot.rootPath, destination)
+    );
+    if (exported === undefined) return;
+    setNotice({
+      tone: "success",
+      message: t("noticeExportZip", { path: exported })
+    });
+  }
+
+  async function installToStaging(): Promise<void> {
+    if (snapshot === undefined || validation?.canInstall !== true) {
+      setNotice({ tone: "error", message: t("noticeInstallBlocked") });
+      return;
+    }
+    const userData = installations.find(
+      (item) => item.userDataPath !== undefined
+    )?.userDataPath;
+    if (userData === undefined) {
+      setNotice({ tone: "error", message: t("noticeNoInstallation") });
+      return;
+    }
+    const staging = `${userData.replace(/\/$/u, "")}/staging_area`;
+    const result = await withBusy(t("busyInstall"), () =>
+      bridge.installProject(snapshot.rootPath, staging, allowOverwrite)
+    );
+    if (result === undefined) return;
+    setInstallResult(result.installedPath);
+    setNotice({
+      tone: "success",
+      message: t("noticeFilesInstalled", { count: result.fileCount })
     });
   }
 
@@ -719,6 +812,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
         : { count: validation.errorCount + validation.warningCount })
     },
     { id: "install", label: t("navInstall"), icon: <Box size={18} /> },
+    { id: "manage", label: t("navManage"), icon: <PackageCheck size={18} /> },
     { id: "logs", label: t("navLogs"), icon: <ScrollText size={18} /> },
     { id: "settings", label: t("navSetup"), icon: <Settings size={18} /> }
   ];
@@ -763,7 +857,11 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               </div>
               <p title={snapshot.rootPath}>{snapshot.rootPath}</p>
               <span className="mode-badge">
-                {snapshot.mode === "vanilla" ? "Vanilla" : "CommonAPI2"}
+                {snapshot.mode === "vanilla"
+                  ? "Vanilla"
+                  : snapshot.mode === "hybrid"
+                    ? "Hybrid"
+                    : "CommonAPI2"}
               </span>
             </>
           )}
@@ -1058,9 +1156,20 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               modsDirectory={modsDirectory}
               native={bridge.isNative}
               onChooseDirectory={() => void chooseModsDirectory()}
+              onExportZip={() => void exportCurrentProjectZip()}
               onImportZip={() => void importZipMod()}
               onInstall={() => void installProject()}
+              onInstallStaging={() => void installToStaging()}
               onOverwriteChange={setAllowOverwrite}
+            />
+          ) : null}
+
+          {view === "manage" ? (
+            <ManageView
+              mods={installedMods}
+              native={bridge.isNative}
+              onOpen={(path) => void loadProject(path)}
+              onScan={() => void refreshModLibrary()}
             />
           ) : null}
 
@@ -1073,6 +1182,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               {...(expandedLogId === undefined ? {} : { expandedLogId })}
               experience={experience}
               filterMode={logFilterMode}
+              logFiles={logFiles}
               logPath={logPath}
               native={bridge.isNative}
               onAskAi={(group) => void askAiForLog(group)}
@@ -1086,6 +1196,8 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               }
               onFilterModeChange={setLogFilterMode}
               onOpenLatestLog={() => void openLatestDetectedLog()}
+              onOpenLogPath={(path) => void analyzeLogAt(path)}
+              onRefreshLogFiles={() => void refreshLogFiles()}
               onToggleExpand={(id) =>
                 setExpandedLogId((current) =>
                   current === id ? undefined : id
@@ -1296,8 +1408,10 @@ function InstallView({
   modsDirectory,
   native,
   onChooseDirectory,
+  onExportZip,
   onImportZip,
   onInstall,
+  onInstallStaging,
   onOverwriteChange
 }: {
   allowOverwrite: boolean;
@@ -1308,8 +1422,10 @@ function InstallView({
   modsDirectory: string;
   native: boolean;
   onChooseDirectory: () => void;
+  onExportZip: () => void;
   onImportZip: () => void;
   onInstall: () => void;
+  onInstallStaging: () => void;
   onOverwriteChange: (value: boolean) => void;
 }) {
   const { t } = useI18n();
@@ -1359,6 +1475,24 @@ function InstallView({
         </button>
         <button
           className="secondary-button large full"
+          disabled={!native || !hasProject || !canInstall}
+          onClick={onInstallStaging}
+          type="button"
+        >
+          <PackageCheck size={18} />
+          {t("installStaging")}
+        </button>
+        <button
+          className="secondary-button large full"
+          disabled={!native || !hasProject}
+          onClick={onExportZip}
+          type="button"
+        >
+          <FileArchive size={18} />
+          {t("exportZip")}
+        </button>
+        <button
+          className="secondary-button large full"
           disabled={!native || modsDirectory.length === 0}
           onClick={onImportZip}
           type="button"
@@ -1400,6 +1534,77 @@ function InstallView({
   );
 }
 
+function ManageView({
+  mods,
+  native,
+  onOpen,
+  onScan
+}: {
+  mods: InstalledMod[];
+  native: boolean;
+  onOpen: (path: string) => void;
+  onScan: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="setup-page">
+      <div className="section-intro">
+        <div>
+          <span className="eyebrow">{t("navManage")}</span>
+          <h2>{t("manageTitle")}</h2>
+          <p>{t("manageDescription")}</p>
+        </div>
+        <button
+          className="primary-button"
+          disabled={!native}
+          onClick={onScan}
+          type="button"
+        >
+          <Search size={17} />
+          {t("scanModLibrary")}
+        </button>
+      </div>
+      {mods.length === 0 ? (
+        <EmptyState icon={<PackageCheck size={26} />} title={t("noModsFound")}>
+          {t("noModsFoundDescription")}
+        </EmptyState>
+      ) : (
+        <div className="installation-grid">
+          {mods.map((mod) => (
+            <article className="installation-card" key={`${mod.source}:${mod.path}`}>
+              <div className="installation-heading">
+                <div>
+                  <strong>{mod.displayName ?? mod.id}</strong>
+                  <span>
+                    {t("modSource")}: {mod.source}
+                  </span>
+                </div>
+                <span className={mod.hasModLua ? "valid" : "invalid"}>
+                  {mod.hasModLua ? t("valid") : t("modMissingLua")}
+                </span>
+              </div>
+              <code>{mod.path}</code>
+              <small>{t("modFiles", { count: mod.fileCount })}</small>
+              {mod.duplicateOf === undefined ? null : (
+                <p>{t("modDuplicate", { path: mod.duplicateOf })}</p>
+              )}
+              <button
+                className="secondary-button full"
+                disabled={!mod.hasModLua}
+                onClick={() => onOpen(mod.path)}
+                type="button"
+              >
+                <FolderOpen size={16} />
+                {t("open")}
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LogView({
   aiAnswers,
   aiBusyId,
@@ -1408,6 +1613,7 @@ function LogView({
   expandedLogId,
   experience,
   filterMode,
+  logFiles,
   logPath,
   native,
   onAskAi,
@@ -1415,6 +1621,8 @@ function LogView({
   onClearAi,
   onFilterModeChange,
   onOpenLatestLog,
+  onOpenLogPath,
+  onRefreshLogFiles,
   onToggleExpand
 }: {
   aiAnswers: Record<string, string>;
@@ -1424,6 +1632,7 @@ function LogView({
   expandedLogId?: string;
   experience: ExperienceMode;
   filterMode: LogFilterMode;
+  logFiles: LogFileInfo[];
   logPath: string;
   native: boolean;
   onAskAi: (group: LogGroup) => void;
@@ -1431,6 +1640,8 @@ function LogView({
   onClearAi: (id: string) => void;
   onFilterModeChange: (mode: LogFilterMode) => void;
   onOpenLatestLog: () => void;
+  onOpenLogPath: (path: string) => void;
+  onRefreshLogFiles: () => void;
   onToggleExpand: (id: string) => void;
 }) {
   const { t } = useI18n();
@@ -1478,8 +1689,33 @@ function LogView({
             <Search size={17} />
             {t("selectLog")}
           </button>
+          <button
+            className="secondary-button"
+            disabled={!native}
+            onClick={onRefreshLogFiles}
+            type="button"
+          >
+            <RefreshCw size={17} />
+            {t("refreshLogFiles")}
+          </button>
         </div>
       </div>
+      {logFiles.length > 0 ? (
+        <section className="detected-paths">
+          <strong>{t("logFilesTitle")}</strong>
+          {logFiles.slice(0, 12).map((file) => (
+            <button
+              className="path-row log-file-row"
+              key={file.path}
+              onClick={() => onOpenLogPath(file.path)}
+              type="button"
+            >
+              <span>{file.kind}</span>
+              <code>{file.path}</code>
+            </button>
+          ))}
+        </section>
+      ) : null}
       {logPath.length > 0 ? <div className="selected-path">{logPath}</div> : null}
       {analysis !== undefined ? (
         <section
@@ -1899,6 +2135,22 @@ function CreateDialog({
             <small>{t("projectIdHint")}</small>
           </label>
           <label className="field">
+            <span>{t("projectType")}</span>
+            <select
+              onChange={(event) =>
+                setField("projectType", event.target.value as ProjectType)
+              }
+              value={request.projectType ?? "empty"}
+            >
+              <option value="empty">{t("projectTypeEmpty")}</option>
+              <option value="script">{t("projectTypeScript")}</option>
+              <option value="vehicle">{t("projectTypeVehicle")}</option>
+              <option value="repaint">{t("projectTypeRepaint")}</option>
+              <option value="asset">{t("projectTypeAsset")}</option>
+              <option value="station">{t("projectTypeStation")}</option>
+            </select>
+          </label>
+          <label className="field">
             <span>{t("projectMode")}</span>
             <select
               onChange={(event) =>
@@ -1906,7 +2158,8 @@ function CreateDialog({
               }
               value={request.mode}
             >
-              <option value="vanilla">Vanilla Transport Fever 2</option>
+              <option value="vanilla">{t("vanillaOption")}</option>
+              <option value="hybrid">{t("hybridOption")}</option>
               <option value="commonapi2">{t("commonApiOption")}</option>
             </select>
           </label>

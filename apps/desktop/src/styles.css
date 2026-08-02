@@ -1706,6 +1706,24 @@ nav {
   line-height: 1.45;
 }
 
+.log-file-row {
+  width: 100%;
+  padding: 0.35rem 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.log-file-row:hover code {
+  color: var(--accent);
+}
+
+.installation-card small {
+  color: var(--muted);
+}
+
 .secondary-button.large.full,
 .primary-button.large.full {
   width: 100%;
