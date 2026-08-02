@@ -275,6 +275,19 @@ const english = {
   modUnprovenCount: "{count} check(s) could not be proven",
   modUnprovenNote:
     "These say something could not be verified statically — usually a callback defined in another file. They do not mean the mod is broken and never change the light.",
+  modelViewer: "3D view",
+  modelLoading: "Loading model…",
+  modelParseFailed:
+    "This .mdl builds its values at runtime (require \"transf\"). Static reading cannot resolve them; the Lua is never executed.",
+  modelLod: "Detail level",
+  modelLodOption: "LOD {index} · {count} part(s)",
+  modelWireframe: "Wireframe",
+  modelShowBounds: "Bounds and collider",
+  modelStats: "{parts} part(s) · {triangles} triangles",
+  modelCollider: "Collider: {type}",
+  modelMissingMeshes: "{count} mesh(es) come from the base game and are not in this mod",
+  modelNoModels: "This mod contains no .mdl models.",
+  modelSelect: "Model",
   modEditFiles: "Edit files",
   modEditNoTextFiles:
     "This mod has no editable text files. Meshes, textures and sounds need dedicated editors.",
@@ -573,6 +586,19 @@ const german: TranslationCatalog = {
   modUnprovenCount: "{count} Prüfung(en) nicht belegbar",
   modUnprovenNote:
     "Diese Hinweise besagen, dass etwas statisch nicht überprüfbar war — meist ein Callback in einer anderen Datei. Sie bedeuten nicht, dass die Mod defekt ist, und beeinflussen die Ampel nie.",
+  modelViewer: "3D-Ansicht",
+  modelLoading: "Modell wird geladen…",
+  modelParseFailed:
+    "Diese .mdl berechnet ihre Werte zur Laufzeit (require \"transf\"). Statisches Lesen kann sie nicht auflösen; das Lua wird nie ausgeführt.",
+  modelLod: "Detailstufe",
+  modelLodOption: "LOD {index} · {count} Teil(e)",
+  modelWireframe: "Drahtgitter",
+  modelShowBounds: "Grenzen und Collider",
+  modelStats: "{parts} Teil(e) · {triangles} Dreiecke",
+  modelCollider: "Collider: {type}",
+  modelMissingMeshes: "{count} Mesh(es) stammen aus dem Basisspiel und liegen nicht in dieser Mod",
+  modelNoModels: "Diese Mod enthält keine .mdl-Modelle.",
+  modelSelect: "Modell",
   modEditFiles: "Dateien bearbeiten",
   modEditNoTextFiles:
     "Diese Mod hat keine bearbeitbaren Textdateien. Meshes, Texturen und Sounds brauchen eigene Editoren.",

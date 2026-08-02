@@ -20,9 +20,11 @@
     "lucide-react": "1.27.0",
     "monaco-editor": "0.56.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "three": "^0.185.1"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "2.11.4"
+    "@tauri-apps/cli": "2.11.4",
+    "@types/three": "^0.185.3"
   }
 }

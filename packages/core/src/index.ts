@@ -1,5 +1,7 @@
 export * from "./ai-assist.js";
 export * from "./log-parser.js";
+export * from "./lua-data.js";
+export * from "./model-format.js";
 export * from "./mod-health.js";
 export * from "./modifier-analyzer.js";
 export * from "./path-utils.js";

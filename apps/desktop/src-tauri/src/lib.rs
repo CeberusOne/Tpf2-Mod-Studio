@@ -1,6 +1,7 @@
 mod library;
 mod updater;
 
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
@@ -18,6 +19,7 @@ const MAX_SCANNED_FILES: usize = 20_000;
 const MAX_TEXT_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const MAX_EDIT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_LOG_BYTES: u64 = 32 * 1024 * 1024;
+const MAX_MODEL_FILE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES: usize = 20_000;
 const MAX_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
 
@@ -121,6 +123,10 @@ struct ModArchiveInfo {
     mod_lua_path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     nested_root: Option<String>,
+}
+
+fn base64_engine() -> base64::engine::general_purpose::GeneralPurpose {
+    base64::engine::general_purpose::STANDARD
 }
 
 fn now_millis() -> u128 {
@@ -1258,6 +1264,60 @@ fn export_project_zip(root_path: String, destination_path: String) -> Result<Str
     library::export_project_zip(root_path, destination_path)
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelFile {
+    relative_path: String,
+    /// Lua source for `.mdl`, `.msh`, `.mtl` and `.ani`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    /// Base64 payload for `.msh.blob` geometry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    base64: Option<String>,
+}
+
+/// Read one model-related resource from inside a mod folder.
+///
+/// The text editor command deliberately refuses `.msh`/`.blob`, so the viewer
+/// needs its own reader. Path validation is unchanged: the resolved file must
+/// stay beneath the selected root.
+#[tauri::command]
+fn read_model_file(root_path: String, relative_path: String) -> Result<ModelFile, String> {
+    let (_, candidate) = safe_existing_path(&root_path, &relative_path)?;
+    let metadata =
+        fs::metadata(&candidate).map_err(|error| format!("Cannot read model metadata: {error}"))?;
+    if !metadata.is_file() {
+        return Err("The selected model path is not a file.".into());
+    }
+    if metadata.len() > MAX_MODEL_FILE_BYTES {
+        return Err("The model resource exceeds the viewer limit.".into());
+    }
+
+    let lower = relative_path.to_ascii_lowercase();
+    if lower.ends_with(".blob") {
+        let bytes =
+            fs::read(&candidate).map_err(|error| format!("Cannot read mesh payload: {error}"))?;
+        return Ok(ModelFile {
+            relative_path,
+            text: None,
+            base64: Some(base64_engine().encode(&bytes)),
+        });
+    }
+    if !matches!(
+        lower.rsplit('.').next(),
+        Some("mdl" | "msh" | "mtl" | "ani")
+    ) {
+        return Err("Only .mdl, .msh, .mtl, .ani and .blob resources can be loaded.".into());
+    }
+    let bytes =
+        fs::read(&candidate).map_err(|error| format!("Cannot read model resource: {error}"))?;
+    Ok(ModelFile {
+        relative_path,
+        text: Some(String::from_utf8_lossy(&bytes).into_owned()),
+        base64: None,
+    })
+}
+
 /// Resolve `<user data>/staging_area`, creating it when Transport Fever 2 has
 /// not used its in-game mod manager yet. Installing to staging fails otherwise.
 #[tauri::command]
@@ -1304,6 +1364,7 @@ pub fn run() {
             import_mod_archive,
             scan_mod_library,
             read_mod_preview,
+            read_model_file,
             list_log_files,
             archive_stdout,
             export_project_zip,

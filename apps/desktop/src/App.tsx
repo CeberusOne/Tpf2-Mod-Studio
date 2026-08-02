@@ -79,6 +79,7 @@ import {
 } from "./i18n";
 
 const MonacoEditor = lazy(() => import("./MonacoEditor"));
+const ModelViewer = lazy(() => import("./ModelViewer"));
 
 type View =
   | "workspace"
@@ -1633,6 +1634,79 @@ function ModPreview({
   );
 }
 
+/** Lists a mod's `.mdl` models and renders the selected one in 3D. */
+function ModModelBrowser({
+  bridge,
+  mod
+}: {
+  bridge: DesktopBridge;
+  mod: InstalledMod;
+}) {
+  const { t } = useI18n();
+  const [models, setModels] = useState<string[]>();
+  const [selected, setSelected] = useState<string>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void bridge
+      .scanProject(mod.path)
+      .then((snapshot) => {
+        if (cancelled) return;
+        const found = snapshot.files
+          .map((file) => file.relativePath)
+          .filter((path) => path.toLowerCase().endsWith(".mdl"))
+          .sort();
+        setModels(found);
+        setSelected(found[0]);
+      })
+      .catch(() => {
+        if (!cancelled) setModels([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge, mod.path]);
+
+  if (models === undefined) {
+    return <p className="model-viewer-hint">{t("busyIndexProject")}</p>;
+  }
+  if (models.length === 0) {
+    return <p className="model-viewer-hint">{t("modelNoModels")}</p>;
+  }
+
+  return (
+    <div className="model-browser">
+      <label className="field">
+        <span>{t("modelSelect")}</span>
+        <select
+          onChange={(event) => setSelected(event.target.value)}
+          value={selected ?? ""}
+        >
+          {models.map((path) => (
+            <option key={path} value={path}>
+              {path.replace(/^res\/models\/model\//u, "")}
+            </option>
+          ))}
+        </select>
+      </label>
+      {selected === undefined ? null : (
+        <Suspense
+          fallback={
+            <p className="model-viewer-hint">{t("modelLoading")}</p>
+          }
+        >
+          <ModelViewer
+            bridge={bridge}
+            key={selected}
+            modelPath={selected}
+            rootPath={mod.path}
+          />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
 const MOD_SOURCE_ORDER = ["local", "staging", "workshop", "builtin"] as const;
 
 /**
@@ -1888,6 +1962,10 @@ function ManageView({
   const { t } = useI18n();
   const [expandedMod, setExpandedMod] = useState<string>();
   const [editingMod, setEditingMod] = useState<string>();
+  const [viewingMod, setViewingMod] = useState<string>();
+
+  const onToggleView = (path: string): void =>
+    setViewingMod((current) => (current === path ? undefined : path));
 
   const onToggleEdit = (path: string): void =>
     setEditingMod((current) => (current === path ? undefined : path));
@@ -2037,6 +2115,17 @@ function ManageView({
                           {t("modEditFiles")}
                         </button>
                       ) : null}
+                      {experience === "expert" ? (
+                        <button
+                          aria-expanded={viewingMod === mod.path}
+                          className="secondary-button"
+                          onClick={() => onToggleView(mod.path)}
+                          type="button"
+                        >
+                          <Box size={16} />
+                          {t("modelViewer")}
+                        </button>
+                      ) : null}
                       <button
                         className="secondary-button"
                         disabled={!mod.hasModLua}
@@ -2049,6 +2138,9 @@ function ManageView({
                     </div>
                     {expanded ? (
                       <ModFindings diagnostics={health.diagnostics} />
+                    ) : null}
+                    {viewingMod === mod.path ? (
+                      <ModModelBrowser bridge={bridge} mod={mod} />
                     ) : null}
                     {editingMod === mod.path ? (
                       <ModFileEditor
