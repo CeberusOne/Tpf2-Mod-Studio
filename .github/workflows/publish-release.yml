@@ -217,12 +217,10 @@ jobs:
         working-directory: release-packages
         run: |
           ls -la
+          # Bundle targets are AppImage (Linux) + NSIS setup (Windows).
+          # MSI is skipped: WiX rejects non-numeric prerelease tags (e.g. alpha.N).
           test "$(find . -maxdepth 1 -type f -name '*.AppImage' | wc -l)" -eq 1
-          test "$(find . -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
-          test "$(find . -maxdepth 1 -type f -name '*.rpm' | wc -l)" -eq 1
-          test "$(find . -maxdepth 1 -type f -name '*.msi' | wc -l)" -eq 1
-          # NSIS setup EXE
-          test "$(find . -maxdepth 1 -type f -name '*.exe' | wc -l)" -ge 1
+          test "$(find . -maxdepth 1 -type f -name '*setup*.exe' | wc -l)" -ge 1
 
       - name: Create SHA256SUMS.txt
         shell: bash
@@ -267,8 +265,8 @@ jobs:
               echo
               echo "| Platform | Package |"
               echo "| --- | --- |"
-              echo "| Windows | \`.msi\` or NSIS \`.exe\` setup |"
-              echo "| Linux | \`.AppImage\` (recommended), \`.deb\`, \`.rpm\` |"
+              echo "| Windows | NSIS \`*-setup.exe\` |"
+              echo "| Linux | \`.AppImage\` |"
               echo
               echo "Packages are unsigned. Verify with \`SHA256SUMS.txt\` when needed."
               echo
