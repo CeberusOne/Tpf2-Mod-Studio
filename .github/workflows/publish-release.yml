@@ -286,7 +286,10 @@ jobs:
           mapfile -d '' assets < <(
             find release-packages -maxdepth 1 -type f -print0 | sort -z
           )
-          test "${#assets[@]}" -ge 6
+          # AppImage + NSIS setup + SHA256SUMS (optional extra packages allowed)
+          test "${#assets[@]}" -ge 3
+          printf 'Assets to publish:\n'
+          printf '  %s\n' "${assets[@]}"
 
           extra_args=()
           if [ "$prerelease" = "true" ]; then
