@@ -74,10 +74,13 @@ if ($asset.name -like "*.msi") {
     if ($Silent) { $msiArgs += "/qn" } else { $msiArgs += "/passive" }
     $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList $msiArgs -Wait -PassThru
 } else {
-    # Tauri NSIS: /S for silent install
-    $args = @()
-    if ($Silent) { $args = @("/S") }
-    $proc = Start-Process -FilePath $installerPath -ArgumentList $args -Wait -PassThru
+    # Tauri NSIS: /S for silent install. Do not pass an empty ArgumentList,
+    # because Windows PowerShell 5.1 rejects empty arrays for this parameter.
+    if ($Silent) {
+        $proc = Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait -PassThru
+    } else {
+        $proc = Start-Process -FilePath $installerPath -Wait -PassThru
+    }
 }
 
 if ($proc.ExitCode -ne 0) {
