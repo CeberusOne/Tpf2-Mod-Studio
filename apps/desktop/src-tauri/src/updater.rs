@@ -207,6 +207,7 @@ fn timestamp() -> u128 {
         .unwrap_or_default()
 }
 
+#[cfg(target_os = "linux")]
 fn linux_install_target() -> Result<PathBuf, String> {
     if let Ok(appimage) = env::var("APPIMAGE") {
         let path = PathBuf::from(appimage);
@@ -255,6 +256,7 @@ async fn download_to_file(url: &str, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn replace_file_atomic(source: &Path, target: &Path) -> Result<(), String> {
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent)
