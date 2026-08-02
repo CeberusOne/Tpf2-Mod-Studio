@@ -245,8 +245,10 @@ const english = {
   aiModelPlaceholder: "your-model-id",
   updateChecking: "Checking for updates…",
   updateAvailable: "Update {version} is available",
+  updateAvailableOnce:
+    "Update {version} is available (you have {current}). Install from GitHub Releases — auto-update is disabled to avoid restart loops.",
   updateInstalling: "Downloading and installing update {version}…",
-  updateInstalled: "Update installed. Restarting…",
+  updateInstalled: "Update installed. Please restart the application manually.",
   updateFailed: "Update failed: {error}",
   updateUpToDate: "You are on the latest version ({version}).",
   updateNotes: "Release notes",
@@ -519,8 +521,10 @@ const german: TranslationCatalog = {
   aiModelPlaceholder: "dein-modell-id",
   updateChecking: "Suche nach Updates…",
   updateAvailable: "Update {version} ist verfügbar",
+  updateAvailableOnce:
+    "Update {version} ist verfügbar (installiert: {current}). Bitte manuell von GitHub Releases installieren — Auto-Update ist deaktiviert, um Neustart-Schleifen zu vermeiden.",
   updateInstalling: "Update {version} wird heruntergeladen und installiert…",
-  updateInstalled: "Update installiert. Neustart…",
+  updateInstalled: "Update installiert. Bitte die Anwendung manuell neu starten.",
   updateFailed: "Update fehlgeschlagen: {error}",
   updateUpToDate: "Du hast die neueste Version ({version}).",
   updateNotes: "Versionshinweise",
