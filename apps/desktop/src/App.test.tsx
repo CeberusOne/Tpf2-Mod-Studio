@@ -123,7 +123,11 @@ function bridge(native = true): DesktopBridge {
       htmlUrl: ""
     })),
     applyUpdate: vi.fn(async () => "ok"),
-    restartAfterUpdate: vi.fn(async () => undefined)
+    restartAfterUpdate: vi.fn(async () => undefined),
+    scanModLibrary: vi.fn(async () => []),
+    listLogFiles: vi.fn(async () => []),
+    archiveStdout: vi.fn(async () => "/tmp/stdout-archive.txt"),
+    exportProjectZip: vi.fn(async () => "/tmp/mod.zip")
   };
 }
 

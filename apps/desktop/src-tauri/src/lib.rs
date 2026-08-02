@@ -1,3 +1,4 @@
+mod library;
 mod updater;
 
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,19 @@ const MAX_LOG_BYTES: u64 = 32 * 1024 * 1024;
 #[serde(rename_all = "lowercase")]
 enum ProjectMode {
     Vanilla,
+    Hybrid,
     Commonapi2,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum ProjectType {
+    Empty,
+    Script,
+    Vehicle,
+    Repaint,
+    Asset,
+    Station,
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,6 +46,12 @@ struct CreateProjectRequest {
     display_name: String,
     author: String,
     mode: ProjectMode,
+    #[serde(default = "default_project_type")]
+    project_type: ProjectType,
+}
+
+fn default_project_type() -> ProjectType {
+    ProjectType::Empty
 }
 
 #[derive(Debug, Serialize)]
@@ -320,9 +339,42 @@ fn read_project_mode(root: &Path) -> ProjectMode {
                 .and_then(|mode| mode.as_str())
                 .map(str::to_owned)
         })
-        .filter(|mode| mode == "commonapi2")
-        .map(|_| ProjectMode::Commonapi2)
+        .and_then(|mode| match mode.as_str() {
+            "commonapi2" => Some(ProjectMode::Commonapi2),
+            "hybrid" => Some(ProjectMode::Hybrid),
+            "vanilla" => Some(ProjectMode::Vanilla),
+            _ => None,
+        })
         .unwrap_or(ProjectMode::Vanilla)
+}
+
+fn ensure_dir(path: &Path) -> Result<(), String> {
+    fs::create_dir_all(path)
+        .map_err(|error| format!("Cannot create directory {}: {error}", path_string(path)))
+}
+
+fn write_template_tree(root: &Path, project_type: ProjectType) -> Result<(), String> {
+    match project_type {
+        ProjectType::Empty | ProjectType::Script => {
+            ensure_dir(&root.join("res/scripts"))?;
+        }
+        ProjectType::Vehicle | ProjectType::Repaint => {
+            ensure_dir(&root.join("res/models/model/vehicle/train"))?;
+            ensure_dir(&root.join("res/models/mesh/vehicle/train"))?;
+            ensure_dir(&root.join("res/models/material/vehicle/train"))?;
+            ensure_dir(&root.join("res/textures/models/vehicle/train"))?;
+        }
+        ProjectType::Asset => {
+            ensure_dir(&root.join("res/models/model/asset"))?;
+            ensure_dir(&root.join("res/models/mesh/asset"))?;
+            ensure_dir(&root.join("res/models/material/asset"))?;
+        }
+        ProjectType::Station => {
+            ensure_dir(&root.join("res/construction/station/rail"))?;
+            ensure_dir(&root.join("res/models/model/station"))?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -346,17 +398,24 @@ fn create_project(request: CreateProjectRequest) -> Result<CreatedProject, Strin
     fs::create_dir(&temporary)
         .map_err(|error| format!("Cannot create temporary project: {error}"))?;
     let result = (|| -> Result<(), String> {
-        fs::create_dir(temporary.join("res"))
-            .map_err(|error| format!("Cannot create resource directory: {error}"))?;
-        fs::create_dir(temporary.join("documents"))
-            .map_err(|error| format!("Cannot create documentation directory: {error}"))?;
-        fs::create_dir(temporary.join(".tpf2-studio"))
-            .map_err(|error| format!("Cannot create project metadata directory: {error}"))?;
+        ensure_dir(&temporary.join("res"))?;
+        ensure_dir(&temporary.join("documents"))?;
+        ensure_dir(&temporary.join(".tpf2-studio"))?;
+        write_template_tree(&temporary, request.project_type)?;
 
         let name = escape_lua_string(request.display_name.trim());
         let author = escape_lua_string(request.author.trim());
+        let commonapi_block = match request.mode {
+            ProjectMode::Commonapi2 => {
+                "\n      -- CommonAPI2 required: declare dependencies in a real CommonAPI2-aware load path.\n      -- Keep runtime checks around optional features (Entwicklungsplan §3/§17)."
+            }
+            ProjectMode::Hybrid => {
+                "\n      -- Hybrid: vanilla-safe by default; gate any CommonAPI2 usage with feature checks."
+            }
+            ProjectMode::Vanilla => "",
+        };
         let mod_lua = format!(
-            "function data()\n  return {{\n    info = {{\n      name = _(\"{name}\"),\n      description = _(\"modDesc\"),\n      authors = {{\n        {{\n          name = \"{author}\",\n          role = \"CREATOR\",\n        }},\n      }},\n      minorVersion = 0,\n      severityAdd = \"NONE\",\n      severityRemove = \"WARNING\",\n    }},\n  }}\nend\n"
+            "function data()\n  return {{\n    info = {{\n      name = _(\"{name}\"),\n      description = _(\"modDesc\"),\n      authors = {{\n        {{\n          name = \"{author}\",\n          role = \"CREATOR\",\n        }},\n      }},\n      minorVersion = 0,\n      severityAdd = \"NONE\",\n      severityRemove = \"WARNING\",{commonapi_block}\n    }},\n  }}\nend\n"
         );
         let strings_lua = format!(
             "function data()\n  return {{\n    en = {{\n      [\"{name}\"] = \"{name}\",\n      modDesc = \"Describe this Transport Fever 2 mod.\",\n    }},\n    de = {{\n      [\"{name}\"] = \"{name}\",\n      modDesc = \"Beschreibe diese Transport-Fever-2-Mod.\",\n    }},\n  }}\nend\n"
@@ -365,24 +424,47 @@ fn create_project(request: CreateProjectRequest) -> Result<CreatedProject, Strin
             .map_err(|error| format!("Cannot write mod.lua: {error}"))?;
         fs::write(temporary.join("strings.lua"), strings_lua)
             .map_err(|error| format!("Cannot write strings.lua: {error}"))?;
+        let type_label = match request.project_type {
+            ProjectType::Empty => "empty expert",
+            ProjectType::Script => "script",
+            ProjectType::Vehicle => "vehicle",
+            ProjectType::Repaint => "repaint",
+            ProjectType::Asset => "asset",
+            ProjectType::Station => "station",
+        };
         fs::write(
             temporary.join("documents").join("README.md"),
             format!(
-                "# {}\n\nTransport Fever 2 mod project created by Tpf2 Mod Studio.\n",
-                request.display_name.trim()
+                "# {}\n\nTransport Fever 2 **{}** mod project created by Tpf2 Mod Studio.\n\nIntegration mode is configured in `.tpf2-studio/project.json`.\n",
+                request.display_name.trim(),
+                type_label
             ),
         )
         .map_err(|error| format!("Cannot write project documentation: {error}"))?;
         let mode = match request.mode {
             ProjectMode::Vanilla => "vanilla",
+            ProjectMode::Hybrid => "hybrid",
             ProjectMode::Commonapi2 => "commonapi2",
+        };
+        let project_type = match request.project_type {
+            ProjectType::Empty => "empty",
+            ProjectType::Script => "script",
+            ProjectType::Vehicle => "vehicle",
+            ProjectType::Repaint => "repaint",
+            ProjectType::Asset => "asset",
+            ProjectType::Station => "station",
         };
         let config = serde_json::json!({
             "schemaVersion": 1,
+            "formatVersion": 1,
+            "targetGame": "transport-fever-2",
             "projectId": request.project_id,
             "displayName": request.display_name.trim(),
             "author": request.author.trim(),
-            "mode": mode
+            "mode": mode,
+            "integration": mode,
+            "projectType": project_type,
+            "buildProfile": "tf2-pc"
         });
         fs::write(
             temporary.join(".tpf2-studio").join("project.json"),
@@ -1108,6 +1190,30 @@ fn apply_linux_runtime_workarounds() {
 }
 
 #[tauri::command]
+fn scan_mod_library(
+    mods_path: Option<String>,
+    user_data_path: Option<String>,
+    game_root: Option<String>,
+) -> Vec<library::InstalledMod> {
+    library::scan_mod_library(mods_path, user_data_path, game_root)
+}
+
+#[tauri::command]
+fn list_log_files(user_data_path: String) -> Result<Vec<library::LogFileInfo>, String> {
+    library::list_log_files(user_data_path)
+}
+
+#[tauri::command]
+fn archive_stdout(user_data_path: String) -> Result<String, String> {
+    library::archive_stdout(user_data_path)
+}
+
+#[tauri::command]
+fn export_project_zip(root_path: String, destination_path: String) -> Result<String, String> {
+    library::export_project_zip(root_path, destination_path)
+}
+
+#[tauri::command]
 async fn check_for_update() -> Result<updater::UpdateInfo, String> {
     updater::check_for_update().await
 }
@@ -1139,6 +1245,10 @@ pub fn run() {
             launch_game,
             inspect_mod_archive,
             import_mod_archive,
+            scan_mod_library,
+            list_log_files,
+            archive_stdout,
+            export_project_zip,
             check_for_update,
             apply_update,
             restart_after_update
@@ -1203,6 +1313,7 @@ mod tests {
             display_name: "Native Test Mod".into(),
             author: "Test Author".into(),
             mode: ProjectMode::Vanilla,
+            project_type: ProjectType::Vehicle,
         })
         .expect("project should be created");
 
@@ -1317,6 +1428,36 @@ mod tests {
             Some(value) => env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", value),
             None => env::remove_var("WEBKIT_DISABLE_DMABUF_RENDERER"),
         }
+    }
+
+    #[test]
+    fn scan_mod_library_lists_local_mods() {
+        let workspace = TemporaryDirectory::new("modlib");
+        let mods = workspace.path().join("mods");
+        let one = mods.join("sample_mod_1");
+        fs::create_dir_all(&one).expect("mod dir");
+        fs::write(
+            one.join("mod.lua"),
+            "function data()\n  return { info = { name = _(\"Sample\") } }\nend\n",
+        )
+        .expect("mod.lua");
+        let listed = library::scan_mod_library(Some(path_string(&mods)), None, None);
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "sample_mod_1");
+        assert!(listed[0].has_mod_lua);
+    }
+
+    #[test]
+    fn export_project_zip_contains_mod_lua() {
+        let workspace = TemporaryDirectory::new("export");
+        let project = workspace.path().join("export_mod_1");
+        fs::create_dir_all(project.join("res")).expect("res");
+        fs::write(project.join("mod.lua"), "function data() return {} end").expect("mod");
+        let zip_path = workspace.path().join("out.zip");
+        let exported = library::export_project_zip(path_string(&project), path_string(&zip_path))
+            .expect("export");
+        assert!(Path::new(&exported).is_file());
+        assert!(fs::metadata(&exported).expect("meta").len() > 20);
     }
 
     #[test]

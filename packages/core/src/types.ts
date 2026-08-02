@@ -1,4 +1,12 @@
-export type ProjectMode = "vanilla" | "commonapi2";
+export type ProjectMode = "vanilla" | "hybrid" | "commonapi2";
+
+export type ProjectType =
+  | "empty"
+  | "script"
+  | "vehicle"
+  | "repaint"
+  | "asset"
+  | "station";
 
 export type DiagnosticSeverity = "error" | "warning" | "info";
 
@@ -203,6 +211,24 @@ export interface CreateProjectRequest {
   displayName: string;
   author: string;
   mode: ProjectMode;
+  projectType?: ProjectType;
+}
+
+export interface InstalledMod {
+  id: string;
+  path: string;
+  source: string;
+  hasModLua: boolean;
+  fileCount: number;
+  displayName?: string;
+  duplicateOf?: string;
+}
+
+export interface LogFileInfo {
+  path: string;
+  kind: string;
+  size: number;
+  modifiedMs: number;
 }
 
 export interface InstallResult {

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Plan alignment: mod library scanner (local/staging/workshop), project types
+  (vehicle/repaint/asset/station/script), hybrid integration mode, ZIP export,
+  staging_area install, log file list + stdout archive before game launch.
+- Auto-updater quiet when already current; still self-updates AppImage/NSIS from GitHub.
 - Auto-updater: on startup checks GitHub Releases (including pre-releases) and
   self-updates Linux AppImage / Windows setup installs when a newer version exists.
 - ZIP mod support: inspect archives for `mod.lua` and import into the mods folder

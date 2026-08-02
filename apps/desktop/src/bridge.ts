@@ -6,6 +6,8 @@ import type {
   CreatedProject,
   InstallationCandidate,
   InstallResult,
+  InstalledMod,
+  LogFileInfo,
   ModArchiveInfo,
   ProjectSnapshot
 } from "@tpf2-mod-studio/core";
@@ -48,6 +50,17 @@ export interface DesktopBridge {
   ): Promise<InstallResult>;
   readLog(logPath: string): Promise<string>;
   launchGame(executablePath: string): Promise<number>;
+  scanModLibrary(input: {
+    modsPath?: string;
+    userDataPath?: string;
+    gameRoot?: string;
+  }): Promise<InstalledMod[]>;
+  listLogFiles(userDataPath: string): Promise<LogFileInfo[]>;
+  archiveStdout(userDataPath: string): Promise<string>;
+  exportProjectZip(
+    rootPath: string,
+    destinationPath: string
+  ): Promise<string>;
   checkForUpdate(): Promise<UpdateInfo>;
   applyUpdate(info: UpdateInfo): Promise<string>;
   restartAfterUpdate(): Promise<void>;
@@ -150,6 +163,30 @@ export const tauriBridge: DesktopBridge = {
   async launchGame(executablePath) {
     requireNative();
     return invoke<number>("launch_game", { executablePath });
+  },
+
+  async scanModLibrary(input) {
+    requireNative();
+    return invoke<InstalledMod[]>("scan_mod_library", {
+      modsPath: input.modsPath ?? null,
+      userDataPath: input.userDataPath ?? null,
+      gameRoot: input.gameRoot ?? null
+    });
+  },
+
+  async listLogFiles(userDataPath) {
+    requireNative();
+    return invoke<LogFileInfo[]>("list_log_files", { userDataPath });
+  },
+
+  async archiveStdout(userDataPath) {
+    requireNative();
+    return invoke<string>("archive_stdout", { userDataPath });
+  },
+
+  async exportProjectZip(rootPath, destinationPath) {
+    requireNative();
+    return invoke<string>("export_project_zip", { rootPath, destinationPath });
   },
 
   async checkForUpdate() {
