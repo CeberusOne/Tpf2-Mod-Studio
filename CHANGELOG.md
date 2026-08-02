@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- ZIP mod support: inspect archives for `mod.lua` and import into the mods folder
+  (nested roots supported, overwrite with backup).
+- Log view focuses on problems only by default; hides TF2 startup/Vulkan/init noise
+  known from forums and wiki guidance; rows open on click for full cause/fix/stack.
+- Optional AI assist via OpenAI-compatible API (default SpaceXAI/xAI) for log help.
 - Added a UI text-size slider (13–20px) with persistence; editor font follows.
 - Improved stdout.txt root-cause analysis for real TF2 logs (no `ERROR` prefix),
   including missing `mod.lua`, Lua module load failures, absolute stack frames

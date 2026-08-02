@@ -2,6 +2,7 @@ import type {
   LogAnalysis,
   LogCauseCertainty,
   LogCauseStatus,
+  LogFilterMode,
   LogGroup,
   LogSeverity,
   LogStackFrame
@@ -53,17 +54,27 @@ const CAUSE_RULES: readonly CauseRule[] = [
   {
     code: "COMMONAPI2_BUILD_UNSUPPORTED",
     pattern:
-      /commonapi2[^\r\n]*(?:build|version|native)[^\r\n]*(?:not supported|unsupported|incompatible)/iu,
+      /commonapi2[^\r\n]*(?:build|version|native)[^\r\n]*(?:not supported|unsupported|incompatible)|commonapi2 with different version installed/iu,
     technicalCause:
-      "The loaded CommonAPI2 native component does not declare compatibility with this Transport Fever 2 build.",
+      "The loaded CommonAPI2 native component does not declare compatibility with this Transport Fever 2 build, or multiple CommonAPI2 versions are active.",
     recommendedFix:
-      "Install the CommonAPI2 release matching the current TF2 build. Use a build override only when the CommonAPI2 maintainer explicitly documents it for that build.",
+      "Keep exactly one CommonAPI2 package (`eis_os_commonapi2_1`) that matches the current TF2 build. Remove duplicate CommonAPI2 installs from mods and workshop folders.",
+    certainty: "confirmed"
+  },
+  {
+    code: "COMMONAPI2_DUPLICATE",
+    pattern:
+      /you can only have one commonapi2 installed|commonapi2 with different version installed/iu,
+    technicalCause:
+      "More than one CommonAPI2 installation is active. The runtime only allows a single CommonAPI2 package.",
+    recommendedFix:
+      "Disable or delete every extra CommonAPI2 folder so only one `eis_os_commonapi2_1` remains in the active mods list.",
     certainty: "confirmed"
   },
   {
     code: "COMMONAPI2_NATIVE_LOAD_FAILED",
     pattern:
-      /commonapi2[^\r\n]*(?:native|dll|shared (?:object|library)|\.so)[^\r\n]*(?:failed|could not|cannot|not loaded)/iu,
+      /commonapi2[^\r\n]*(?:native|dll|shared (?:object|library)|\.so)[^\r\n]*(?:failed|could not|cannot|not loaded)|error while in commonapi2/iu,
     technicalCause:
       "The CommonAPI2 script layer could not use its build-specific native component.",
     recommendedFix:
@@ -144,7 +155,25 @@ const CONSEQUENCE_PATTERN =
   /(?:exception type:|this error is usually caused by modding|some game resources contain incorrect data|error (?:while )?loading|failed to load (?:resource|script|model|construction)|resource loading (?:failed|aborted)|application (?:crashed|terminated)|caught exception|mod will not be available)/iu;
 
 const ERROR_SIGNAL =
-  /(?:\berror\b|\bfatal\b|\bexception\b|unable to load|cannot open|could not open|no such file|stack traceback|assertion failed|mod will not be available|(?:file|module|resource|script|mod\.lua).{0,80}not found|(?:failed to (?:load|open|read|write|init)))/iu;
+  /(?:\berror\b|\bfatal\b|\bexception\b|unable to load|cannot open|could not open|no such file|stack traceback|assertion failed|mod will not be available|(?:file|module|resource|script|mod\.lua).{0,80}not found|(?:failed to (?:load|open|read|write|init))|you can only have one commonapi2)/iu;
+
+/**
+ * TF2 stdout noise that forums/wikis treat as non-actionable chatter
+ * (startup banners, Vulkan/OpenAL dumps, successful init, archive mounts).
+ * @see https://wiki.transportfever2.com/doku.php?id=gamemanual:gamefilelocations
+ * @see https://www.transportfever.net/lexicon/entry/219-location-of-stdout-txt/
+ */
+const NOISE_LINE =
+  /^(?:adding archive\b|MemoryTool::|createTrampoline|Region:\s*>|Modio:\s|mod\.io backend|__CRASHDB_|Optional extension not found|Requested (?:instance|device) extensions|Supported depth resolve|Supperted stencil|Format support:|\* (?:R8|R16|R32|B10|D16|D24|D32)|- (?:linear|optimal):|Memory (?:types|heaps):|\* \d+ \{|Swapchain size:|StreamingTexturePool:|sampling rate:|opened device OpenAL|Started in UI Mode|Build: Build |GC Called|Saved (?:settings|pipeline cache)|Goodbye\.?|Shutdown at |Startup at |=+|seed: \d+|Fifo|Immediate|invalid|Use present mode:|Create Vulkan instance|Found device #|-> Selected device|Count: \d+|Flags: \{|ecs::Engine::|Steam(?:User|API)|TPF2 Build |starting up build version|user data folder:|language: |locale: |"ooooo|"`888|" 888|"o888o|eatglobal: (?:init |History created|Initialization )|commonapi2\.(?:init|ui:)|CommonAPI2Native: (?:stdout|InitDone)|Successfully read pipeline cache|Pipeline was read successfully|Mods changed, recreating data|Found (?:CommonAPI2|menuUI|layout)|menuUILayout:|MainMenuFailbackButton|Destroying failback|- (?:numSamples|textureQuality|terrainTextureResolution):|Settings:|Steam language code|Found \d+ mods$|Loaded \d+ of \d+ mod|Update of mod descriptions|successfully completed:)/iu;
+
+function isNoiseLine(line: string): boolean {
+  const stable = stableMessage(line);
+  if (stable.length === 0) return true;
+  if (ERROR_SIGNAL.test(stable) || /^(?:warn(?:ing)?)(?:\b|:)/iu.test(stable)) {
+    return false;
+  }
+  return NOISE_LINE.test(stable);
+}
 
 function stableMessage(line: string): string {
   return line.replace(TIMESTAMP_PREFIX, "").trim().replace(/\s+/gu, " ");
@@ -304,9 +333,10 @@ function rebuildEvent(event: RawLogEvent): void {
     .filter((frame): frame is LogStackFrame => frame !== undefined);
 }
 
-function rawEvents(content: string): RawLogEvent[] {
+function rawEvents(content: string): { events: RawLogEvent[]; noiseSkipped: number } {
   const events: RawLogEvent[] = [];
   const lines = content.split(/\r?\n/u);
+  let noiseSkipped = 0;
 
   for (let index = 0; index < lines.length; index += 1) {
     const raw = lines[index];
@@ -315,6 +345,10 @@ function rawEvents(content: string): RawLogEvent[] {
     if (isDetailLine(raw, previous)) {
       previous?.lines.push(raw);
       if (previous !== undefined) rebuildEvent(previous);
+      continue;
+    }
+    if (isNoiseLine(raw)) {
+      noiseSkipped += 1;
       continue;
     }
     const event: RawLogEvent = {
@@ -331,7 +365,7 @@ function rawEvents(content: string): RawLogEvent[] {
     rebuildEvent(event);
     events.push(event);
   }
-  return events;
+  return { events, noiseSkipped };
 }
 
 function classifyCauses(events: RawLogEvent[]): void {
@@ -492,24 +526,28 @@ function groupEvents(events: RawLogEvent[]): LogGroup[] {
   );
 }
 
-export function analyzeTf2Log(content: string): LogAnalysis {
-  const events = rawEvents(content);
+export function analyzeTf2Log(
+  content: string,
+  options?: { filterMode?: LogFilterMode }
+): LogAnalysis {
+  const filterMode = options?.filterMode ?? "problems";
+  const { events, noiseSkipped } = rawEvents(content);
   classifyCauses(events);
-  const groups = groupEvents(events);
-  const rootCauseCount = groups.filter(
+  const allGroups = groupEvents(events);
+  const rootCauseCount = allGroups.filter(
     (group) => group.causeStatus === "root-cause"
   ).length;
-  const consequenceCount = groups.filter(
+  const consequenceCount = allGroups.filter(
     (group) => group.causeStatus === "consequence"
   ).length;
-  const warningCount = groups.filter(
+  const warningCount = allGroups.filter(
     (group) => group.severity === "warning"
   ).length;
-  const unclassifiedErrorCount = groups.filter(
+  const unclassifiedErrorCount = allGroups.filter(
     (group) =>
       group.severity === "error" && group.causeStatus === "unclassified"
   ).length;
-  const errorCount = groups.filter(
+  const errorCount = allGroups.filter(
     (group) => group.severity === "error"
   ).length;
   const reliable =
@@ -524,14 +562,25 @@ export function analyzeTf2Log(content: string): LogAnalysis {
           ? "Errors are present, but no supported root-cause signature was proven."
           : `${unclassifiedErrorCount} error group(s) remain causally unclassified.`;
 
+  const groups =
+    filterMode === "all"
+      ? allGroups
+      : allGroups.filter(
+          (group) =>
+            group.severity === "error" || group.severity === "warning"
+        );
+
   return {
     groups,
+    allGroups,
     rootCauseCount,
     consequenceCount,
     warningCount,
     unclassifiedErrorCount,
+    noiseSkipped,
     reliable,
-    reliabilityReason
+    reliabilityReason,
+    filterMode
   };
 }
 

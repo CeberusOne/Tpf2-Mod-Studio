@@ -6,6 +6,7 @@ import type {
   CreatedProject,
   InstallationCandidate,
   InstallResult,
+  ModArchiveInfo,
   ProjectSnapshot
 } from "@tpf2-mod-studio/core";
 
@@ -13,6 +14,7 @@ export interface DesktopBridge {
   readonly isNative: boolean;
   chooseDirectory(title: string): Promise<string | null>;
   chooseLogFile(title: string, filterName: string): Promise<string | null>;
+  chooseModArchive(title: string, filterName: string): Promise<string | null>;
   detectInstallations(): Promise<InstallationCandidate[]>;
   createProject(request: CreateProjectRequest): Promise<CreatedProject>;
   scanProject(rootPath: string): Promise<ProjectSnapshot>;
@@ -24,6 +26,12 @@ export interface DesktopBridge {
   ): Promise<void>;
   installProject(
     rootPath: string,
+    modsDirectory: string,
+    overwrite: boolean
+  ): Promise<InstallResult>;
+  inspectModArchive(archivePath: string): Promise<ModArchiveInfo>;
+  importModArchive(
+    archivePath: string,
     modsDirectory: string,
     overwrite: boolean
   ): Promise<InstallResult>;
@@ -61,6 +69,17 @@ export const tauriBridge: DesktopBridge = {
     return typeof selected === "string" ? selected : null;
   },
 
+  async chooseModArchive(title, filterName) {
+    requireNative();
+    const selected = await open({
+      directory: false,
+      multiple: false,
+      title,
+      filters: [{ name: filterName, extensions: ["zip"] }]
+    });
+    return typeof selected === "string" ? selected : null;
+  },
+
   async detectInstallations() {
     requireNative();
     return invoke<InstallationCandidate[]>("detect_installations");
@@ -90,6 +109,20 @@ export const tauriBridge: DesktopBridge = {
     requireNative();
     return invoke<InstallResult>("install_project", {
       rootPath,
+      modsDirectory,
+      overwrite
+    });
+  },
+
+  async inspectModArchive(archivePath) {
+    requireNative();
+    return invoke<ModArchiveInfo>("inspect_mod_archive", { archivePath });
+  },
+
+  async importModArchive(archivePath, modsDirectory, overwrite) {
+    requireNative();
+    return invoke<InstallResult>("import_mod_archive", {
+      archivePath,
       modsDirectory,
       overwrite
     });

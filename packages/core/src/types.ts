@@ -123,14 +123,37 @@ export interface LogGroup {
   affectedMods: string[];
 }
 
+export type LogFilterMode = "problems" | "all";
+
 export interface LogAnalysis {
+  /** Groups for the active filter (problems-only by default). */
   groups: LogGroup[];
+  /** All non-noise groups before severity filtering. */
+  allGroups: LogGroup[];
   rootCauseCount: number;
   consequenceCount: number;
   warningCount: number;
   unclassifiedErrorCount: number;
+  noiseSkipped: number;
   reliable: boolean;
   reliabilityReason: string;
+  filterMode: LogFilterMode;
+}
+
+export interface ModArchiveInfo {
+  archivePath: string;
+  projectId: string;
+  hasModLua: boolean;
+  entryCount: number;
+  modLuaPath: string;
+  nestedRoot?: string;
+}
+
+export interface AiAssistSettings {
+  enabled: boolean;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
 }
 
 export type Tf2RegistrationKind = "modifier" | "file-filter";
