@@ -74,6 +74,17 @@ function Get-Release {
         Select-Object -First 1
 }
 
+function ConvertTo-Utf8Text {
+    param($Content)
+
+    # Windows PowerShell commonly exposes text downloads as String, while
+    # newer PowerShell versions may expose GitHub release assets as Byte[].
+    if ($Content -is [byte[]]) {
+        return [System.Text.Encoding]::UTF8.GetString($Content)
+    }
+    return [string]$Content
+}
+
 Write-Host "==> Resolving release ($Tag) from $Repo..."
 $release = Get-Release -Repository $Repo -ReleaseTag $Tag
 $tagName = $release.tag_name
@@ -117,17 +128,27 @@ if ($SkipChecksum) {
     Write-Host "!! Release $tagName publishes no SHA256SUMS.txt; cannot verify the download."
 } else {
     Write-Host "==> Verifying SHA-256..."
-    $sums = (Invoke-WebRequest -Uri $checksumAsset.browser_download_url -Headers @{ "User-Agent" = "Tpf2-Mod-Studio-Installer" }).Content
+    $checksumResponse = Invoke-WebRequest -Uri $checksumAsset.browser_download_url -Headers @{ "User-Agent" = "Tpf2-Mod-Studio-Installer" }
+    $sums = (ConvertTo-Utf8Text $checksumResponse.Content).TrimStart([char]0xFEFF)
     $expected = $null
-    foreach ($line in ($sums -split "`n")) {
-        $fields = ($line.Trim() -split '\s+')
-        if ($fields.Count -ge 2 -and ($fields[1].TrimStart('*')) -eq $asset.name) {
-            $expected = $fields[0].ToLowerInvariant()
-            break
+
+    foreach ($line in ($sums -split "`r?`n")) {
+        # Accept the standard sha256sum formats:
+        #   <hash>  filename
+        #   <hash> *filename
+        # Also tolerate ./ or directory prefixes from older release jobs.
+        if ($line -match '^\s*([0-9A-Fa-f]{64})\s+\*?(.+?)\s*$') {
+            $listedPath = $matches[2].Trim().Replace('\', '/')
+            $listedName = [System.IO.Path]::GetFileName($listedPath)
+            if ($listedName -ieq $asset.name) {
+                $expected = $matches[1].ToLowerInvariant()
+                break
+            }
         }
     }
+
     if (-not $expected) {
-        throw "SHA256SUMS.txt contains no entry for $($asset.name)."
+        throw "SHA256SUMS.txt contains no usable entry for $($asset.name)."
     }
     $actual = (Get-FileHash -Path $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $expected) {
