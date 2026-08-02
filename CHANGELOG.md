@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.0-alpha.7 — 2026-08-02
+
+- Fixed opening real `stdout.txt` files, which failed with
+  `Cannot decode log as UTF-8`. TF2 writes stdout from several threads without
+  locking, tearing multi-byte sequences apart; logs are now decoded lossily.
+- Fixed exponential backtracking in the log path patterns, which made a real
+  24.6 MB log produce no result at all. That log now parses in 2.9 s.
+- Fixed quadratic event assembly for long stack tracebacks (6000 frames:
+  22 s → 18 ms).
+- Fixed unsafe ZIP mod import: absolute and Windows drive-prefixed archive
+  entries could write outside the staging directory. Extraction is now capped
+  at 20,000 entries and 512 MiB.
+- Mod library is grouped by source (local, staging, Steam Workshop, shipped)
+  and shows per-mod preview images, including `image_00.tga` decoded natively.
+- Fixed installing into `staging_area` when the folder did not exist yet.
+- ZIP export now asks for a target instead of writing beside the project.
+- Saving a file no longer rescans and re-validates the whole project.
+- Corrected `docs/security-model.md`, which claimed the app makes no network
+  requests; documents the update check and the optional AI assist.
+
 ## Unreleased
 
 - Plan alignment: mod library scanner (local/staging/workshop), project types
