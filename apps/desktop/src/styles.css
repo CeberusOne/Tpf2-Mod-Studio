@@ -2362,3 +2362,38 @@ nav {
   color: var(--muted);
   font-size: 0.76rem;
 }
+
+/* The update offer stays until it is acted on; a toast disappeared before the
+   user could do anything with it. */
+.update-banner {
+  position: fixed;
+  z-index: 70;
+  top: 14px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(680px, calc(100vw - 40px));
+  padding: 11px 14px;
+  transform: translateX(-50%);
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.update-banner-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.update-banner-text strong { font-size: 0.86rem; }
+
+.update-banner-text span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.update-banner .primary-button { flex: 0 0 auto; }
