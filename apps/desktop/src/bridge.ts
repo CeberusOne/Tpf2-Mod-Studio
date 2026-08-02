@@ -21,6 +21,8 @@ export interface UpdateInfo {
   downloadUrl: string;
   assetName: string;
   htmlUrl: string;
+  checksumUrl?: string;
+  assetSize?: number;
 }
 
 export interface DesktopBridge {
