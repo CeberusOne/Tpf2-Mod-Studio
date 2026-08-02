@@ -1,10 +1,11 @@
 import type { AiAssistSettings, Diagnostic, LogGroup } from "./types.js";
 
+/** Empty by design: AI is optional and fully user-chosen (any OpenAI-compatible API). */
 export const DEFAULT_AI_SETTINGS: AiAssistSettings = {
   enabled: false,
-  baseUrl: "https://api.x.ai/v1",
+  baseUrl: "",
   apiKey: "",
-  model: "grok-4.5"
+  model: ""
 };
 
 export function isAiConfigured(settings: AiAssistSettings): boolean {
@@ -75,7 +76,8 @@ export function buildDiagnosticAssistPrompt(
 }
 
 /**
- * Call an OpenAI-compatible Chat Completions API (SpaceXAI/xAI, OpenAI, local proxies).
+ * Call a user-provided OpenAI-compatible Chat Completions API.
+ * No provider is preselected; callers must supply base URL, key and model.
  */
 export async function requestAiAssistance(
   settings: AiAssistSettings,
@@ -83,7 +85,9 @@ export async function requestAiAssistance(
   fetchImpl: typeof fetch = fetch
 ): Promise<string> {
   if (!isAiConfigured(settings)) {
-    throw new Error("AI assist is not configured. Enable it and set base URL, API key and model.");
+    throw new Error(
+      "AI assist is optional and not configured. Enable it only if you want help, then enter your own API base URL, key and model."
+    );
   }
   const base = settings.baseUrl.replace(/\/+$/u, "");
   const endpoint = `${base}/chat/completions`;

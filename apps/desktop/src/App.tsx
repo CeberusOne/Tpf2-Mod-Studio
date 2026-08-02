@@ -1015,6 +1015,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
           {view === "logs" ? (
             <LogView
               aiAnswers={aiAnswers}
+              aiConfigured={isAiConfigured(aiSettings)}
               {...(aiBusyId === undefined ? {} : { aiBusyId })}
               analysis={logAnalysis}
               {...(expandedLogId === undefined ? {} : { expandedLogId })}
@@ -1350,6 +1351,7 @@ function InstallView({
 function LogView({
   aiAnswers,
   aiBusyId,
+  aiConfigured,
   analysis,
   expandedLogId,
   experience,
@@ -1365,6 +1367,7 @@ function LogView({
 }: {
   aiAnswers: Record<string, string>;
   aiBusyId?: string;
+  aiConfigured: boolean;
   analysis: LogAnalysis | undefined;
   expandedLogId?: string;
   experience: ExperienceMode;
@@ -1544,26 +1547,28 @@ function LogView({
                         ))}
                       </details>
                     )}
-                    <div className="section-actions">
-                      <button
-                        className="secondary-button"
-                        disabled={aiBusyId === group.id}
-                        onClick={() => onAskAi(group)}
-                        type="button"
-                      >
-                        <Sparkles size={16} />
-                        {aiBusyId === group.id ? t("aiWorking") : t("askAi")}
-                      </button>
-                      {aiAnswers[group.id] === undefined ? null : (
+                    {aiConfigured ? (
+                      <div className="section-actions">
                         <button
                           className="secondary-button"
-                          onClick={() => onClearAi(group.id)}
+                          disabled={aiBusyId === group.id}
+                          onClick={() => onAskAi(group)}
                           type="button"
                         >
-                          {t("aiClear")}
+                          <Sparkles size={16} />
+                          {aiBusyId === group.id ? t("aiWorking") : t("askAi")}
                         </button>
-                      )}
-                    </div>
+                        {aiAnswers[group.id] === undefined ? null : (
+                          <button
+                            className="secondary-button"
+                            onClick={() => onClearAi(group.id)}
+                            type="button"
+                          >
+                            {t("aiClear")}
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
                     {aiAnswers[group.id] === undefined ? null : (
                       <div className="ai-answer">
                         <strong>{t("aiResponse")}</strong>
@@ -1626,6 +1631,7 @@ function SetupView({
       <section className="task-card ai-settings-card">
         <span className="eyebrow">{t("aiAssist")}</span>
         <h2>{t("aiAssist")}</h2>
+        <p className="ai-optional-note">{t("aiOptionalNote")}</p>
         <label className="check-row">
           <input
             checked={draft.enabled}
@@ -1642,12 +1648,14 @@ function SetupView({
         <label className="field">
           <span>{t("aiBaseUrl")}</span>
           <input
+            disabled={!draft.enabled}
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
                 baseUrl: event.target.value
               }))
             }
+            placeholder={t("aiBaseUrlPlaceholder")}
             value={draft.baseUrl}
           />
           <small>{t("aiBaseUrlHint")}</small>
@@ -1656,6 +1664,7 @@ function SetupView({
           <span>{t("aiApiKey")}</span>
           <input
             autoComplete="off"
+            disabled={!draft.enabled}
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
@@ -1669,17 +1678,20 @@ function SetupView({
         <label className="field">
           <span>{t("aiModel")}</span>
           <input
+            disabled={!draft.enabled}
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
                 model: event.target.value
               }))
             }
+            placeholder={t("aiModelPlaceholder")}
             value={draft.model}
           />
         </label>
         <button
           className="secondary-button"
+          disabled={!draft.enabled}
           onClick={() => onAiSettingsChange(draft)}
           type="button"
         >
