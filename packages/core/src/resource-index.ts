@@ -55,6 +55,8 @@ export function classifyResource(relativePath: string): ResourceKind {
     return "translation";
   }
   if (value.startsWith("documents/") || value.endsWith(".md")) return "documentation";
+  if (value.endsWith(".module")) return "module";
+  if (value.endsWith(".con")) return "construction";
   if (isInPath(value, "res/campaign")) return "campaign";
   if (isInPath(value, "res/scripts/mission")) return "mission";
   if (
@@ -85,8 +87,6 @@ export function classifyResource(relativePath: string): ResourceKind {
     return "signal";
   }
   if (value.includes("/station/")) return "station";
-  if (value.endsWith(".module")) return "module";
-  if (value.endsWith(".con")) return "construction";
   if (value.endsWith(".mdl")) return "model";
   if (value.endsWith(".msh") || value.endsWith(".msh.blob")) return "mesh";
   if (value.endsWith(".mtl")) return "material";
