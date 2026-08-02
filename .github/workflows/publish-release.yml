@@ -121,15 +121,35 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $process = Start-Process `
-            -FilePath "apps/desktop/src-tauri/target/release/tpf2-mod-studio.exe" `
-            -PassThru
-          Start-Sleep -Seconds 10
-          if ($process.HasExited) {
-            throw "Desktop process exited early with code $($process.ExitCode)."
+          $exe = Resolve-Path "apps/desktop/src-tauri/target/release/tpf2-mod-studio.exe"
+          $workDir = Split-Path $exe -Parent
+          $stdout = Join-Path $env:RUNNER_TEMP "native-smoke-out.log"
+          $stderr = Join-Path $env:RUNNER_TEMP "native-smoke-err.log"
+          $ok = $false
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            Remove-Item $stdout, $stderr -ErrorAction SilentlyContinue
+            Write-Host "Windows smoke attempt $attempt..."
+            $process = Start-Process `
+              -FilePath $exe `
+              -WorkingDirectory $workDir `
+              -RedirectStandardOutput $stdout `
+              -RedirectStandardError $stderr `
+              -PassThru
+            Start-Sleep -Seconds 12
+            if (-not $process.HasExited) {
+              $ok = $true
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
+              break
+            }
+            Write-Host "Attempt $attempt exited early with code $($process.ExitCode)."
+            if (Test-Path $stdout) { Write-Host "--- stdout ---"; Get-Content $stdout }
+            if (Test-Path $stderr) { Write-Host "--- stderr ---"; Get-Content $stderr }
+            Start-Sleep -Seconds 3
           }
-          Stop-Process -Id $process.Id
-          Wait-Process -Id $process.Id -ErrorAction SilentlyContinue
+          if (-not $ok) {
+            throw "Desktop process exited early after 3 attempts."
+          }
 
       - name: Stage Linux packages with stable names
         if: runner.os == 'Linux'
