@@ -480,6 +480,36 @@ describe("desktop workbench", () => {
     expect(screen.getByRole("button", { name: "Info" })).toBeTruthy();
   });
 
+  it("offers an available update and installs it on request", async () => {
+    // The check used to raise a five-second toast and nothing else, so an
+    // available update could be seen but never installed.
+    const desktopBridge = bridge();
+    desktopBridge.checkForUpdate = vi.fn(async () => ({
+      available: true,
+      currentVersion: "0.1.0-alpha.8",
+      latestVersion: "0.1.0-alpha.9",
+      releaseTag: "v0.1.0-alpha.9",
+      notes: "",
+      downloadUrl: "https://github.com/x/y/releases/download/v0.1.0-alpha.9/a.AppImage",
+      assetName: "a.AppImage",
+      htmlUrl: "https://github.com/x/y/releases/tag/v0.1.0-alpha.9"
+    }));
+    render(<App bridge={desktopBridge} />);
+
+    expect(
+      await screen.findByText("Version 0.1.0-alpha.9 is available", {}, { timeout: 3000 })
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Install now" }));
+
+    await waitFor(() => {
+      expect(desktopBridge.applyUpdate).toHaveBeenCalled();
+    });
+    expect(
+      await screen.findByRole("button", { name: "Restart now" })
+    ).toBeTruthy();
+  });
+
   it("switches to German and persists the explicit language selection", () => {
     const firstRender = render(<App bridge={bridge(false)} />);
 

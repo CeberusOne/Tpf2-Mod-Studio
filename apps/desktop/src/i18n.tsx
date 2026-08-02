@@ -266,6 +266,13 @@ const english = {
   navAi: "AI",
   updateChecking: "Checking for updates…",
   updateAvailable: "Update {version} is available",
+  updateAvailableTitle: "Version {version} is available",
+  updateAvailableBody:
+    "You have {current}. Installing replaces the current package and needs a restart.",
+  updateInstall: "Install now",
+  updateInstalledRestart: "Installed. Restart to use the new version.",
+  updateRestart: "Restart now",
+  updateDismiss: "Dismiss update notice",
   updateAvailableOnce:
     "Update {version} is available (you have {current}). Install from GitHub Releases — auto-update is disabled to avoid restart loops.",
   updateInstalling: "Downloading and installing update {version}…",
@@ -606,6 +613,13 @@ const german: TranslationCatalog = {
   navAi: "KI",
   updateChecking: "Suche nach Updates…",
   updateAvailable: "Update {version} ist verfügbar",
+  updateAvailableTitle: "Version {version} ist verfügbar",
+  updateAvailableBody:
+    "Installiert ist {current}. Die Installation ersetzt das aktuelle Paket und erfordert einen Neustart.",
+  updateInstall: "Jetzt installieren",
+  updateInstalledRestart: "Installiert. Zum Verwenden neu starten.",
+  updateRestart: "Jetzt neu starten",
+  updateDismiss: "Update-Hinweis schließen",
   updateAvailableOnce:
     "Update {version} ist verfügbar (installiert: {current}). Bitte manuell von GitHub Releases installieren — Auto-Update ist deaktiviert, um Neustart-Schleifen zu vermeiden.",
   updateInstalling: "Update {version} wird heruntergeladen und installiert…",

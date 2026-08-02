@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Code2,
   Database,
+  Download,
   FileArchive,
   FilePlus2,
   Files,
@@ -61,7 +62,7 @@ import {
   useState
 } from "react";
 
-import type { DesktopBridge } from "./bridge";
+import type { DesktopBridge, UpdateInfo } from "./bridge";
 import ErrorBoundary from "./ErrorBoundary";
 import { tauriBridge } from "./bridge";
 import {
@@ -223,6 +224,10 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   const [installations, setInstallations] = useState<InstallationCandidate[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
   const [logFiles, setLogFiles] = useState<LogFileInfo[]>([]);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo>();
+  const [updateState, setUpdateState] = useState<
+    "offered" | "installing" | "installed"
+  >("offered");
 
   const validation = useMemo(
     () => (snapshot === undefined ? undefined : validateProject(snapshot)),
@@ -304,9 +309,11 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     };
   }, [bridge]);
 
-  // Startup update check ONLY — never auto-download, never auto-restart.
-  // Auto install+restart caused endless relaunch loops when the GitHub asset
-  // package version lagged the release tag (and kept re-shipping the old UI).
+  // The startup check never downloads on its own: installing and restarting
+  // automatically caused endless relaunch loops when the published package
+  // version lagged the release tag. Installing is an explicit user action, and
+  // the offer stays on screen until it is taken or dismissed — a five-second
+  // toast left no way to act on it at all.
   const updateCheckStartedRef = useRef(false);
   useEffect(() => {
     if (!bridge.isNative) return;
@@ -320,13 +327,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
         try {
           const info = await bridge.checkForUpdate();
           if (cancelled || !info.available) return;
-          setNotice({
-            tone: "neutral",
-            message: t("updateAvailableOnce", {
-              version: info.latestVersion,
-              current: info.currentVersion
-            })
-          });
+          setUpdateInfo(info);
         } catch {
           // Offline / network errors stay quiet on startup.
         }
@@ -353,6 +354,19 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
       return undefined;
     } finally {
       setBusy(undefined);
+    }
+  }
+
+  async function installUpdate(): Promise<void> {
+    if (updateInfo === undefined) return;
+    setUpdateState("installing");
+    try {
+      const result = await bridge.applyUpdate(updateInfo);
+      setUpdateState("installed");
+      setNotice({ tone: "success", message: result });
+    } catch (error) {
+      setUpdateState("offered");
+      setNotice({ tone: "error", message: errorMessage(error) });
     }
   }
 
@@ -1237,6 +1251,57 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
           ) : null}
         </main>
       </section>
+
+      {updateInfo === undefined ? null : (
+        <div className="update-banner" role="status">
+          <Download size={17} />
+          <div className="update-banner-text">
+            <strong>
+              {t("updateAvailableTitle", { version: updateInfo.latestVersion })}
+            </strong>
+            <span>
+              {updateState === "installed"
+                ? t("updateInstalledRestart")
+                : t("updateAvailableBody", {
+                    current: updateInfo.currentVersion
+                  })}
+            </span>
+          </div>
+          {updateState === "installed" ? (
+            <button
+              className="primary-button"
+              onClick={() => void bridge.restartAfterUpdate()}
+              type="button"
+            >
+              {t("updateRestart")}
+            </button>
+          ) : (
+            <button
+              className="primary-button"
+              disabled={updateState === "installing"}
+              onClick={() => void installUpdate()}
+              type="button"
+            >
+              {updateState === "installing" ? (
+                <>
+                  <LoaderCircle className="spin" size={15} />
+                  {t("updateInstalling", { version: updateInfo.latestVersion })}
+                </>
+              ) : (
+                t("updateInstall")
+              )}
+            </button>
+          )}
+          <button
+            aria-label={t("updateDismiss")}
+            className="icon-button"
+            onClick={() => setUpdateInfo(undefined)}
+            type="button"
+          >
+            <X size={17} />
+          </button>
+        </div>
+      )}
 
       {notice !== undefined ? (
         <div className={`notice ${notice.tone}`} role="status">
