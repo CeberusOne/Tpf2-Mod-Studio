@@ -1,21 +1,21 @@
 //! Self-update from GitHub Releases (including pre-releases).
 //!
-//! On startup the desktop shell can call [`check_for_update`] and
-//! [`apply_update`]. Linux AppImage installs replace the current image;
-//! Windows downloads the NSIS setup and runs it silently.
+//! The UI should call [`check_for_update`] **once at startup** and only
+//! apply via an explicit user action. Automatic install+restart caused
+//! endless relaunch loops when the published package version lagged the
+//! release tag.
+//!
+//! Linux AppImage installs replace the current image; Windows downloads
+//! the NSIS setup and runs it silently.
 
 use serde::{Deserialize, Serialize};
 use std::{
     env, fs,
     io::Write,
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
-
-// PathBuf is only named in Linux AppImage install/restart helpers.
-#[cfg(target_os = "linux")]
-use std::path::PathBuf;
 
 const GITHUB_REPO: &str = "CeberusOne/Tpf2-Mod-Studio";
 const USER_AGENT: &str = "Tpf2-Mod-Studio-Updater";
@@ -60,6 +60,71 @@ fn current_version_string() -> String {
 fn parse_version(raw: &str) -> Option<semver::Version> {
     let trimmed = raw.trim().trim_start_matches('v');
     semver::Version::parse(trimmed).ok()
+}
+
+/// Stable user-data directory for updater state (survives AppImage restarts).
+fn updater_state_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(base) = env::var("LOCALAPPDATA") {
+            return Some(PathBuf::from(base).join("Tpf2ModStudio"));
+        }
+        if let Ok(base) = env::var("APPDATA") {
+            return Some(PathBuf::from(base).join("Tpf2ModStudio"));
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(xdg) = env::var("XDG_DATA_HOME") {
+            return Some(PathBuf::from(xdg).join("tpf2-mod-studio"));
+        }
+        if let Ok(home) = env::var("HOME") {
+            return Some(PathBuf::from(home).join(".local/share/tpf2-mod-studio"));
+        }
+    }
+    None
+}
+
+fn applied_tag_path() -> Option<PathBuf> {
+    updater_state_dir().map(|dir| dir.join("last-applied-release-tag"))
+}
+
+/// Tag of the release we already installed (empty if never recorded).
+pub fn read_applied_release_tag() -> String {
+    let Some(path) = applied_tag_path() else {
+        return String::new();
+    };
+    fs::read_to_string(path)
+        .map(|value| value.trim().to_string())
+        .unwrap_or_default()
+}
+
+/// Persist the release tag so the same package is never re-applied in a loop.
+pub fn remember_applied_release_tag(tag: &str) -> Result<(), String> {
+    let tag = tag.trim();
+    if tag.is_empty() {
+        return Ok(());
+    }
+    let path = applied_tag_path().ok_or_else(|| {
+        "Cannot resolve updater state directory for applied release tag.".to_string()
+    })?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Cannot create updater state directory: {error}"))?;
+    }
+    fs::write(&path, format!("{tag}\n"))
+        .map_err(|error| format!("Cannot write applied release tag: {error}"))
+}
+
+fn tag_matches_applied(release_tag: &str, latest_version: &str, applied: &str) -> bool {
+    if applied.is_empty() {
+        return false;
+    }
+    let applied = applied.trim();
+    applied == release_tag
+        || applied == latest_version
+        || applied == format!("v{latest_version}")
+        || release_tag.trim_start_matches('v') == applied.trim_start_matches('v')
 }
 
 fn platform_asset_name(name: &str) -> bool {
@@ -143,10 +208,14 @@ fn pick_asset(release: &GhRelease) -> Option<&GhAsset> {
 }
 
 /// Compare remote release versions and return the newest newer-than-current release.
+///
+/// If the newest newer release was already applied (marker file), report
+/// `available: false` so install+restart loops cannot continue.
 pub async fn check_for_update() -> Result<UpdateInfo, String> {
     let current_raw = current_version_string();
     let current = parse_version(&current_raw)
         .ok_or_else(|| format!("Invalid current version: {current_raw}"))?;
+    let applied = read_applied_release_tag();
     let client = http_client()?;
     let releases = fetch_releases(&client).await?;
 
@@ -159,6 +228,10 @@ pub async fn check_for_update() -> Result<UpdateInfo, String> {
             continue;
         };
         if version <= current {
+            continue;
+        }
+        // Already installed this tag (package version may still lag the tag).
+        if tag_matches_applied(&release.tag_name, &version.to_string(), &applied) {
             continue;
         }
         let Some(asset) = pick_asset(&release).cloned() else {
@@ -296,6 +369,20 @@ pub async fn apply_update(info: UpdateInfo) -> Result<String, String> {
     if !info.available || info.download_url.is_empty() {
         return Err("No update is available to install.".into());
     }
+
+    let tag = if info.release_tag.is_empty() {
+        format!("v{}", info.latest_version)
+    } else {
+        info.release_tag.clone()
+    };
+    let applied = read_applied_release_tag();
+    if tag_matches_applied(&tag, &info.latest_version, &applied) {
+        return Err(format!(
+            "Release {tag} was already applied; refusing to reinstall (loop guard)."
+        ));
+    }
+    // Record before download/install so a crash mid-install cannot loop forever.
+    remember_applied_release_tag(&tag)?;
 
     let temp_dir = env::temp_dir().join(format!(
         "tpf2-mod-studio-update-{}-{}",
@@ -455,5 +542,29 @@ mod tests {
                     > parse_version(&info.current_version).expect("current")
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod applied_tag_tests {
+    use super::*;
+
+    #[test]
+    fn tag_match_accepts_v_prefix_variants() {
+        assert!(tag_matches_applied(
+            "v0.1.0-alpha.5",
+            "0.1.0-alpha.5",
+            "v0.1.0-alpha.5"
+        ));
+        assert!(tag_matches_applied(
+            "v0.1.0-alpha.5",
+            "0.1.0-alpha.5",
+            "0.1.0-alpha.5"
+        ));
+        assert!(!tag_matches_applied(
+            "v0.1.0-alpha.6",
+            "0.1.0-alpha.6",
+            "v0.1.0-alpha.5"
+        ));
     }
 }

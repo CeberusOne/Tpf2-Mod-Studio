@@ -175,43 +175,9 @@ export default function App(props: AppProps) {
 
 const FONT_SIZE_STORAGE_KEY = "tpf2-mod-studio.ui-font-size.v1";
 const AI_SETTINGS_STORAGE_KEY = "tpf2-mod-studio.ai-settings.v1";
-/** Release tag last successfully installed by the auto-updater (survives restarts). */
-const UPDATE_APPLIED_TAG_KEY = "tpf2-mod-studio.update-applied-tag.v1";
 const FONT_SIZE_MIN = 13;
 const FONT_SIZE_MAX = 20;
 const FONT_SIZE_DEFAULT = 16;
-
-function readAppliedUpdateTag(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    return window.localStorage.getItem(UPDATE_APPLIED_TAG_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function rememberAppliedUpdateTag(tag: string): void {
-  if (typeof window === "undefined" || tag.length === 0) return;
-  try {
-    window.localStorage.setItem(UPDATE_APPLIED_TAG_KEY, tag);
-  } catch {
-    // Skip-list is best-effort; in-memory ref still blocks same-session restarts.
-  }
-}
-
-function wasUpdateAlreadyApplied(info: {
-  releaseTag: string;
-  latestVersion: string;
-}): boolean {
-  const applied = readAppliedUpdateTag();
-  if (applied.length === 0) return false;
-  const candidates = new Set(
-    [info.releaseTag, info.latestVersion, `v${info.latestVersion}`].filter(
-      (value) => value.length > 0
-    )
-  );
-  return candidates.has(applied);
-}
 
 function readStoredAiSettings(): AiAssistSettings {
   if (typeof window === "undefined") return { ...DEFAULT_AI_SETTINGS };
@@ -349,11 +315,9 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     };
   }, [bridge, t]);
 
-  // One-shot update check at process start — never on an interval and never
-  // when language/`t` changes. Deferred slightly so React StrictMode's
-  // mount→cleanup→remount does not double-hit GitHub or cancel a real check.
-  // If the embedded package version lags the release tag, remember the applied
-  // tag so install+restart cannot loop forever.
+  // Startup update check ONLY — never auto-download, never auto-restart.
+  // Auto install+restart caused endless relaunch loops when the GitHub asset
+  // package version lagged the release tag (and kept re-shipping the old UI).
   const updateCheckStartedRef = useRef(false);
   useEffect(() => {
     if (!bridge.isNative) return;
@@ -367,57 +331,24 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
         try {
           const info = await bridge.checkForUpdate();
           if (cancelled || !info.available) return;
-          if (wasUpdateAlreadyApplied(info)) {
-            // Already installed this release; stay quiet (breaks version-lag loops).
-            return;
-          }
-
           setNotice({
             tone: "neutral",
-            message: t("updateAvailable", { version: info.latestVersion })
+            message: t("updateAvailableOnce", {
+              version: info.latestVersion,
+              current: info.currentVersion
+            })
           });
-          setNotice({
-            tone: "neutral",
-            message: t("updateInstalling", { version: info.latestVersion })
-          });
-          const result = await bridge.applyUpdate(info);
-          if (cancelled) return;
-
-          rememberAppliedUpdateTag(
-            info.releaseTag || `v${info.latestVersion}` || info.latestVersion
-          );
-
-          setNotice({
-            tone: "success",
-            message: result || t("updateInstalled")
-          });
-          window.setTimeout(() => {
-            void bridge.restartAfterUpdate().catch(() => {
-              setNotice({
-                tone: "success",
-                message: t("updateInstalled")
-              });
-            });
-          }, 1200);
-        } catch (error) {
-          if (cancelled) return;
-          // Network/offline failures stay quiet; only surface real update errors.
-          const message = errorMessage(error);
-          if (!/network|fetch|timed out|dns|offline/i.test(message)) {
-            setNotice({
-              tone: "error",
-              message: t("updateFailed", { error: message })
-            });
-          }
+        } catch {
+          // Offline / network errors stay quiet on startup.
         }
       })();
-    }, 400);
+    }, 500);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-    // Intentionally once per process: do not re-run when `t`/language changes.
+    // Once per process only — never re-run on language changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- startup one-shot
   }, [bridge.isNative]);
 
