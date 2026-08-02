@@ -374,11 +374,11 @@ end`;
     });
     const codes = health.diagnostics.map((item) => item.code);
 
-    expect(codes).toContain("MOD_FOLDER_NOT_LOWERCASE");
+    expect(codes).toContain("MOD_FOLDER_CHARACTERS");
     expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
     expect(
       health.diagnostics.find(
-        (item) => item.code === "MOD_FOLDER_NOT_LOWERCASE"
+        (item) => item.code === "MOD_FOLDER_CHARACTERS"
       )?.description
     ).toContain("has the expected version suffix");
   });

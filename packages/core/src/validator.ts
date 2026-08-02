@@ -409,18 +409,34 @@ export function folderNameDiagnostics(folderName: string): Diagnostic[] {
         "Rename the folder to end in `_1` or another positive major version."
       )
     );
-  } else if (!/^[a-z0-9][a-z0-9_-]*$/u.test(folderName.replace(/_[1-9][0-9]*$/u, ""))) {
-    diagnostics.push(
-      diagnostic(
-        "MOD_FOLDER_NOT_LOWERCASE",
-        "warning",
-        "official-guidance",
-        "Mod folder name is not lower-case",
-        `\`${folderName}\` has the expected version suffix, but its name is not fully lower-case.`,
-        "Upper-case folder names load on Linux and Windows alike; the official guidance recommends lower-case for portable, predictable paths.",
-        "Rename the folder to lower-case if you publish it. An existing installed mod keeps working as it is."
-      )
-    );
+  } else {
+    // Name the characters that actually break the convention. Saying
+    // "not lower-case" about `modwerkstatt_br01.10_1`, which is lower-case and
+    // only contains a dot, sends people looking for the wrong thing.
+    const base = folderName.replace(/_[1-9][0-9]*$/u, "");
+    const upperCase = [...new Set(base.match(/[A-Z]/gu) ?? [])];
+    const unusual = [...new Set(base.match(/[^a-zA-Z0-9_-]/gu) ?? [])];
+    if (upperCase.length > 0 || unusual.length > 0) {
+      const parts = [
+        upperCase.length > 0
+          ? `upper-case ${upperCase.map((c) => `\`${c}\``).join(", ")}`
+          : "",
+        unusual.length > 0
+          ? `${unusual.map((c) => `\`${c}\``).join(", ")}`
+          : ""
+      ].filter((part) => part.length > 0);
+      diagnostics.push(
+        diagnostic(
+          "MOD_FOLDER_CHARACTERS",
+          "warning",
+          "official-guidance",
+          "Mod folder name uses non-standard characters",
+          `\`${folderName}\` has the expected version suffix, but contains ${parts.join(" and ")}. The official guidance is lower-case letters, digits, \`_\` and \`-\`.`,
+          "Mixed case and unusual characters are a portability risk between case-sensitive and case-insensitive filesystems; they do not stop the mod from loading.",
+          "Rename the folder before publishing. An installed mod keeps working as it is."
+        )
+      );
+    }
   }
   return diagnostics;
 }
