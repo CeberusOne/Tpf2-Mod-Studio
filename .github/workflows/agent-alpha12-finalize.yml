@@ -5,6 +5,7 @@ on:
     branches:
       - main
     types:
+      - opened
       - synchronize
       - reopened
 
@@ -13,14 +14,14 @@ permissions:
 
 jobs:
   apply-test-and-commit:
-    if: github.head_ref == 'feature/library-staging-updater-alpha12'
+    if: github.head_ref == 'feature/library-staging-updater-alpha12-final'
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
       - name: Check out feature branch
         uses: actions/checkout@v7
         with:
-          ref: feature/library-staging-updater-alpha12
+          ref: feature/library-staging-updater-alpha12-final
           fetch-depth: 0
 
       - name: Install Linux dependencies
@@ -119,4 +120,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "feat: classify staging content and add startup update dialog"
-          git push origin HEAD:feature/library-staging-updater-alpha12
+          git push origin HEAD:feature/library-staging-updater-alpha12-final
