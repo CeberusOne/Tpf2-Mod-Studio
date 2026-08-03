@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildModPresetLua,
   classifyDependency,
+  extractDependencyInfo,
+  findModOrderViolations,
   parseModPreset,
   parseModRef,
   planModOrder,
@@ -12,9 +14,10 @@ import {
 function mod(
   id: string,
   dependencies: string[] = [],
-  source = "local"
+  source = "local",
+  dependenciesAnyLoadOrder = false
 ): InstalledModInfo {
-  return { id, source, dependencies };
+  return { id, source, dependencies, dependenciesAnyLoadOrder };
 }
 
 describe("mod reference forms", () => {
@@ -43,6 +46,13 @@ describe("dependency classification", () => {
     });
   });
 
+  it("matches real-world casing differences without marking a mod missing", () => {
+    const verdict = classifyDependency("Kaleut_Drehgestelle_1", installed);
+    expect(verdict.kind).toBe("satisfied");
+    expect(verdict.resolvedTo).toBe("kaleut_drehgestelle_1");
+    expect(verdict.uncertainty).toContain("case-insensitively");
+  });
+
   it("matches a different major version but says so", () => {
     const verdict = classifyDependency("siri_basis_1", installed);
     expect(verdict.kind).toBe("satisfied");
@@ -51,8 +61,6 @@ describe("dependency classification", () => {
   });
 
   it("reports a download link as a link, not a missing mod", () => {
-    // Authors regularly put a URL in `dependencies`; 37 of the declarations in
-    // a real 735-mod library are links. Calling those "missing" is a false alarm.
     const verdict = classifyDependency(
       "https://www.transportfever.net/filebase/entry/5041-zaeune/",
       installed
@@ -68,25 +76,82 @@ describe("dependency classification", () => {
   });
 });
 
+describe("static dependency extraction", () => {
+  it("reads standard dependencies and CommonAPI2 requiredMods", () => {
+    const info = extractDependencyInfo(`function data()
+return {
+  info = {
+    dependencies = { "basis_pack_1", "Signals_CORE_2" },
+    requiredMods = {
+      { modId = "eis_os_commonapi2_1", url = "https://example.invalid" },
+      { steamId = 3314962403 },
+    },
+  },
+}
+end`);
+
+    expect(info.dependencies).toEqual(
+      expect.arrayContaining([
+        "basis_pack_1",
+        "Signals_CORE_2",
+        "eis_os_commonapi2_1",
+        "3314962403"
+      ])
+    );
+    expect(info.dependencies).not.toContain("https://example.invalid");
+    expect(info.anyLoadOrder).toBe(false);
+  });
+
+  it("honours CommonAPI2 requiredModsAnyLoadOrder", () => {
+    expect(
+      extractDependencyInfo(`requiredModsAnyLoadOrder = true,
+requiredMods = { { modId = "helper_1" } }`).anyLoadOrder
+    ).toBe(true);
+  });
+});
+
 describe("load order planning", () => {
-  it("places dependencies before the mods that need them", () => {
+  it("preserves the visible TF2 order when there are no dependencies", () => {
+    const installed = [mod("first_1"), mod("middle_1"), mod("last_1")];
+    const result = planModOrder(
+      installed,
+      ["first_1", "middle_1", "last_1"],
+      ["first_1", "middle_1", "last_1"]
+    );
+
+    expect(result.order).toEqual(["first_1", "middle_1", "last_1"]);
+    expect(result.loadOrder).toEqual(["last_1", "middle_1", "first_1"]);
+  });
+
+  it("shows dependencies below dependents while loading them first", () => {
     const installed = [
       mod("wagon_1", ["bogies_1"]),
       mod("bogies_1"),
       mod("station_1", ["bogies_1", "signals_1"]),
       mod("signals_1")
     ];
-    const result = planModOrder(installed, ["wagon_1", "station_1"]);
+    const result = planModOrder(
+      installed,
+      ["wagon_1", "station_1"],
+      ["wagon_1", "station_1"]
+    );
 
     expect(result.cycles).toEqual([]);
-    expect(result.order.indexOf("bogies_1")).toBeLessThan(
+    expect(result.order.indexOf("bogies_1")).toBeGreaterThan(
       result.order.indexOf("wagon_1")
     );
-    expect(result.order.indexOf("signals_1")).toBeLessThan(
+    expect(result.order.indexOf("signals_1")).toBeGreaterThan(
       result.order.indexOf("station_1")
     );
-    // Dependencies are pulled in even though they were not selected.
-    expect(result.addedForDependencies).toEqual(["bogies_1", "signals_1"]);
+    expect(result.loadOrder.indexOf("bogies_1")).toBeLessThan(
+      result.loadOrder.indexOf("wagon_1")
+    );
+    expect(result.loadOrder.indexOf("signals_1")).toBeLessThan(
+      result.loadOrder.indexOf("station_1")
+    );
+    expect(result.addedForDependencies).toEqual(
+      expect.arrayContaining(["bogies_1", "signals_1"])
+    );
   });
 
   it("handles one mod depending on several others", () => {
@@ -97,7 +162,7 @@ describe("load order planning", () => {
       mod("c_1", ["b_1"])
     ];
     const result = planModOrder(installed, ["big_1"]);
-    const at = (id: string): number => result.order.indexOf(id);
+    const at = (id: string): number => result.loadOrder.indexOf(id);
 
     expect(at("a_1")).toBeLessThan(at("b_1"));
     expect(at("b_1")).toBeLessThan(at("c_1"));
@@ -114,7 +179,7 @@ describe("load order planning", () => {
     ).toHaveLength(2);
   });
 
-  it("reports a cycle instead of inventing an order", () => {
+  it("reports a cycle instead of inventing a safe order", () => {
     const installed = [mod("a_1", ["b_1"]), mod("b_1", ["a_1"])];
     const result = planModOrder(installed, ["a_1"]);
     expect(result.cycles.length).toBeGreaterThan(0);
@@ -130,6 +195,40 @@ describe("load order planning", () => {
     expect(result.missing).toEqual([]);
     expect(result.unverifiable).toHaveLength(1);
     expect(result.unverifiable[0]?.kind).toBe("link");
+  });
+
+  it("includes any-load-order dependencies without forcing their position", () => {
+    const installed = [mod("script_1", ["helper_1"], "local", true), mod("helper_1")];
+    const result = planModOrder(
+      installed,
+      ["script_1"],
+      ["helper_1", "script_1"]
+    );
+
+    expect(result.order).toEqual(["helper_1", "script_1"]);
+    expect(result.addedForDependencies).toContain("helper_1");
+    expect(findModOrderViolations(installed, result.order)).toEqual([]);
+  });
+});
+
+describe("manual order validation", () => {
+  const installed = [mod("vehicle_1", ["base_1"]), mod("base_1")];
+
+  it("accepts the same top-to-bottom order shown by the game", () => {
+    expect(findModOrderViolations(installed, ["vehicle_1", "base_1"])).toEqual(
+      []
+    );
+  });
+
+  it("reports a dependency placed above the dependent", () => {
+    expect(findModOrderViolations(installed, ["base_1", "vehicle_1"])).toEqual([
+      {
+        dependent: "vehicle_1",
+        dependency: "base_1",
+        dependentPosition: 2,
+        dependencyPosition: 1
+      }
+    ]);
   });
 });
 
@@ -163,7 +262,7 @@ end`;
     expect(entries[1]?.majorVersion).toBe(2);
   });
 
-  it("writes a preset that parses back to the same order", () => {
+  it("writes a preset that parses back to the same visible game order", () => {
     const entries = parseModPreset(
       buildModPresetLua([
         { ref: parseModRef("!first"), name: "First", majorVersion: 1 },
