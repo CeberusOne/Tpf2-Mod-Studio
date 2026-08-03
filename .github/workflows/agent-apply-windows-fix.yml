@@ -1,12 +1,14 @@
 name: Apply Windows detection fix
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/windows-mod-source-detection-alpha11
-    paths:
-      - tools/agent_apply_windows_fix.py
-      - .github/workflows/agent-apply-windows-fix.yml
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,6 +19,7 @@ concurrency:
 
 jobs:
   patch-and-verify:
+    if: github.head_ref == 'agent/windows-mod-source-detection-alpha11'
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
