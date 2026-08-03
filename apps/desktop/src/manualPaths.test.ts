@@ -23,6 +23,18 @@ class MemoryStorage {
   }
 }
 
+const DETECTED_INSTALLATION: InstallationCandidate = {
+  rootPath:
+    "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Transport Fever 2",
+  executablePath:
+    "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Transport Fever 2\\TransportFever2.exe",
+  userDataPath: "C:\\Steam\\userdata\\1\\1066780\\local",
+  modsPath: "C:\\Steam\\userdata\\1\\1066780\\local\\mods",
+  stdoutPath: "C:\\Steam\\userdata\\1\\1066780\\local\\crash_dump\\stdout.txt",
+  source: "steam-default",
+  valid: true
+};
+
 describe("manual Transport Fever 2 paths", () => {
   it("persists normalized Windows paths", () => {
     const storage = new MemoryStorage();
@@ -54,17 +66,29 @@ describe("manual Transport Fever 2 paths", () => {
       source: "manual",
       valid: true
     });
+    expect(
+      mergeInstallationCandidates([DETECTED_INSTALLATION], manual)[0]?.source
+    ).toBe("manual");
+  });
 
-    const detected: InstallationCandidate = {
-      rootPath: "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Transport Fever 2",
-      executablePath:
-        "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Transport Fever 2\\TransportFever2.exe",
-      source: "steam-default",
-      valid: true
-    };
-    expect(mergeInstallationCandidates([detected], manual)[0]?.source).toBe(
-      "manual"
+  it("keeps a manually selected mod folder while reusing detected game paths", () => {
+    const manual = buildManualInstallation(
+      {
+        gameRoot: "",
+        userDataPath: "",
+        modsPath: "E:\\My TF2 Mods"
+      },
+      DETECTED_INSTALLATION
     );
+
+    expect(manual).toMatchObject({
+      rootPath: DETECTED_INSTALLATION.rootPath,
+      executablePath: DETECTED_INSTALLATION.executablePath,
+      userDataPath: DETECTED_INSTALLATION.userDataPath,
+      modsPath: "E:\\My TF2 Mods",
+      source: "manual",
+      valid: true
+    });
   });
 
   it("does not add an empty manual candidate", () => {
