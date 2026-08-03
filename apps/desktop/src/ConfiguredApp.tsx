@@ -49,9 +49,10 @@ function configuredBridge(paths: ManualPaths): DesktopBridge {
     isNative: tauriBridge.isNative,
     async detectInstallations(): Promise<InstallationCandidate[]> {
       const detected = await tauriBridge.detectInstallations();
+      const fallback = detected.find((candidate) => candidate.valid);
       return mergeInstallationCandidates(
         detected,
-        buildManualInstallation(paths)
+        buildManualInstallation(paths, fallback)
       );
     },
     async scanModLibrary(input) {
@@ -103,7 +104,7 @@ function PathField({
         />
         <button onClick={onBrowse} type="button">
           <FolderOpen size={16} />
-          Auswählen
+          Auswählen / Browse
         </button>
       </div>
     </label>
@@ -169,7 +170,7 @@ export default function ConfiguredApp() {
               type="button"
             >
               <Settings size={17} />
-              Spielpfade
+              Spielpfade / Paths
             </button>,
             topbarTarget
           )}
@@ -180,7 +181,7 @@ export default function ConfiguredApp() {
                 <div className="modal-heading">
                   <div>
                     <span className="eyebrow">Windows und Linux</span>
-                    <h2>Transport-Fever-2-Pfade festlegen</h2>
+                    <h2>TF2-Pfade / TF2 paths</h2>
                   </div>
                   <button
                     aria-label="Dialog schließen"
@@ -193,13 +194,14 @@ export default function ConfiguredApp() {
                 </div>
 
                 <p>
-                  Diese Angaben überschreiben die automatische Erkennung. Sie
-                  bleiben nach einem Neustart gespeichert und werden für
-                  Installation, Modbibliothek, Logs und Savegames verwendet.
+                  Manuelle Angaben haben Vorrang vor der automatischen
+                  Erkennung. Sie bleiben gespeichert und gelten für
+                  Installation, Modbibliothek, Logs und Savegames. Manual paths
+                  override automatic detection and persist across restarts.
                 </p>
 
                 <PathField
-                  label="TF2-Spielordner"
+                  label="TF2-Spielordner / game folder"
                   onBrowse={() =>
                     void browse(
                       "gameRoot",
@@ -211,7 +213,7 @@ export default function ConfiguredApp() {
                   value={draft.gameRoot}
                 />
                 <PathField
-                  label="TF2-Benutzerdaten"
+                  label="TF2-Benutzerdaten / user data"
                   onBrowse={() =>
                     void browse(
                       "userDataPath",
@@ -223,7 +225,7 @@ export default function ConfiguredApp() {
                   value={draft.userDataPath}
                 />
                 <PathField
-                  label="Lokaler Mod-Ordner"
+                  label="Lokaler Mod-Ordner / local mods"
                   onBrowse={() =>
                     void browse("modsPath", "Transport Fever 2 Mods auswählen")
                   }
@@ -245,18 +247,18 @@ export default function ConfiguredApp() {
                     onClick={clear}
                     type="button"
                   >
-                    Zurücksetzen
+                    Zurücksetzen / Reset
                   </button>
                   <button
                     className="secondary-button"
                     onClick={() => setOpen(false)}
                     type="button"
                   >
-                    Abbrechen
+                    Abbrechen / Cancel
                   </button>
                   <button className="primary-button" type="submit">
                     <Save size={17} />
-                    Pfade speichern
+                    Speichern / Save
                   </button>
                 </div>
               </form>
