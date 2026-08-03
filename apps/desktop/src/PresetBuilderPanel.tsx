@@ -875,11 +875,11 @@ export default function PresetBuilderPanel({
       {chooserOpen
         ? createPortal(
             <div className="modal-backdrop" role="presentation">
-              <div aria-modal="true" className="modal preset-chooser-modal" role="dialog">
+              <div aria-labelledby="preset-chooser-title" aria-modal="true" className="modal preset-chooser-modal" role="dialog">
                 <div className="modal-heading">
                   <div>
                     <span className="eyebrow">TF2</span>
-                    <h2>{copy.chooseTitle}</h2>
+                    <h2 id="preset-chooser-title">{copy.chooseTitle}</h2>
                   </div>
                   <button className="icon-button" onClick={() => setChooserOpen(false)} type="button">
                     <X size={18} />
@@ -945,13 +945,13 @@ export default function PresetBuilderPanel({
         ? null
         : createPortal(
             <div className="modal-backdrop" role="presentation">
-              <div aria-modal="true" className="modal dependency-modal" role="dialog">
+              <div aria-labelledby="preset-dependency-title" aria-modal="true" className="modal dependency-modal" role="dialog">
                 <div className="modal-heading">
                   <div>
                     <span className="eyebrow">
                       {byId.get(pendingAddition.modId)?.displayName ?? pendingAddition.modId}
                     </span>
-                    <h2>{copy.dependencyTitle}</h2>
+                    <h2 id="preset-dependency-title">{copy.dependencyTitle}</h2>
                   </div>
                   <button className="icon-button" onClick={() => setPendingAddition(undefined)} type="button">
                     <X size={18} />

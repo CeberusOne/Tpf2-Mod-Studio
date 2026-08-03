@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.0-alpha.13 — 2026-08-03
+
+- Added a docked drag-and-drop Preset Builder beside the existing complete Mod
+  Library; the library is not duplicated or replaced.
+- Adding a mod without an open preset now asks whether to create a named preset
+  or open an existing one.
+- Savegames and existing presets open directly in the Mod Library builder.
+- Corrected the displayed order to match the top-to-bottom Transport Fever 2
+  mod list while retaining a separate dependency-first execution order.
+- Added continuous validation, dependency warnings, automatic requirement
+  insertion and automatic placement for standard and CommonAPI2 declarations.
+- Preset output is blocked for missing dependencies, invalid ordering or cycles.
+- Existing `!` priority and `*` Workshop references are preserved.
+- Added dedicated UI and core tests for the complete preset-building workflow.
+
 ## 0.1.0-alpha.12 — 2026-08-03
 
 - Mixed-case local mod folder names with a valid `_1`, `_2`, … suffix are now

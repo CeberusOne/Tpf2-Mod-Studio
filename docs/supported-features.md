@@ -21,7 +21,12 @@
 - ZIP mod import with path-validated, size-capped extraction
 - Clean project ZIP export to a user-chosen target
 - Installed-mod library scan across local, staging, builtin and workshop paths
-- Startup update check against GitHub Releases; install stays a user action
+- Startup update check, verified install and restart workflow
+- Read-only savegame mod-list extraction and TF2 mod-preset read/write
+- Docked drag-and-drop Preset Builder using the existing Mod Library cards
+- Standard and CommonAPI2 dependency extraction, automatic insertion,
+  TF2-visible ordering, cycle detection and unsafe-save blocking
+- 3D model viewer with LOD, wireframe, bounds, grid, axes and part controls
 - Light/dark UI and beginner/expert information levels
 
 ## Not yet complete
@@ -29,13 +34,12 @@
 - CommonAPI2 API intelligence and compatibility verification
 - persistent incremental index database and crash resume
 - tested 800-mod installation scan in the native shell
-- full TF2 dependency graph, active-mod provenance and cross-mod order proof
-- 3D model/material/mesh preview
+- universal dependency discovery for dynamically generated Lua declarations
 - complete TF2 Lua API completion database
 - process lifecycle tracking after game launch
 - streaming analysis of logs larger than the IPC cap
 - universal diagnosis of unknown engine/native log signatures
-- signed and published Windows/Linux release
+- signed Windows/Linux release packages
 - interactive clean-machine installer and uninstall acceptance
 
 Unsupported previews are not replaced by generic models.

@@ -8,13 +8,13 @@ validating, editing and managing Transport Fever 2 mods on Windows and Linux.
 
 ## Current version and status
 
-**Current source version: `v0.1.0-alpha.12` — product status: PARTIAL**
+**Current source version: `v0.1.0-alpha.13` — product status: PARTIAL**
 
 The installer commands below always download the newest **published** GitHub
 release. A prepared source version or tag can temporarily be newer than the
 available installer while its release workflow is still building.
 
-Alpha.11 fixes Windows Steam discovery across registry-configured and custom Steam libraries, and verifies local, staging, Workshop and game-provided mod scanning on both platforms.
+Alpha.13 integrates a dependency-aware drag-and-drop Preset Builder directly into the existing Mod Library, preserves the TF2-visible order and keeps savegames read-only.
 
 ## Current capabilities
 
@@ -35,8 +35,12 @@ Alpha.11 fixes Windows Steam discovery across registry-configured and custom Ste
   wireframe, bounding boxes, grid, axes, fit view, auto-rotation, part visibility
   and model dimensions.
 - Read the mod list used by a savegame without modifying the save file.
-- Resolve known dependencies and write a Transport Fever 2 `mod_presets` load
-  order while reporting missing, unverifiable or circular dependencies.
+- Open savegame mod lists and existing presets directly in the Mod Library.
+- Build TF2 presets beside the existing full Mod Library using drag-and-drop or
+  the card action, without replacing its previews, health lights or tools.
+- Resolve standard and CommonAPI2 dependencies, add installed requirements
+  automatically, preserve TF2-visible ordering and block unsafe preset output.
+- Preserve `!` priority and `*` Workshop references when editing presets.
 - Check GitHub Releases for updates at startup. Installation remains a user
   action.
 
