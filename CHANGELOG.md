@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.0-alpha.12 — 2026-08-03
+
+- Mixed-case local mod folder names with a valid `_1`, `_2`, … suffix are now
+  informational only and no longer mark an otherwise working mod as amber.
+- The library distinguishes regular mods, staging projects, direct internal
+  scripts and other staging content. Non-mod staging entries are not forced
+  through `mod.lua` validation and are excluded from savegame dependency lists.
+- Direct files in `staging_area` are visible without being moved or converted.
+- Startup update checks now open a native-styled modal with release notes,
+  verified install, automatic restart and a manual restart fallback.
+
 ## 0.1.0-alpha.11 — 2026-08-03
 
 - Windows Steam discovery now reads registry-configured Steam locations,

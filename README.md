@@ -8,7 +8,7 @@ validating, editing and managing Transport Fever 2 mods on Windows and Linux.
 
 ## Current version and status
 
-**Current source version: `v0.1.0-alpha.11` — product status: PARTIAL**
+**Current source version: `v0.1.0-alpha.12` — product status: PARTIAL**
 
 The installer commands below always download the newest **published** GitHub
 release. A prepared source version or tag can temporarily be newer than the

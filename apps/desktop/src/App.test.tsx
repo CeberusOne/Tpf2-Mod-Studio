@@ -480,34 +480,73 @@ describe("desktop workbench", () => {
     expect(screen.getByRole("button", { name: "Info" })).toBeTruthy();
   });
 
-  it("offers an available update and installs it on request", async () => {
-    // The check used to raise a five-second toast and nothing else, so an
-    // available update could be seen but never installed.
+  it("shows the startup update dialog, installs, and requests a restart", async () => {
     const desktopBridge = bridge();
     desktopBridge.checkForUpdate = vi.fn(async () => ({
       available: true,
-      currentVersion: "0.1.0-alpha.8",
-      latestVersion: "0.1.0-alpha.9",
-      releaseTag: "v0.1.0-alpha.9",
-      notes: "",
-      downloadUrl: "https://github.com/x/y/releases/download/v0.1.0-alpha.9/a.AppImage",
+      currentVersion: "0.1.0-alpha.11",
+      latestVersion: "0.1.0-alpha.12",
+      releaseTag: "v0.1.0-alpha.12",
+      notes: "Parser and updater improvements.",
+      downloadUrl:
+        "https://github.com/CeberusOne/Tpf2-Mod-Studio/releases/download/v0.1.0-alpha.12/a.AppImage",
       assetName: "a.AppImage",
-      htmlUrl: "https://github.com/x/y/releases/tag/v0.1.0-alpha.9"
+      htmlUrl:
+        "https://github.com/CeberusOne/Tpf2-Mod-Studio/releases/tag/v0.1.0-alpha.12"
     }));
     render(<App bridge={desktopBridge} />);
 
     expect(
-      await screen.findByText("Version 0.1.0-alpha.9 is available", {}, { timeout: 3000 })
+      await screen.findByRole("dialog", {}, { timeout: 3000 })
     ).toBeTruthy();
+    expect(screen.getByText("Parser and updater improvements.")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Install now" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Install and restart" })
+    );
 
     await waitFor(() => {
       expect(desktopBridge.applyUpdate).toHaveBeenCalled();
-    });
+      expect(desktopBridge.restartAfterUpdate).toHaveBeenCalled();
+    }, { timeout: 3000 });
     expect(
       await screen.findByRole("button", { name: "Restart now" })
     ).toBeTruthy();
+  });
+
+  it("shows staging scripts as intentional content instead of broken mods", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.scanModLibrary = vi.fn(
+      async (): Promise<InstalledMod[]> => [
+        {
+          id: "InternalTools",
+          path: "/tf2/userdata/staging_area/InternalTools",
+          source: "staging",
+          kind: "staging-project",
+          entryType: "directory",
+          hasModLua: false,
+          fileCount: 3
+        },
+        {
+          id: "bootstrap.lua",
+          path: "/tf2/userdata/staging_area/bootstrap.lua",
+          source: "staging",
+          kind: "staging-script",
+          entryType: "file",
+          hasModLua: false,
+          fileCount: 1
+        }
+      ]
+    );
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan mod library" }));
+
+    expect(await screen.findByText("Staging project")).toBeTruthy();
+    expect(screen.getAllByText("Internal script").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Will not load")).toBeNull();
+    expect(screen.getAllByText("OK")).toHaveLength(2);
   });
 
   it("switches to German and persists the explicit language selection", () => {

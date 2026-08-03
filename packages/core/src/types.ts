@@ -216,10 +216,22 @@ export interface CreateProjectRequest {
   projectType?: ProjectType;
 }
 
+export type LibraryItemKind =
+  | "mod"
+  | "staging-project"
+  | "staging-script"
+  | "staging-content";
+
+export type LibraryEntryType = "directory" | "file";
+
 export interface InstalledMod {
   id: string;
   path: string;
   source: string;
+  /** What the library entry represents. Older bridge mocks default to `mod`. */
+  kind?: LibraryItemKind;
+  /** Direct staging scripts are files; normal mods and staging projects are directories. */
+  entryType?: LibraryEntryType;
   hasModLua: boolean;
   fileCount: number;
   displayName?: string;

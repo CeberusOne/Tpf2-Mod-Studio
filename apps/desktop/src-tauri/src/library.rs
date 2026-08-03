@@ -26,6 +26,8 @@ pub struct InstalledMod {
     pub id: String,
     pub path: String,
     pub source: String,
+    pub kind: String,
+    pub entry_type: String,
     pub has_mod_lua: bool,
     pub file_count: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -111,45 +113,115 @@ fn extract_display_name(mod_lua: &str) -> Option<String> {
     None
 }
 
+fn is_script_resource(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .is_some_and(|extension| matches!(extension.as_str(), "lua" | "con" | "module"))
+}
+
+fn directory_contains_script(root: &Path) -> bool {
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(directory) = stack.pop() {
+        let Ok(entries) = fs::read_dir(directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let hidden = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with('.'));
+            if hidden {
+                continue;
+            }
+            if path.is_dir() {
+                stack.push(path);
+            } else if is_script_resource(&path) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn library_kind(path: &Path, source: &str, has_mod_lua: bool, is_directory: bool) -> &'static str {
+    if has_mod_lua || source != "staging" {
+        return "mod";
+    }
+    if !is_directory && is_script_resource(path) {
+        return "staging-script";
+    }
+    if is_directory && directory_contains_script(path) {
+        return "staging-project";
+    }
+    "staging-content"
+}
+
+fn push_library_entry(path: &Path, source: &str, is_directory: bool, into: &mut Vec<InstalledMod>) {
+    let Some(id) = path.file_name().and_then(|name| name.to_str()) else {
+        return;
+    };
+    if id.starts_with('.') {
+        return;
+    }
+
+    let mod_lua_path = path.join("mod.lua");
+    let has_mod_lua = is_directory && mod_lua_path.is_file();
+    // A real library holds ~730 mods averaging 1.8 KiB of mod.lua, so
+    // shipping the source costs about a megabyte in total. Skip outliers.
+    let mod_lua = if has_mod_lua
+        && fs::metadata(&mod_lua_path)
+            .map(|meta| meta.len() <= MAX_MOD_LUA_BYTES)
+            .unwrap_or(false)
+    {
+        fs::read_to_string(&mod_lua_path).ok()
+    } else {
+        None
+    };
+    let display_name = mod_lua.as_deref().and_then(extract_display_name);
+    into.push(InstalledMod {
+        id: id.to_string(),
+        path: path_string(path),
+        source: source.to_string(),
+        kind: library_kind(path, source, has_mod_lua, is_directory).to_string(),
+        entry_type: if is_directory { "directory" } else { "file" }.to_string(),
+        has_mod_lua,
+        file_count: if is_directory { count_files(path) } else { 1 },
+        display_name,
+        duplicate_of: None,
+        mod_lua,
+    });
+}
+
 fn scan_mod_directory(root: &Path, source: &str, into: &mut Vec<InstalledMod>) {
     let Ok(entries) = fs::read_dir(root) else {
         return;
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_dir() {
-            continue;
+        if path.is_dir() {
+            push_library_entry(&path, source, true, into);
         }
-        let Some(id) = path.file_name().and_then(|name| name.to_str()) else {
+    }
+}
+
+fn scan_staging_directory(root: &Path, into: &mut Vec<InstalledMod>) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
             continue;
         };
-        if id.starts_with('.') {
-            continue;
+        if file_type.is_dir() {
+            push_library_entry(&path, "staging", true, into);
+        } else if file_type.is_file() {
+            // Direct scripts and supporting files are valid staging content.
+            // They are deliberately visible without pretending they are mods.
+            push_library_entry(&path, "staging", false, into);
         }
-        let mod_lua_path = path.join("mod.lua");
-        let has_mod_lua = mod_lua_path.is_file();
-        // A real library holds ~730 mods averaging 1.8 KiB of mod.lua, so
-        // shipping the source costs about a megabyte in total. Skip outliers.
-        let mod_lua = if has_mod_lua
-            && fs::metadata(&mod_lua_path)
-                .map(|meta| meta.len() <= MAX_MOD_LUA_BYTES)
-                .unwrap_or(false)
-        {
-            fs::read_to_string(&mod_lua_path).ok()
-        } else {
-            None
-        };
-        let display_name = mod_lua.as_deref().and_then(extract_display_name);
-        into.push(InstalledMod {
-            id: id.to_string(),
-            path: path_string(&path),
-            source: source.to_string(),
-            has_mod_lua,
-            file_count: count_files(&path),
-            display_name,
-            duplicate_of: None,
-            mod_lua,
-        });
     }
 }
 
@@ -188,6 +260,16 @@ fn scan_mod_directory_once(
     }
 }
 
+fn scan_staging_directory_once(
+    root: &Path,
+    scanned_roots: &mut HashSet<String>,
+    into: &mut Vec<InstalledMod>,
+) {
+    if root.is_dir() && scanned_roots.insert(directory_key(root)) {
+        scan_staging_directory(root, into);
+    }
+}
+
 /// Scan local mods, staging area, Steam Workshop content and game-provided mods.
 pub fn scan_mod_library(
     mods_path: Option<String>,
@@ -209,9 +291,8 @@ pub fn scan_mod_library(
             &mut scanned_roots,
             &mut mods,
         );
-        scan_mod_directory_once(
+        scan_staging_directory_once(
             &user_data.join("staging_area"),
-            "staging",
             &mut scanned_roots,
             &mut mods,
         );
@@ -230,6 +311,9 @@ pub fn scan_mod_library(
     // case-insensitively because the filesystem is case-insensitive.
     let mut seen: HashMap<String, String> = HashMap::new();
     for item in &mut mods {
+        if item.kind != "mod" {
+            continue;
+        }
         let key = mod_id_key(&item.id);
         if let Some(first) = seen.get(&key) {
             item.duplicate_of = Some(first.clone());
@@ -504,10 +588,13 @@ mod source_tests {
     use std::env;
 
     fn unique_temp_root() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
         let root = env::temp_dir().join(format!(
-            "tpf2-library-sources-{}-{}",
-            std::process::id(),
-            now_millis()
+            "tpf2-library-sources-{}-{nanos}",
+            std::process::id()
         ));
         fs::create_dir_all(&root).expect("temp root");
         root
@@ -556,6 +643,48 @@ mod source_tests {
             HashSet::from(["local", "staging", "workshop", "builtin"])
         );
         assert_eq!(mods.iter().filter(|item| item.source == "local").count(), 1);
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn staging_content_is_classified_without_mod_lua_requirement() {
+        let root = unique_temp_root();
+        let user_data = root.join("userdata").join("1066780").join("local");
+        let staging = user_data.join("staging_area");
+        fs::create_dir_all(&staging).expect("staging root");
+
+        let project = staging.join("InternalTools");
+        fs::create_dir_all(project.join("res/scripts")).expect("project scripts");
+        fs::write(project.join("res/scripts/bootstrap.lua"), "return {}").expect("project script");
+        fs::write(staging.join("loose_bootstrap.lua"), "return {}").expect("loose script");
+        let content = staging.join("ReferenceData");
+        fs::create_dir_all(&content).expect("content folder");
+        fs::write(content.join("README.txt"), "internal data").expect("content file");
+
+        let items = scan_mod_library(None, Some(path_string(&user_data)), None);
+        let project_item = items
+            .iter()
+            .find(|item| item.id == "InternalTools")
+            .expect("project");
+        let script_item = items
+            .iter()
+            .find(|item| item.id == "loose_bootstrap.lua")
+            .expect("script");
+        let content_item = items
+            .iter()
+            .find(|item| item.id == "ReferenceData")
+            .expect("content");
+
+        assert_eq!(project_item.kind, "staging-project");
+        assert_eq!(project_item.entry_type, "directory");
+        assert!(!project_item.has_mod_lua);
+        assert_eq!(script_item.kind, "staging-script");
+        assert_eq!(script_item.entry_type, "file");
+        assert!(!script_item.has_mod_lua);
+        assert_eq!(content_item.kind, "staging-content");
+        assert_eq!(content_item.entry_type, "directory");
+        assert!(items.iter().all(|item| item.duplicate_of.is_none()));
 
         fs::remove_dir_all(root).expect("cleanup");
     }
