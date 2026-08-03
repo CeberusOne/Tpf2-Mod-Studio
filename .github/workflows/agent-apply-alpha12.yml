@@ -55,6 +55,33 @@ jobs:
       - name: Apply implementation
         run: python scripts/agent-alpha12.py
 
+      - name: Align existing mixed-case test
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("packages/core/src/core.test.ts")
+          content = path.read_text(encoding="utf-8")
+          old = '''    expect(codes).toContain("MOD_FOLDER_CHARACTERS");
+              expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
+              expect(
+                health.diagnostics.find(
+                  (item) => item.code === "MOD_FOLDER_CHARACTERS"
+                )?.description
+              ).toContain("has the expected version suffix");'''.replace("              ", "    ")
+          new = '''    expect(codes).toContain("MOD_FOLDER_CASE");
+              expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
+              expect(health.status).toBe("ok");
+              expect(
+                health.diagnostics.find(
+                  (item) => item.code === "MOD_FOLDER_CASE"
+                )?.description
+              ).toContain("major-version suffix is valid");'''.replace("              ", "    ")
+          if content.count(old) != 1:
+              raise SystemExit("existing mixed-case test block was not found exactly once")
+          path.write_text(content.replace(old, new, 1), encoding="utf-8")
+          PY
+
       - name: Format Rust
         working-directory: apps/desktop/src-tauri
         run: cargo fmt
