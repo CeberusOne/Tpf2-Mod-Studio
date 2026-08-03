@@ -1,0 +1,50 @@
+name: Prepare alpha.13
+
+on:
+  push:
+    branches:
+      - feature/savegame-preset-dnd-alpha13
+    paths:
+      - .github/alpha13-trigger
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/savegame-preset-dnd-alpha13
+          fetch-depth: 0
+
+      - name: Apply version and documentation updates
+        run: python3 scripts/prepare_alpha13.py
+
+      - name: Remove one-shot files
+        run: |
+          rm -f scripts/prepare_alpha13.py
+          rm -f .github/alpha13-trigger
+          rm -f .github/workflows/prepare-alpha13.yml
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify frontend and core
+        run: npm run verify
+
+      - name: Commit alpha.13 preparation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "release: prepare 0.1.0-alpha.13"
+          git push origin HEAD:feature/savegame-preset-dnd-alpha13
