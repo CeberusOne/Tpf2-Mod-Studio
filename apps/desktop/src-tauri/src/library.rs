@@ -4,6 +4,7 @@
 use base64::Engine;
 use serde::Serialize;
 use std::{
+    collections::{HashMap, HashSet},
     fs,
     io::{self, BufReader, Cursor},
     path::{Path, PathBuf},
@@ -152,61 +153,88 @@ fn scan_mod_directory(root: &Path, source: &str, into: &mut Vec<InstalledMod>) {
     }
 }
 
-/// Scan local mods, staging area and Steam Workshop content for app 1066780.
+fn directory_key(path: &Path) -> String {
+    let resolved = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let value = path_string(&resolved).replace('\\', "/");
+    #[cfg(target_os = "windows")]
+    {
+        value.to_ascii_lowercase()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        value
+    }
+}
+
+fn mod_id_key(id: &str) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        id.to_ascii_lowercase()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        id.to_string()
+    }
+}
+
+fn scan_mod_directory_once(
+    root: &Path,
+    source: &str,
+    scanned_roots: &mut HashSet<String>,
+    into: &mut Vec<InstalledMod>,
+) {
+    if root.is_dir() && scanned_roots.insert(directory_key(root)) {
+        scan_mod_directory(root, source, into);
+    }
+}
+
+/// Scan local mods, staging area, Steam Workshop content and game-provided mods.
 pub fn scan_mod_library(
     mods_path: Option<String>,
     user_data_path: Option<String>,
     game_root: Option<String>,
 ) -> Vec<InstalledMod> {
     let mut mods = Vec::new();
+    let mut scanned_roots = HashSet::new();
 
     if let Some(path) = mods_path {
-        let root = PathBuf::from(path);
-        if root.is_dir() {
-            scan_mod_directory(&root, "local", &mut mods);
-        }
-    }
-    if let Some(user_data) = user_data_path {
-        let staging = PathBuf::from(&user_data).join("staging_area");
-        if staging.is_dir() {
-            scan_mod_directory(&staging, "staging", &mut mods);
-        }
-        // The user-data mods folder is already covered when `mods_path` pointed
-        // here; scan it only when the caller passed a different local root.
-        let local_mods = PathBuf::from(&user_data).join("mods");
-        if local_mods.is_dir()
-            && !mods
-                .iter()
-                .any(|item| Path::new(&item.path).starts_with(&local_mods))
-        {
-            scan_mod_directory(&local_mods, "local", &mut mods);
-        }
-    }
-    if let Some(game) = game_root {
-        let game_mods = PathBuf::from(&game).join("mods");
-        if game_mods.is_dir() {
-            scan_mod_directory(&game_mods, "builtin", &mut mods);
-        }
-        // Workshop: sibling of common/
-        // .../steamapps/common/Transport Fever 2 -> .../steamapps/workshop/content/1066780
-        if let Some(common) = Path::new(&game).parent() {
-            if let Some(steamapps) = common.parent() {
-                let workshop = steamapps.join("workshop").join("content").join("1066780");
-                if workshop.is_dir() {
-                    // Workshop folders are numeric IDs; still treat as mods when they have content.
-                    scan_mod_directory(&workshop, "workshop", &mut mods);
-                }
-            }
-        }
+        scan_mod_directory_once(&PathBuf::from(path), "local", &mut scanned_roots, &mut mods);
     }
 
-    // Mark duplicates by mod folder id across sources.
-    let mut seen: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    if let Some(user_data) = user_data_path {
+        let user_data = PathBuf::from(user_data);
+        scan_mod_directory_once(
+            &user_data.join("mods"),
+            "local",
+            &mut scanned_roots,
+            &mut mods,
+        );
+        scan_mod_directory_once(
+            &user_data.join("staging_area"),
+            "staging",
+            &mut scanned_roots,
+            &mut mods,
+        );
+    }
+
+    if let Some(game) = game_root {
+        let game = PathBuf::from(game);
+        if let Some(workshop) = crate::steam::workshop_root_from_game_root(&game) {
+            scan_mod_directory_once(&workshop, "workshop", &mut scanned_roots, &mut mods);
+        }
+        scan_mod_directory_once(&game.join("mods"), "builtin", &mut scanned_roots, &mut mods);
+    }
+
+    // Source precedence is local -> staging -> workshop -> built-in. Mark later
+    // copies with the first matching mod folder ID. Windows IDs are compared
+    // case-insensitively because the filesystem is case-insensitive.
+    let mut seen: HashMap<String, String> = HashMap::new();
     for item in &mut mods {
-        if let Some(first) = seen.get(&item.id) {
+        let key = mod_id_key(&item.id);
+        if let Some(first) = seen.get(&key) {
             item.duplicate_of = Some(first.clone());
         } else {
-            seen.insert(item.id.clone(), item.path.clone());
+            seen.insert(key, item.path.clone());
         }
     }
 
@@ -469,4 +497,66 @@ pub fn export_project_zip(root_path: String, destination_path: String) -> Result
     zip.finish()
         .map_err(|error| format!("Cannot finalize ZIP: {error}"))?;
     Ok(path_string(&destination))
+}
+#[cfg(test)]
+mod source_tests {
+    use super::*;
+    use std::env;
+
+    fn unique_temp_root() -> PathBuf {
+        let root = env::temp_dir().join(format!(
+            "tpf2-library-sources-{}-{}",
+            std::process::id(),
+            now_millis()
+        ));
+        fs::create_dir_all(&root).expect("temp root");
+        root
+    }
+
+    fn create_mod(root: &Path, id: &str) {
+        let directory = root.join(id);
+        fs::create_dir_all(&directory).expect("mod directory");
+        fs::write(
+            directory.join("mod.lua"),
+            format!("function data() return {{ info = {{ name = \"{id}\" }} }} end"),
+        )
+        .expect("mod.lua");
+    }
+
+    #[test]
+    fn scans_every_supported_source_without_double_scanning_local_mods() {
+        let root = unique_temp_root();
+        let steamapps = root.join("SteamLibrary").join("steamapps");
+        let game = steamapps.join("common").join("Transport Fever 2");
+        let user_data = root
+            .join("userdata")
+            .join("123")
+            .join("1066780")
+            .join("local");
+        let local = user_data.join("mods");
+        let staging = user_data.join("staging_area");
+        let workshop = steamapps.join("workshop").join("content").join("1066780");
+        let builtin = game.join("mods");
+
+        create_mod(&local, "local_mod_1");
+        create_mod(&staging, "staging_mod_1");
+        create_mod(&workshop, "workshop_mod_1");
+        create_mod(&builtin, "builtin_mod_1");
+
+        let mods = scan_mod_library(
+            Some(path_string(&local)),
+            Some(path_string(&user_data)),
+            Some(path_string(&game)),
+        );
+        let sources: HashSet<_> = mods.iter().map(|item| item.source.as_str()).collect();
+
+        assert_eq!(mods.len(), 4);
+        assert_eq!(
+            sources,
+            HashSet::from(["local", "staging", "workshop", "builtin"])
+        );
+        assert_eq!(mods.iter().filter(|item| item.source == "local").count(), 1);
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
 }
