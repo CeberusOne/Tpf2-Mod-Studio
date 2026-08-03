@@ -369,13 +369,14 @@ end`;
     });
     const codes = health.diagnostics.map((item) => item.code);
 
-    expect(codes).toContain("MOD_FOLDER_CHARACTERS");
+    expect(codes).toContain("MOD_FOLDER_CASE");
     expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
+    expect(health.status).toBe("ok");
     expect(
       health.diagnostics.find(
-        (item) => item.code === "MOD_FOLDER_CHARACTERS"
+        (item) => item.code === "MOD_FOLDER_CASE"
       )?.description
-    ).toContain("has the expected version suffix");
+    ).toContain("major-version suffix is valid");
   });
 
   it("accepts a fully lower-case folder with a version suffix", () => {

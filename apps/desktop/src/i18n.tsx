@@ -268,10 +268,18 @@ const english = {
   updateAvailable: "Update {version} is available",
   updateAvailableTitle: "Version {version} is available",
   updateAvailableBody:
-    "You have {current}. Installing replaces the current package and needs a restart.",
+    "You have {current}. The verified package can be installed now; the Studio will then restart automatically.",
+  updateDialogEyebrow: "Tpf2 Mod Studio update",
   updateInstall: "Install now",
+  updateInstallRestart: "Install and restart",
   updateInstalledRestart: "Installed. Restart to use the new version.",
   updateRestart: "Restart now",
+  updateRestarting: "Version {version} is installed. Restarting Tpf2 Mod Studio…",
+  updateRestartRequired:
+    "The update is installed, but the automatic restart did not complete. Restart the Studio now.",
+  updateLater: "Later",
+  updateVerification:
+    "The installer is downloaded only from this repository and must match SHA256SUMS.txt before it runs.",
   updateDismiss: "Dismiss update notice",
   updateAvailableOnce:
     "Update {version} is available (you have {current}). Install from GitHub Releases — auto-update is disabled to avoid restart loops.",
@@ -290,6 +298,13 @@ const english = {
   modSourceStaging: "Staging area",
   modSourceBuiltin: "Shipped with the game",
   modsInSource: "{count} mods",
+  libraryItemsInSource: "{count} entries",
+  libraryKindMod: "Mod",
+  libraryKindStagingProject: "Staging project",
+  libraryKindStagingScript: "Internal script",
+  libraryKindStagingContent: "Staging content",
+  libraryItemNoModValidation:
+    "This is intentional staging content. It is not forced through mod.lua or mod-folder validation.",
   modFiles: "{count} files",
   modHealthOk: "OK",
   modHealthWarning: "Runs with issues",
@@ -615,10 +630,18 @@ const german: TranslationCatalog = {
   updateAvailable: "Update {version} ist verfügbar",
   updateAvailableTitle: "Version {version} ist verfügbar",
   updateAvailableBody:
-    "Installiert ist {current}. Die Installation ersetzt das aktuelle Paket und erfordert einen Neustart.",
+    "Installiert ist {current}. Das geprüfte Paket kann jetzt installiert werden; anschließend startet das Studio automatisch neu.",
+  updateDialogEyebrow: "Tpf2-Mod-Studio-Update",
   updateInstall: "Jetzt installieren",
+  updateInstallRestart: "Installieren und neu starten",
   updateInstalledRestart: "Installiert. Zum Verwenden neu starten.",
   updateRestart: "Jetzt neu starten",
+  updateRestarting: "Version {version} ist installiert. Tpf2 Mod Studio wird neu gestartet…",
+  updateRestartRequired:
+    "Das Update ist installiert, aber der automatische Neustart wurde nicht abgeschlossen. Starte das Studio jetzt neu.",
+  updateLater: "Später",
+  updateVerification:
+    "Der Installer wird ausschließlich aus diesem Repository geladen und muss vor der Ausführung mit SHA256SUMS.txt übereinstimmen.",
   updateDismiss: "Update-Hinweis schließen",
   updateAvailableOnce:
     "Update {version} ist verfügbar (installiert: {current}). Bitte manuell von GitHub Releases installieren — Auto-Update ist deaktiviert, um Neustart-Schleifen zu vermeiden.",
@@ -637,6 +660,13 @@ const german: TranslationCatalog = {
   modSourceStaging: "Staging-Bereich",
   modSourceBuiltin: "Mit dem Spiel geliefert",
   modsInSource: "{count} Mods",
+  libraryItemsInSource: "{count} Einträge",
+  libraryKindMod: "Mod",
+  libraryKindStagingProject: "Staging-Projekt",
+  libraryKindStagingScript: "Internes Skript",
+  libraryKindStagingContent: "Staging-Inhalt",
+  libraryItemNoModValidation:
+    "Dies ist bewusst interner Staging-Inhalt. Er wird nicht zu einer mod.lua oder einem Mod-Ordner gezwungen.",
   modFiles: "{count} Dateien",
   modHealthOk: "In Ordnung",
   modHealthWarning: "Läuft mit Mängeln",
@@ -806,6 +836,13 @@ export function localizedModSource(source: string, t: Translator): string {
   if (source === "staging") return t("modSourceStaging");
   if (source === "builtin") return t("modSourceBuiltin");
   return source;
+}
+
+export function localizedLibraryItemKind(kind: string, t: Translator): string {
+  if (kind === "staging-project") return t("libraryKindStagingProject");
+  if (kind === "staging-script") return t("libraryKindStagingScript");
+  if (kind === "staging-content") return t("libraryKindStagingContent");
+  return t("libraryKindMod");
 }
 
 export function localizedInstallationReason(

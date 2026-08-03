@@ -70,6 +70,7 @@ import {
   localizedCertainty,
   localizedInstallationReason,
   localizedInstallationSource,
+  localizedLibraryItemKind,
   localizedModSource,
   localizedSeverity,
   useI18n
@@ -226,7 +227,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   const [logFiles, setLogFiles] = useState<LogFileInfo[]>([]);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo>();
   const [updateState, setUpdateState] = useState<
-    "offered" | "installing" | "installed"
+    "offered" | "installing" | "restarting" | "restart-required"
   >("offered");
 
   const validation = useMemo(
@@ -362,8 +363,21 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     setUpdateState("installing");
     try {
       const result = await bridge.applyUpdate(updateInfo);
-      setUpdateState("installed");
+      setUpdateState("restarting");
       setNotice({ tone: "success", message: result });
+
+      // The native restart command exits the current process on success. If it
+      // returns or rejects, keep a manual restart action visible instead of
+      // pretending the new version is already running.
+      window.setTimeout(() => {
+        void bridge
+          .restartAfterUpdate()
+          .then(() => setUpdateState("restart-required"))
+          .catch((error) => {
+            setUpdateState("restart-required");
+            setNotice({ tone: "error", message: errorMessage(error) });
+          });
+      }, 350);
     } catch (error) {
       setUpdateState("offered");
       setNotice({ tone: "error", message: errorMessage(error) });
@@ -1226,7 +1240,9 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               >
                 <SavegameView
                   bridge={bridge}
-                  installedMods={installedMods}
+                  installedMods={installedMods.filter(
+                    (item) => (item.kind ?? "mod") === "mod"
+                  )}
                   native={bridge.isNative}
                   onNotice={setNotice}
                   onScanLibrary={() => void refreshModLibrary()}
@@ -1253,53 +1269,104 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
       </section>
 
       {updateInfo === undefined ? null : (
-        <div className="update-banner" role="status">
-          <Download size={17} />
-          <div className="update-banner-text">
-            <strong>
-              {t("updateAvailableTitle", { version: updateInfo.latestVersion })}
-            </strong>
-            <span>
-              {updateState === "installed"
-                ? t("updateInstalledRestart")
-                : t("updateAvailableBody", {
-                    current: updateInfo.currentVersion
-                  })}
-            </span>
-          </div>
-          {updateState === "installed" ? (
-            <button
-              className="primary-button"
-              onClick={() => void bridge.restartAfterUpdate()}
-              type="button"
-            >
-              {t("updateRestart")}
-            </button>
-          ) : (
-            <button
-              className="primary-button"
-              disabled={updateState === "installing"}
-              onClick={() => void installUpdate()}
-              type="button"
-            >
-              {updateState === "installing" ? (
-                <>
-                  <LoaderCircle className="spin" size={15} />
-                  {t("updateInstalling", { version: updateInfo.latestVersion })}
-                </>
-              ) : (
-                t("updateInstall")
-              )}
-            </button>
-          )}
-          <button
-            aria-label={t("updateDismiss")}
-            className="icon-button"
-            onClick={() => setUpdateInfo(undefined)}
-            type="button"
+        <div className="modal-backdrop update-modal-backdrop">
+          <section
+            aria-labelledby="update-dialog-title"
+            aria-modal="true"
+            className="modal update-modal"
+            role="dialog"
           >
-            <X size={17} />
-          </button>
+            <div className="modal-heading update-modal-heading">
+              <div className="update-modal-title">
+                <span className="update-modal-icon">
+                  <Download size={24} />
+                </span>
+                <div>
+                  <span className="eyebrow">{t("updateDialogEyebrow")}</span>
+                  <h2 id="update-dialog-title">
+                    {t("updateAvailableTitle", {
+                      version: updateInfo.latestVersion
+                    })}
+                  </h2>
+                </div>
+              </div>
+              {updateState === "installing" || updateState === "restarting" ? null : (
+                <button
+                  aria-label={t("updateDismiss")}
+                  className="icon-button"
+                  onClick={() => setUpdateInfo(undefined)}
+                  type="button"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
+            <p className="update-modal-summary">
+              {updateState === "restarting"
+                ? t("updateRestarting", {
+                    version: updateInfo.latestVersion
+                  })
+                : updateState === "restart-required"
+                  ? t("updateRestartRequired")
+                  : t("updateAvailableBody", {
+                      current: updateInfo.currentVersion
+                    })}
+            </p>
+
+            {updateInfo.notes.trim().length === 0 ? null : (
+              <div className="update-release-notes">
+                <strong>{t("updateNotes")}</strong>
+                <p>{updateInfo.notes}</p>
+              </div>
+            )}
+
+            <div className="update-verification-note">
+              <ShieldCheck size={17} />
+              <span>{t("updateVerification")}</span>
+            </div>
+
+            <div className="modal-actions">
+              {updateState === "offered" ? (
+                <>
+                  <button
+                    className="secondary-button"
+                    onClick={() => setUpdateInfo(undefined)}
+                    type="button"
+                  >
+                    {t("updateLater")}
+                  </button>
+                  <button
+                    className="primary-button"
+                    onClick={() => void installUpdate()}
+                    type="button"
+                  >
+                    <Download size={16} />
+                    {t("updateInstallRestart")}
+                  </button>
+                </>
+              ) : updateState === "restart-required" ? (
+                <button
+                  className="primary-button"
+                  onClick={() => void bridge.restartAfterUpdate()}
+                  type="button"
+                >
+                  {t("updateRestart")}
+                </button>
+              ) : (
+                <button className="primary-button" disabled type="button">
+                  <LoaderCircle className="spin" size={16} />
+                  {updateState === "installing"
+                    ? t("updateInstalling", {
+                        version: updateInfo.latestVersion
+                      })
+                    : t("updateRestarting", {
+                        version: updateInfo.latestVersion
+                      })}
+                </button>
+              )}
+            </div>
+          </section>
         </div>
       )}
 
@@ -2033,6 +2100,7 @@ function ManageView({
         classifyModHealth({
           folderName: mod.id,
           source: mod.source,
+          kind: mod.kind ?? "mod",
           ...(mod.modLua === undefined ? {} : { modLua: mod.modLua })
         })
       );
@@ -2098,7 +2166,7 @@ function ManageView({
             <h3 className="mod-source-heading">
               {localizedModSource(source, t)}
               <span className="mod-source-count">
-                {t("modsInSource", { count: entries.length })}
+                {t("libraryItemsInSource", { count: entries.length })}
               </span>
               <span className="mod-source-health">
                 {(["error", "warning", "ok"] as const).map((state) => {
@@ -2118,6 +2186,8 @@ function ManageView({
               {entries.map((mod) => {
                 const health = healthOf(mod);
                 const expanded = expandedMod === mod.path;
+                const kind = mod.kind ?? "mod";
+                const directory = mod.entryType !== "file";
                 return (
                   <article
                     className={`installation-card mod-card ${health.status} ${
@@ -2125,15 +2195,25 @@ function ManageView({
                     }`}
                     key={mod.path}
                   >
-                    <ModPreview
-                      bridge={bridge}
-                      modPath={mod.path}
-                      name={mod.displayName ?? mod.id}
-                    />
+                    {directory ? (
+                      <ModPreview
+                        bridge={bridge}
+                        modPath={mod.path}
+                        name={mod.displayName ?? mod.id}
+                      />
+                    ) : (
+                      <div className="mod-preview mod-preview-file">
+                        <Code2 size={30} />
+                        <span>{localizedLibraryItemKind(kind, t)}</span>
+                      </div>
+                    )}
                     <div className="installation-heading">
                       <div>
                         <strong>{mod.displayName ?? mod.id}</strong>
                         <span>{mod.id}</span>
+                        <span className={`library-kind-badge ${kind}`}>
+                          {localizedLibraryItemKind(kind, t)}
+                        </span>
                       </div>
                     </div>
                     <ModHealthLight status={health.status} />
@@ -2184,7 +2264,7 @@ function ManageView({
                         <AlertCircle size={16} />
                         {t("modInfo")}
                       </button>
-                      {experience === "expert" ? (
+                      {experience === "expert" && directory ? (
                         <button
                           aria-expanded={editingMod === mod.path}
                           className="secondary-button"
@@ -2195,7 +2275,7 @@ function ManageView({
                           {t("modEditFiles")}
                         </button>
                       ) : null}
-                      {experience === "expert" ? (
+                      {experience === "expert" && directory ? (
                         <button
                           aria-expanded={viewingMod === mod.path}
                           className="secondary-button"
@@ -2208,7 +2288,7 @@ function ManageView({
                       ) : null}
                       <button
                         className="secondary-button"
-                        disabled={!mod.hasModLua}
+                        disabled={!directory}
                         onClick={() => onOpen(mod.path)}
                         type="button"
                       >
@@ -2217,12 +2297,18 @@ function ManageView({
                       </button>
                     </div>
                     {expanded ? (
-                      <ModFindings diagnostics={health.diagnostics} />
+                      kind === "mod" ? (
+                        <ModFindings diagnostics={health.diagnostics} />
+                      ) : (
+                        <p className="mod-finding-empty library-item-note">
+                          {t("libraryItemNoModValidation")}
+                        </p>
+                      )
                     ) : null}
-                    {viewingMod === mod.path ? (
+                    {viewingMod === mod.path && directory ? (
                       <ModModelBrowser bridge={bridge} mod={mod} />
                     ) : null}
-                    {editingMod === mod.path ? (
+                    {editingMod === mod.path && directory ? (
                       <ModFileEditor
                         bridge={bridge}
                         fontSize={fontSize}

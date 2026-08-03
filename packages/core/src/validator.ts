@@ -410,30 +410,37 @@ export function folderNameDiagnostics(folderName: string): Diagnostic[] {
       )
     );
   } else {
-    // Name the characters that actually break the convention. Saying
-    // "not lower-case" about `modwerkstatt_br01.10_1`, which is lower-case and
-    // only contains a dot, sends people looking for the wrong thing.
     const base = folderName.replace(/_[1-9][0-9]*$/u, "");
     const upperCase = [...new Set(base.match(/[A-Z]/gu) ?? [])];
     const unusual = [...new Set(base.match(/[^a-zA-Z0-9_-]/gu) ?? [])];
-    if (upperCase.length > 0 || unusual.length > 0) {
-      const parts = [
-        upperCase.length > 0
-          ? `upper-case ${upperCase.map((c) => `\`${c}\``).join(", ")}`
-          : "",
-        unusual.length > 0
-          ? `${unusual.map((c) => `\`${c}\``).join(", ")}`
-          : ""
-      ].filter((part) => part.length > 0);
+
+    // Mixed case is common in established local libraries and TF2 still loads
+    // these folders. Keep the portability advice visible, but do not colour a
+    // working installed mod amber merely because its author used capitals.
+    if (upperCase.length > 0) {
+      diagnostics.push(
+        diagnostic(
+          "MOD_FOLDER_CASE",
+          "info",
+          "official-guidance",
+          "Mod folder contains upper-case letters",
+          `\`${folderName}\` contains ${upperCase.map((c) => `\`${c}\``).join(", ")}, but its major-version suffix is valid.`,
+          "Transport Fever 2 accepts mixed-case mod folder names. Exact case still matters on Linux when other files refer to this folder or its resources.",
+          "No change is required for an installed working mod. Prefer lower-case names when publishing a new mod."
+        )
+      );
+    }
+
+    if (unusual.length > 0) {
       diagnostics.push(
         diagnostic(
           "MOD_FOLDER_CHARACTERS",
           "warning",
           "official-guidance",
           "Mod folder name uses non-standard characters",
-          `\`${folderName}\` has the expected version suffix, but contains ${parts.join(" and ")}. The official guidance is lower-case letters, digits, \`_\` and \`-\`.`,
-          "Mixed case and unusual characters are a portability risk between case-sensitive and case-insensitive filesystems; they do not stop the mod from loading.",
-          "Rename the folder before publishing. An installed mod keeps working as it is."
+          `\`${folderName}\` has the expected version suffix, but contains ${unusual.map((c) => `\`${c}\``).join(", ")}. The documented portable set is letters, digits, \`_\` and \`-\`.`,
+          "Characters such as dots or spaces can make packaging and cross-platform path handling less predictable; they do not automatically stop the mod from loading.",
+          "Keep an already working local mod unchanged if necessary. Prefer a portable folder name for newly published versions."
         )
       );
     }

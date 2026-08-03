@@ -2363,37 +2363,124 @@ nav {
   font-size: 0.76rem;
 }
 
-/* The update offer stays until it is acted on; a toast disappeared before the
-   user could do anything with it. */
-.update-banner {
-  position: fixed;
-  z-index: 70;
-  top: 14px;
-  left: 50%;
+/* Startup update dialog: same surface, border and button system as project dialogs. */
+.update-modal-backdrop {
+  z-index: 120;
+}
+
+.update-modal {
+  width: min(660px, 100%);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
+}
+
+.update-modal-heading {
+  margin-bottom: 14px;
+}
+
+.update-modal-title {
   display: flex;
   align-items: center;
-  gap: 12px;
-  max-width: min(680px, calc(100vw - 40px));
-  padding: 11px 14px;
-  transform: translateX(-50%);
+  gap: 13px;
+}
+
+.update-modal-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 11px 11px 11px 4px;
+}
+
+.update-modal-summary {
+  margin: 0;
+  color: var(--muted-strong);
+  line-height: 1.55;
+}
+
+.update-release-notes {
+  max-height: 250px;
+  margin-top: 16px;
+  padding: 13px 14px;
+  overflow-y: auto;
   background: var(--surface-raised);
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-  border-radius: 10px;
-  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
-.update-banner-text {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
+.update-release-notes strong {
+  font-size: 0.82rem;
 }
 
-.update-banner-text strong { font-size: 0.86rem; }
-
-.update-banner-text span {
+.update-release-notes p {
+  margin: 8px 0 0;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 
-.update-banner .primary-button { flex: 0 0 auto; }
+.update-verification-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  background: color-mix(in srgb, var(--success) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 24%, var(--border));
+  border-radius: 7px;
+}
+
+.update-verification-note svg {
+  flex: 0 0 auto;
+  color: var(--success);
+}
+
+.library-kind-badge {
+  width: fit-content;
+  padding: 2px 7px;
+  color: var(--muted-strong) !important;
+  font-size: 0.68rem !important;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.library-kind-badge.staging-project,
+.library-kind-badge.staging-script,
+.library-kind-badge.staging-content {
+  color: var(--info) !important;
+  border-color: color-mix(in srgb, var(--info) 32%, var(--border));
+}
+
+.mod-preview-file {
+  display: flex;
+  min-height: 110px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--info);
+  background: color-mix(in srgb, var(--info) 7%, var(--surface-raised));
+}
+
+.mod-preview-file span {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.library-item-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: var(--muted-strong);
+  background: color-mix(in srgb, var(--info) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info) 22%, var(--border));
+  border-radius: 7px;
+}

@@ -1,5 +1,10 @@
 import { analyzeTf2Registrations } from "./modifier-analyzer.js";
-import type { Diagnostic, ModHealth, ModHealthStatus } from "./types.js";
+import type {
+  Diagnostic,
+  LibraryItemKind,
+  ModHealth,
+  ModHealthStatus
+} from "./types.js";
 import { folderNameDiagnostics, modLuaDiagnostics } from "./validator.js";
 
 /**
@@ -23,8 +28,20 @@ export function classifyModHealth(input: {
   modLua?: string | undefined;
   /** Scan source; `workshop` folders are named by Steam, not by the author. */
   source?: string | undefined;
+  /** Staging projects/scripts are library content, not necessarily TF2 mods. */
+  kind?: LibraryItemKind | undefined;
 }): ModHealth {
   const diagnostics: Diagnostic[] = [];
+
+  if (input.kind !== undefined && input.kind !== "mod") {
+    return {
+      status: "ok",
+      errorCount: 0,
+      warningCount: 0,
+      unprovenCount: 0,
+      diagnostics
+    };
+  }
 
   if (input.modLua === undefined) {
     diagnostics.push({
