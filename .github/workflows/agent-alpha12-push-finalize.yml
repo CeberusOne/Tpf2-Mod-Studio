@@ -1,0 +1,122 @@
+name: Finalize alpha.12 on branch push
+
+on:
+  push:
+    branches:
+      - feature/library-staging-updater-alpha12-final
+    paths:
+      - scripts/agent-alpha12-trigger.txt
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-and-commit:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/library-staging-updater-alpha12-final
+          fetch-depth: 0
+
+      - name: Install Linux dependencies
+        run: |
+          timeout 180s sudo apt-get update
+          timeout 180s sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xvfb
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Apply implementation and test adjustments
+        run: |
+          python scripts/agent-alpha12.py
+          python - <<'PY'
+          from pathlib import Path
+
+          core_test = Path("packages/core/src/core.test.ts")
+          content = core_test.read_text(encoding="utf-8")
+          old = '''    expect(codes).toContain("MOD_FOLDER_CHARACTERS");
+              expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
+              expect(
+                health.diagnostics.find(
+                  (item) => item.code === "MOD_FOLDER_CHARACTERS"
+                )?.description
+              ).toContain("has the expected version suffix");'''.replace("              ", "    ")
+          new = '''    expect(codes).toContain("MOD_FOLDER_CASE");
+              expect(codes).not.toContain("MOD_FOLDER_VERSION_SUFFIX");
+              expect(health.status).toBe("ok");
+              expect(
+                health.diagnostics.find(
+                  (item) => item.code === "MOD_FOLDER_CASE"
+                )?.description
+              ).toContain("major-version suffix is valid");'''.replace("              ", "    ")
+          if content.count(old) != 1:
+              raise SystemExit("mixed-case test block not found")
+          core_test.write_text(content.replace(old, new, 1), encoding="utf-8")
+
+          library = Path("apps/desktop/src-tauri/src/library.rs")
+          content = library.read_text(encoding="utf-8")
+          old = '''        let root = env::temp_dir().join(format!(
+            "tpf2-library-sources-{}-{}",
+            std::process::id(),
+            now_millis()
+        ));'''
+          new = '''        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = env::temp_dir().join(format!(
+            "tpf2-library-sources-{}-{nanos}",
+            std::process::id()
+        ));'''
+          if content.count(old) != 1:
+              raise SystemExit("library fixture helper not found")
+          library.write_text(content.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Format Rust
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt
+
+      - name: Verify frontend
+        run: npm run verify
+
+      - name: Verify native tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --all-targets
+
+      - name: Verify native lints
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Commit verified product changes
+        run: |
+          rm scripts/agent-alpha12.py
+          rm scripts/agent-alpha12-trigger.txt
+          rm .github/workflows/agent-apply-alpha12.yml
+          rm .github/workflows/agent-alpha12-finalize.yml
+          rm .github/workflows/agent-alpha12-push-finalize.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: classify staging content and add startup update dialog"
+          git push origin HEAD:feature/library-staging-updater-alpha12-final
