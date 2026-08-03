@@ -1,5 +1,33 @@
 from pathlib import Path
 
+panel_path = Path("apps/desktop/src/PresetBuilderPanel.tsx")
+panel = panel_path.read_text(encoding="utf-8")
+chooser = '<div aria-modal="true" className="modal preset-chooser-modal" role="dialog">'
+chooser_fixed = (
+    '<div aria-labelledby="preset-chooser-title" aria-modal="true" '
+    'className="modal preset-chooser-modal" role="dialog">'
+)
+dependency = '<div aria-modal="true" className="modal dependency-modal" role="dialog">'
+dependency_fixed = (
+    '<div aria-labelledby="preset-dependency-title" aria-modal="true" '
+    'className="modal dependency-modal" role="dialog">'
+)
+if chooser not in panel or dependency not in panel:
+    raise SystemExit("preset dialog marker missing")
+panel = panel.replace(chooser, chooser_fixed, 1)
+panel = panel.replace(
+    "<h2>{copy.chooseTitle}</h2>",
+    '<h2 id="preset-chooser-title">{copy.chooseTitle}</h2>',
+    1,
+)
+panel = panel.replace(dependency, dependency_fixed, 1)
+panel = panel.replace(
+    "<h2>{copy.dependencyTitle}</h2>",
+    '<h2 id="preset-dependency-title">{copy.dependencyTitle}</h2>',
+    1,
+)
+panel_path.write_text(panel, encoding="utf-8")
+
 OLD = "0.1.0-alpha.12"
 NEW = "0.1.0-alpha.13"
 
