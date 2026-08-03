@@ -1,17 +1,19 @@
 name: Fix Windows Clippy findings
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/windows-mod-source-detection-alpha11
-    paths:
-      - .github/workflows/agent-fix-windows-clippy.yml
+      - main
+    types:
+      - synchronize
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   fix-and-verify:
+    if: github.head_ref == 'agent/windows-mod-source-detection-alpha11'
     runs-on: windows-2022
     timeout-minutes: 30
     steps:
