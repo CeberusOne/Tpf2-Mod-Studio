@@ -78,6 +78,13 @@ jobs:
                           indent = line[: len(line) - len(line.lstrip())]
                           lines[index] = indent + r'format!("function data() return {{ info = {{ name = \"{id}\" }} }} end"),'
                   content = "\n".join(lines) + "\n"
+                  marker_start = "\n#[cfg(test)]\nmod source_tests {"
+                  marker_end = "\n\n/// Rank a mod-root image"
+                  start = content.index(marker_start)
+                  end = content.index(marker_end, start)
+                  test_module = content[start:end]
+                  content = content[:start] + content[end:]
+                  content = content.rstrip() + test_module + "\n"
               path.write_text(content, encoding="utf-8")
               print(f"Normalized {path}")
 
