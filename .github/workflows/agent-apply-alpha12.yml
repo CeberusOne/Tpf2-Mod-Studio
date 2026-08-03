@@ -1,6 +1,0 @@
-name: Temporary alpha.12 verifier placeholder
-
-on:
-  workflow_dispatch:
-
-jobs: {}

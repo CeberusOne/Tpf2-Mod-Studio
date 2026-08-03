@@ -588,10 +588,13 @@ mod source_tests {
     use std::env;
 
     fn unique_temp_root() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
         let root = env::temp_dir().join(format!(
-            "tpf2-library-sources-{}-{}",
-            std::process::id(),
-            now_millis()
+            "tpf2-library-sources-{}-{nanos}",
+            std::process::id()
         ));
         fs::create_dir_all(&root).expect("temp root");
         root
