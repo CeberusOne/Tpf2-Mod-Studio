@@ -22,7 +22,7 @@ fn path_key(path: &Path) -> String {
     let value = resolved.to_string_lossy().replace('\\', "/");
     #[cfg(target_os = "windows")]
     {
-        return value.to_ascii_lowercase();
+        value.to_ascii_lowercase()
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -319,9 +319,9 @@ pub(crate) fn find_user_data_directory() -> Option<PathBuf> {
 
     #[cfg(target_os = "windows")]
     {
-        return windows_document_candidates()
+        windows_document_candidates()
             .into_iter()
-            .max_by_key(|path| activity_time(path));
+            .max_by_key(|path| activity_time(path))
     }
     #[cfg(not(target_os = "windows"))]
     {

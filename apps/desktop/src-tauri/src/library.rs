@@ -158,7 +158,7 @@ fn directory_key(path: &Path) -> String {
     let value = path_string(&resolved).replace('\\', "/");
     #[cfg(target_os = "windows")]
     {
-        return value.to_ascii_lowercase();
+        value.to_ascii_lowercase()
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -169,7 +169,7 @@ fn directory_key(path: &Path) -> String {
 fn mod_id_key(id: &str) -> String {
     #[cfg(target_os = "windows")]
     {
-        return id.to_ascii_lowercase();
+        id.to_ascii_lowercase()
     }
     #[cfg(not(target_os = "windows"))]
     {
