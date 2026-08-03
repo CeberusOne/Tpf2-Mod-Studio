@@ -57,25 +57,29 @@ jobs:
       - name: Apply repository patch
         run: python tools/agent_apply_windows_fix.py
 
-      - name: Correct generated Rust backslash literals
+      - name: Normalize generated Rust source
         run: |
           python - <<'PY'
           from pathlib import Path
 
-          bad = "replace('" + "\\" + "', \"/\")"
-          good = "replace('" + "\\\\" + "', \"/\")"
           paths = [
               Path("apps/desktop/src-tauri/src/library.rs"),
               Path("apps/desktop/src-tauri/src/steam.rs"),
           ]
+          bad = "replace('" + "\\" + "', \"/\")"
+          good = "replace('" + "\\\\" + "', \"/\")"
           for path in paths:
               content = path.read_text(encoding="utf-8")
-              fixed = content.replace(bad, good)
-              if fixed == content:
-                  print(f"No malformed backslash literal found in {path}")
-              else:
-                  path.write_text(fixed, encoding="utf-8")
-                  print(f"Corrected {path}")
+              content = content.replace(bad, good)
+              if path.name == "library.rs":
+                  lines = content.splitlines()
+                  for index, line in enumerate(lines):
+                      if 'format!("function data()' in line:
+                          indent = line[: len(line) - len(line.lstrip())]
+                          lines[index] = indent + r'format!("function data() return {{ info = {{ name = \"{id}\" }} }} end"),'
+                  content = "\n".join(lines) + "\n"
+              path.write_text(content, encoding="utf-8")
+              print(f"Normalized {path}")
           PY
 
       - name: Format Rust
