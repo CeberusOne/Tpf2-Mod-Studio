@@ -18,6 +18,7 @@ import {
   Moon,
   PackageCheck,
   Play,
+  Plus,
   RefreshCw,
   Save,
   ScrollText,
@@ -65,6 +66,10 @@ import {
 import type { DesktopBridge, UpdateInfo } from "./bridge";
 import ErrorBoundary from "./ErrorBoundary";
 import { tauriBridge } from "./bridge";
+import PresetBuilderPanel, {
+  PRESET_LIBRARY_DRAG_TYPE,
+  requestAddToCurrentPreset
+} from "./PresetBuilderPanel";
 import {
   I18nProvider,
   localizedCertainty,
@@ -1203,6 +1208,11 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
               onOpen={(path) => void loadProject(path)}
               onScan={() => void refreshModLibrary()}
               theme={theme}
+              userDataPath={
+                installations.find(
+                  (item) => item.userDataPath !== undefined
+                )?.userDataPath
+              }
             />
           ) : null}
 
@@ -1245,6 +1255,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
                   )}
                   native={bridge.isNative}
                   onNotice={setNotice}
+                  onOpenLibrary={() => setView("manage")}
                   onScanLibrary={() => void refreshModLibrary()}
                   userDataPath={
                     installations.find(
@@ -2056,7 +2067,8 @@ function ManageView({
   onNotice,
   onOpen,
   onScan,
-  theme
+  theme,
+  userDataPath
 }: {
   bridge: DesktopBridge;
   experience: ExperienceMode;
@@ -2067,8 +2079,9 @@ function ManageView({
   onOpen: (path: string) => void;
   onScan: () => void;
   theme: Theme;
+  userDataPath: string | undefined;
 }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [expandedMod, setExpandedMod] = useState<string>();
   const [editingMod, setEditingMod] = useState<string>();
   const [viewingMod, setViewingMod] = useState<string>();
@@ -2156,7 +2169,9 @@ function ManageView({
           {t("scanModLibrary")}
         </button>
       </div>
-      {mods.length === 0 ? (
+      <div className="manage-preset-split">
+        <div className="manage-library-pane">
+          {mods.length === 0 ? (
         <EmptyState icon={<PackageCheck size={26} />} title={t("noModsFound")}>
           {t("noModsFoundDescription")}
         </EmptyState>
@@ -2193,7 +2208,14 @@ function ManageView({
                     className={`installation-card mod-card ${health.status} ${
                       maximizedMod === mod.path ? "is-maximized" : ""
                     }`}
+                    draggable={kind === "mod"}
                     key={mod.path}
+                    onDragStart={(event) => {
+                      if (kind !== "mod") return;
+                      event.dataTransfer.effectAllowed = "copy";
+                      event.dataTransfer.setData(PRESET_LIBRARY_DRAG_TYPE, mod.id);
+                      event.dataTransfer.setData("text/plain", mod.id);
+                    }}
                   >
                     {directory ? (
                       <ModPreview
@@ -2230,6 +2252,16 @@ function ManageView({
                       <p>{t("modDuplicate", { path: mod.duplicateOf })}</p>
                     )}
                     <div className="mod-card-actions">
+                      {kind === "mod" ? (
+                        <button
+                          className="primary-button preset-add-card-button"
+                          onClick={() => requestAddToCurrentPreset(mod.id)}
+                          type="button"
+                        >
+                          <Plus size={16} />
+                          {language === "de" ? "Zum Preset" : "Add to preset"}
+                        </button>
+                      ) : null}
                       <button
                         aria-label={
                           maximizedMod === mod.path
@@ -2324,6 +2356,17 @@ function ManageView({
           </section>
         ))
       )}
+        </div>
+        <PresetBuilderPanel
+          bridge={bridge}
+          installedMods={mods.filter(
+            (item) => (item.kind ?? "mod") === "mod"
+          )}
+          native={native}
+          onNotice={onNotice}
+          userDataPath={userDataPath}
+        />
+      </div>
     </div>
   );
 }
