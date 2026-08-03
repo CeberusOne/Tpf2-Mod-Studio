@@ -1,0 +1,38 @@
+name: Dispatch alpha.12 release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  dispatch:
+    if: github.head_ref == 'release-trigger-alpha12'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Dispatch official release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run publish-release.yml \
+            --repo "CeberusOne/Tpf2-Mod-Studio" \
+            --ref main \
+            -f tag=v0.1.0-alpha.12 \
+            -f prerelease=true
+
+      - name: Close trigger pull request and delete branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr close "${{ github.event.pull_request.number }}" \
+            --repo "CeberusOne/Tpf2-Mod-Studio" \
+            --comment "Dispatched the official v0.1.0-alpha.12 release workflow from protected main."
+          gh api --method DELETE \
+            "repos/CeberusOne/Tpf2-Mod-Studio/git/refs/heads/release-trigger-alpha12"
