@@ -1,6 +1,12 @@
 import type { InstallationCandidate } from "@tpf2-mod-studio/core";
 import { FolderOpen, HardDrive, Save, Settings, X } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
 import { createPortal } from "react-dom";
 
 import App from "./App";
@@ -88,7 +94,9 @@ function PathField({
       <span>{label}</span>
       <div className="path-picker">
         <input
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+            onChange(event.target.value)
+          }
           placeholder={placeholder}
           spellCheck={false}
           value={value}
@@ -106,7 +114,7 @@ export default function ConfiguredApp() {
   const [paths, setPaths] = useState<ManualPaths>(readManualPaths);
   const [draft, setDraft] = useState<ManualPaths>(paths);
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<string | undefined>(undefined);
   const topbarTarget = useTopbarTarget();
   const bridge = useMemo(() => configuredBridge(paths), [paths]);
 
@@ -232,7 +240,11 @@ export default function ConfiguredApp() {
                 )}
 
                 <div className="modal-actions">
-                  <button className="secondary-button" onClick={clear} type="button">
+                  <button
+                    className="secondary-button"
+                    onClick={clear}
+                    type="button"
+                  >
                     Zurücksetzen
                   </button>
                   <button
