@@ -80,6 +80,17 @@ jobs:
                   content = "\n".join(lines) + "\n"
               path.write_text(content, encoding="utf-8")
               print(f"Normalized {path}")
+
+          lib_path = Path("apps/desktop/src-tauri/src/lib.rs")
+          lib_content = lib_path.read_text(encoding="utf-8")
+          if "    env,\n" not in lib_content:
+              lib_content = lib_content.replace(
+                  "    collections::HashSet,\n",
+                  "    collections::HashSet,\n    env,\n",
+                  1,
+              )
+          lib_path.write_text(lib_content, encoding="utf-8")
+          print(f"Preserved std::env import in {lib_path}")
           PY
 
       - name: Format Rust
