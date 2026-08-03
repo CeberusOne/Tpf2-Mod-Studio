@@ -154,6 +154,21 @@ describe("load order planning", () => {
     );
   });
 
+  it("places priority refs at the bottom of the visible TF2 list", () => {
+    const installed = [
+      mod("normal_1"),
+      mod("commonapi_1", [], "priority")
+    ];
+    const result = planModOrder(
+      installed,
+      ["commonapi_1", "normal_1"],
+      ["commonapi_1", "normal_1"]
+    );
+
+    expect(result.order).toEqual(["normal_1", "commonapi_1"]);
+    expect(result.loadOrder[0]).toBe("commonapi_1");
+  });
+
   it("handles one mod depending on several others", () => {
     const installed = [
       mod("big_1", ["a_1", "b_1", "c_1"]),

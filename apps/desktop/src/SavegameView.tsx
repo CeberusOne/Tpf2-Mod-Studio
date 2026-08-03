@@ -117,7 +117,7 @@ export default function SavegameView({
       for (const candidate of result.mods) {
         const id = installedLookup.get(normalized(candidate));
         if (id !== undefined && !seen.has(id)) {
-          matched.push(id);
+          matched.push(candidate);
           seen.add(id);
         }
       }

@@ -59,6 +59,7 @@ interface ActivePreset {
   savePath?: string;
   explicitOrder: string[];
   preferredOrder: string[];
+  refs: Record<string, string>;
   savedSignature: string;
 }
 
@@ -311,19 +312,22 @@ export default function PresetBuilderPanel({
   const [pendingAddition, setPendingAddition] = useState<PendingAddition>();
   const [busy, setBusy] = useState(false);
 
-  const modInfos = useMemo<InstalledModInfo[]>(
-    () =>
-      installedMods.map((mod) => {
-        const info = extractDependencyInfo(mod.modLua ?? "");
-        return {
-          id: mod.id,
-          source: mod.source,
-          dependencies: info.dependencies,
-          dependenciesAnyLoadOrder: info.anyLoadOrder
-        };
-      }),
-    [installedMods]
-  );
+  const modInfos = useMemo<InstalledModInfo[]>(() => {
+    const priorityIds = new Set(
+      Object.entries(active?.refs ?? {})
+        .filter(([, raw]) => raw.startsWith("!"))
+        .map(([id]) => id)
+    );
+    return installedMods.map((mod) => {
+      const info = extractDependencyInfo(mod.modLua ?? "");
+      return {
+        id: mod.id,
+        source: priorityIds.has(mod.id) ? "priority" : mod.source,
+        dependencies: info.dependencies,
+        dependenciesAnyLoadOrder: info.anyLoadOrder
+      };
+    });
+  }, [active?.refs, installedMods]);
   const byId = useMemo(
     () => new Map(installedMods.map((mod) => [mod.id, mod])),
     [installedMods]
@@ -383,20 +387,35 @@ export default function PresetBuilderPanel({
   function activate(
     name: string,
     ids: readonly string[],
-    options: { path?: string; savePath?: string } = {}
+    options: {
+      path?: string;
+      savePath?: string;
+      rawRefs?: readonly string[];
+    } = {}
   ): ActivePreset {
     const matched = unique(
       ids
         .map((id) => matchInstalled(id))
         .filter((id): id is string => id !== undefined)
     );
+    const refs: Record<string, string> = {};
+    for (const raw of options.rawRefs ?? ids) {
+      const id = matchInstalled(raw);
+      if (id !== undefined) refs[id] = raw;
+    }
     const nextPlan = planModOrder(modInfos, matched, matched);
     const order = nextPlan.order;
     const next: ActivePreset = {
       name,
       explicitOrder: matched,
       preferredOrder: order,
-      savedSignature: signature(name, order),
+      refs,
+      savedSignature:
+        options.path !== undefined
+          ? signature(name, matched)
+          : options.savePath !== undefined
+            ? ""
+            : signature(name, order),
       ...(options.path === undefined ? {} : { path: options.path }),
       ...(options.savePath === undefined ? {} : { savePath: options.savePath })
     };
@@ -412,7 +431,10 @@ export default function PresetBuilderPanel({
       const next = activate(
         preset.name,
         entries.map((entry) => entry.ref.raw),
-        { path: preset.path }
+        {
+          path: preset.path,
+          rawRefs: entries.map((entry) => entry.ref.raw)
+        }
       );
       setChooserOpen(false);
       onNotice({ tone: "success", message: copy.openedNotice });
@@ -537,10 +559,13 @@ export default function PresetBuilderPanel({
     const explicitOrder = active.explicitOrder.filter((item) => item !== id);
     const preferredOrder = active.preferredOrder.filter((item) => item !== id);
     const nextPlan = planModOrder(modInfos, explicitOrder, preferredOrder);
+    const refs = { ...active.refs };
+    delete refs[id];
     setActive({
       ...active,
       explicitOrder,
-      preferredOrder: autoArrange ? nextPlan.order : preferredOrder
+      preferredOrder: autoArrange ? nextPlan.order : preferredOrder,
+      refs
     });
   }
 
@@ -567,18 +592,35 @@ export default function PresetBuilderPanel({
       const lua = buildModPresetLua(
         builderOrder.map((id) => {
           const mod = byId.get(id);
+          const preserved = active.refs[id];
           return {
-            ref: mod === undefined ? parseModRef(id) : presetRefFor(mod),
+            ref:
+              preserved !== undefined
+                ? parseModRef(preserved)
+                : mod === undefined
+                  ? parseModRef(id)
+                  : presetRefFor(mod),
             majorVersion: majorVersionFor(id),
             ...(mod?.displayName === undefined ? {} : { name: mod.displayName })
           };
         })
       );
       const path = await bridge.writeModPreset(userDataPath, active.name, lua);
+      const refs = Object.fromEntries(
+        builderOrder.map((id) => {
+          const mod = byId.get(id);
+          return [
+            id,
+            active.refs[id] ??
+              (mod === undefined ? id : presetRefFor(mod).raw)
+          ];
+        })
+      );
       setActive({
         ...active,
         path,
         preferredOrder: builderOrder,
+        refs,
         savedSignature: signature(active.name, builderOrder)
       });
       await refreshPresets();
@@ -626,7 +668,10 @@ export default function PresetBuilderPanel({
       return;
     }
     if (request.kind === "savegame") {
-      activate(request.name, request.modIds, { savePath: request.savePath });
+      activate(request.name, request.modIds, {
+        savePath: request.savePath,
+        rawRefs: request.modIds
+      });
       return;
     }
     void openExisting({
