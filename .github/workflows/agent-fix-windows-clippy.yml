@@ -1,0 +1,89 @@
+name: Fix Windows Clippy findings
+
+on:
+  push:
+    branches:
+      - agent/windows-mod-source-detection-alpha11
+    paths:
+      - .github/workflows/agent-fix-windows-clippy.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/windows-mod-source-detection-alpha11
+          fetch-depth: 0
+
+      - name: Correct Windows-only Clippy findings
+        shell: pwsh
+        run: |
+          $script = @'
+          from pathlib import Path
+
+          library = Path("apps/desktop/src-tauri/src/library.rs")
+          content = library.read_text(encoding="utf-8")
+          content = content.replace(
+              "        return value.to_ascii_lowercase();\n",
+              "        value.to_ascii_lowercase()\n",
+              1,
+          )
+          content = content.replace(
+              "        return id.to_ascii_lowercase();\n",
+              "        id.to_ascii_lowercase()\n",
+              1,
+          )
+          library.write_text(content, encoding="utf-8")
+
+          steam = Path("apps/desktop/src-tauri/src/steam.rs")
+          content = steam.read_text(encoding="utf-8")
+          content = content.replace(
+              "        return value.to_ascii_lowercase();\n",
+              "        value.to_ascii_lowercase()\n",
+              1,
+          )
+          content = content.replace(
+              "        return windows_document_candidates()\n"
+              "            .into_iter()\n"
+              "            .max_by_key(|path| activity_time(path));\n",
+              "        windows_document_candidates()\n"
+              "            .into_iter()\n"
+              "            .max_by_key(|path| activity_time(path))\n",
+              1,
+          )
+          steam.write_text(content, encoding="utf-8")
+          '@
+          $script | python -
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Format Rust
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt
+
+      - name: Verify Windows Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --all-targets
+
+      - name: Verify Windows Clippy
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Commit correction and remove helper workflow
+        shell: pwsh
+        run: |
+          Remove-Item .github/workflows/agent-fix-windows-clippy.yml -Force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/desktop/src-tauri/src/library.rs apps/desktop/src-tauri/src/steam.rs .github/workflows/agent-fix-windows-clippy.yml
+          git commit -m "fix: satisfy Windows Clippy for platform path keys"
+          git push origin HEAD:agent/windows-mod-source-detection-alpha11
