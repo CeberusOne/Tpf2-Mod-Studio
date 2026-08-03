@@ -1,17 +1,8 @@
+import { parseModRef, type InstalledMod } from "@tpf2-mod-studio/core";
 import {
-  buildModPresetLua,
-  parseModPreset,
-  parseModRef,
-  planModOrder,
-  type DependencyFinding,
-  type InstalledMod,
-  type InstalledModInfo,
-  type ModOrderResult
-} from "@tpf2-mod-studio/core";
-import {
-  AlertCircle,
-  CheckCircle2,
+  Database,
   Download,
+  Plus,
   Save,
   Search,
   TriangleAlert
@@ -20,15 +11,15 @@ import { useMemo, useState } from "react";
 
 import type { DesktopBridge, PresetInfo, SavegameInfo } from "./bridge";
 import { useI18n } from "./i18n";
+import { queuePresetWorkspaceRequest } from "./PresetBuilderPanel";
 
 interface Notice {
   tone: "success" | "error" | "neutral";
   message: string;
 }
 
-/** Strip the `!`/`*` prefix so a preset id matches an installed folder id. */
-function bareId(value: string): string {
-  return parseModRef(value).id;
+function normalized(value: string): string {
+  return parseModRef(value).id.toLocaleLowerCase("en-US");
 }
 
 export default function SavegameView({
@@ -36,6 +27,7 @@ export default function SavegameView({
   installedMods,
   native,
   onNotice,
+  onOpenLibrary,
   onScanLibrary,
   userDataPath
 }: {
@@ -43,48 +35,61 @@ export default function SavegameView({
   installedMods: InstalledMod[];
   native: boolean;
   onNotice: (notice: Notice) => void;
+  onOpenLibrary: () => void;
   onScanLibrary: () => void;
   userDataPath: string | undefined;
 }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
+  const copy =
+    language === "de"
+      ? {
+          description:
+            "Savegames und vorhandene Mod-Presets auswählen. Die Bearbeitung erfolgt anschließend im Splitscreen der bestehenden Mod Library.",
+          openSave: "Modliste im Preset Builder öffnen",
+          openPreset: "Preset in der Mod Library öffnen",
+          newPreset: "Neues Preset",
+          newPresetHint:
+            "Öffnet die Mod Library. Dort wird zuerst nach dem Preset-Namen gefragt.",
+          readOnly:
+            "Savegames bleiben unverändert. Es werden ausschließlich TF2-Mod-Presets geschrieben.",
+          incomplete:
+            "Die Savegame-Modliste konnte nur teilweise gelesen werden. Nicht zugeordnete Einträge werden nicht erfunden.",
+          library: "Zur Mod Library",
+          noUserData:
+            "Der TF2-Benutzerdatenordner wurde noch nicht erkannt oder festgelegt."
+        }
+      : {
+          description:
+            "Choose a savegame or an existing mod preset. Editing then continues in the split-screen of the existing Mod Library.",
+          openSave: "Open mod list in Preset Builder",
+          openPreset: "Open preset in Mod Library",
+          newPreset: "New preset",
+          newPresetHint:
+            "Opens the Mod Library, where the preset name is requested first.",
+          readOnly:
+            "Savegames remain unchanged. Only TF2 mod presets are written.",
+          incomplete:
+            "The savegame mod list was only read partially. Unmatched entries are not guessed.",
+          library: "Go to Mod Library",
+          noUserData:
+            "The TF2 user-data folder has not been detected or configured yet."
+        };
+
   const [savegames, setSavegames] = useState<SavegameInfo[]>();
   const [presets, setPresets] = useState<PresetInfo[]>([]);
-  const [selectedSave, setSelectedSave] = useState<string>();
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  const [presetName, setPresetName] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Dependencies live in mod.lua, which the library scan already carries.
-  const modInfos = useMemo<InstalledModInfo[]>(() => {
-    const dependency = /(?:dependencies|requiredMods)\s*=\s*\{([^}]*)\}/gsu;
-    const literal = /"([^"]+)"/gu;
-    return installedMods.map((mod) => {
-      const found = new Set<string>();
-      for (const block of (mod.modLua ?? "").matchAll(dependency)) {
-        for (const item of (block[1] ?? "").matchAll(literal)) {
-          const value = item[1]?.trim();
-          if (value !== undefined && value.length > 0) found.add(value);
-        }
-      }
-      return { id: mod.id, source: mod.source, dependencies: [...found] };
-    });
+  const installedLookup = useMemo(() => {
+    const lookup = new Map<string, string>();
+    for (const mod of installedMods) lookup.set(normalized(mod.id), mod.id);
+    return lookup;
   }, [installedMods]);
 
-  const plan = useMemo<ModOrderResult | undefined>(
-    () =>
-      selected.size === 0
-        ? undefined
-        : planModOrder(modInfos, [...selected]),
-    [modInfos, selected]
-  );
-
-  const byId = useMemo(
-    () => new Map(installedMods.map((mod) => [mod.id, mod])),
-    [installedMods]
-  );
-
   async function refresh(): Promise<void> {
-    if (userDataPath === undefined) return;
+    if (userDataPath === undefined) {
+      onNotice({ tone: "neutral", message: copy.noUserData });
+      return;
+    }
     setBusy(true);
     try {
       const [saves, presetList] = await Promise.all([
@@ -103,57 +108,37 @@ export default function SavegameView({
     }
   }
 
-  async function loadFromSave(save: SavegameInfo): Promise<void> {
+  async function openSavegame(save: SavegameInfo): Promise<void> {
     setBusy(true);
     try {
       const result = await bridge.readSavegameMods(save.path);
-      // The header scan returns candidates; only ids that match an installed
-      // mod are real. Author names and roles fall away here.
-      const matched = new Set<string>();
+      const matched: string[] = [];
+      const seen = new Set<string>();
       for (const candidate of result.mods) {
-        const bare = bareId(candidate);
-        if (byId.has(candidate)) matched.add(candidate);
-        else if (byId.has(bare)) matched.add(bare);
+        const id = installedLookup.get(normalized(candidate));
+        if (id !== undefined && !seen.has(id)) {
+          matched.push(candidate);
+          seen.add(id);
+        }
       }
-      setSelectedSave(save.path);
-      setSelected(matched);
-      setPresetName(save.name);
-      onNotice({
-        tone: matched.size === 0 ? "neutral" : "success",
-        message: t("saveModsRead", {
-          matched: matched.size,
-          candidates: result.mods.length
-        })
+      queuePresetWorkspaceRequest({
+        kind: "savegame",
+        name: save.name,
+        savePath: save.path,
+        modIds: matched
       });
-    } catch (error) {
-      onNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : String(error)
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function loadFromPreset(preset: PresetInfo): Promise<void> {
-    setBusy(true);
-    try {
-      const entries = parseModPreset(await bridge.readModPreset(preset.path));
-      const matched = new Set<string>();
-      for (const entry of entries) {
-        if (byId.has(entry.ref.raw)) matched.add(entry.ref.raw);
-        else if (byId.has(entry.ref.id)) matched.add(entry.ref.id);
+      if (!result.complete) {
+        onNotice({ tone: "neutral", message: copy.incomplete });
+      } else {
+        onNotice({
+          tone: matched.length > 0 ? "success" : "neutral",
+          message: t("saveModsRead", {
+            matched: matched.length,
+            candidates: result.mods.length
+          })
+        });
       }
-      setSelectedSave(undefined);
-      setSelected(matched);
-      setPresetName(preset.name);
-      onNotice({
-        tone: "success",
-        message: t("presetLoaded", {
-          matched: matched.size,
-          total: entries.length
-        })
-      });
+      onOpenLibrary();
     } catch (error) {
       onNotice({
         tone: "error",
@@ -164,56 +149,19 @@ export default function SavegameView({
     }
   }
 
-  async function savePreset(): Promise<void> {
-    if (userDataPath === undefined || plan === undefined) return;
-    setBusy(true);
-    try {
-      const lua = buildModPresetLua(
-        plan.order.map((id) => {
-          const mod = byId.get(id);
-          return {
-            ref: parseModRef(id),
-            ...(mod?.displayName === undefined
-              ? {}
-              : { name: mod.displayName })
-          };
-        })
-      );
-      const written = await bridge.writeModPreset(
-        userDataPath,
-        presetName.trim().length > 0 ? presetName : "tpf2-mod-studio",
-        lua
-      );
-      onNotice({ tone: "success", message: t("presetWritten", { path: written }) });
-      await refresh();
-    } catch (error) {
-      onNotice({
-        tone: "error",
-        message: error instanceof Error ? error.message : String(error)
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function toggle(id: string): void {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  function openPreset(preset: PresetInfo): void {
+    queuePresetWorkspaceRequest({
+      kind: "preset",
+      name: preset.name,
+      path: preset.path
     });
+    onOpenLibrary();
   }
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, DependencyFinding[]>();
-    for (const finding of plan?.findings ?? []) {
-      const list = map.get(finding.kind) ?? [];
-      list.push(finding);
-      map.set(finding.kind, list);
-    }
-    return map;
-  }, [plan]);
+  function createPreset(): void {
+    queuePresetWorkspaceRequest({ kind: "new" });
+    onOpenLibrary();
+  }
 
   if (installedMods.length === 0) {
     return (
@@ -244,18 +192,38 @@ export default function SavegameView({
         <div>
           <span className="eyebrow">{t("navSavegames")}</span>
           <h2>{t("saveTitle")}</h2>
-          <p>{t("saveDescription")}</p>
+          <p>{copy.description}</p>
         </div>
-        <button
-          className="primary-button"
-          disabled={!native || busy || userDataPath === undefined}
-          onClick={() => void refresh()}
-          type="button"
-        >
-          <Search size={17} />
-          {t("saveRefresh")}
-        </button>
+        <div className="section-actions">
+          <button
+            className="secondary-button"
+            disabled={!native || userDataPath === undefined}
+            onClick={createPreset}
+            type="button"
+          >
+            <Plus size={17} />
+            {copy.newPreset}
+          </button>
+          <button
+            className="primary-button"
+            disabled={!native || busy || userDataPath === undefined}
+            onClick={() => void refresh()}
+            type="button"
+          >
+            <Search size={17} />
+            {t("saveRefresh")}
+          </button>
+        </div>
       </div>
+
+      {userDataPath === undefined ? (
+        <div className="save-issue warning">
+          <TriangleAlert size={16} />
+          <div>
+            <strong>{copy.noUserData}</strong>
+          </div>
+        </div>
+      ) : null}
 
       <div className="save-columns">
         <section className="save-sources">
@@ -265,13 +233,13 @@ export default function SavegameView({
           ) : savegames.length === 0 ? (
             <p className="mod-editor-hint">{t("saveNone")}</p>
           ) : (
-            savegames.slice(0, 40).map((save) => (
+            savegames.slice(0, 80).map((save) => (
               <button
-                className={`save-row ${
-                  selectedSave === save.path ? "is-active" : ""
-                }`}
+                className="save-row"
+                disabled={busy}
                 key={save.path}
-                onClick={() => void loadFromSave(save)}
+                onClick={() => void openSavegame(save)}
+                title={copy.openSave}
                 type="button"
               >
                 <Download size={14} />
@@ -280,171 +248,50 @@ export default function SavegameView({
               </button>
             ))
           )}
-
-          <h3>{t("savePresets")}</h3>
-          {presets.length === 0 ? (
-            <p className="mod-editor-hint">{t("savePresetsNone")}</p>
-          ) : (
-            presets.map((preset) => (
-              <button
-                className="save-row"
-                key={preset.path}
-                onClick={() => void loadFromPreset(preset)}
-                type="button"
-              >
-                <Save size={14} />
-                <span>{preset.name}</span>
-              </button>
-            ))
-          )}
         </section>
 
         <section className="save-plan">
           <div className="save-plan-head">
-            <strong>
-              {t("saveSelected", {
-                count: selected.size,
-                total: installedMods.length
-              })}
-            </strong>
-            <label className="field save-name">
-              <span>{t("savePresetName")}</span>
-              <input
-                onChange={(event) => setPresetName(event.target.value)}
-                placeholder="tpf2-mod-studio"
-                value={presetName}
-              />
-            </label>
+            <div>
+              <h3>{t("savePresets")}</h3>
+              <p className="mod-editor-hint">{copy.newPresetHint}</p>
+            </div>
             <button
               className="primary-button"
-              disabled={
-                !native ||
-                busy ||
-                plan === undefined ||
-                plan.cycles.length > 0 ||
-                userDataPath === undefined
-              }
-              onClick={() => void savePreset()}
+              disabled={!native || userDataPath === undefined}
+              onClick={createPreset}
               type="button"
             >
-              <Save size={16} />
-              {t("saveWritePreset")}
+              <Plus size={16} />
+              {copy.newPreset}
             </button>
           </div>
 
-          {plan === undefined ? (
-            <p className="mod-editor-hint">{t("saveNothingSelected")}</p>
+          {presets.length === 0 ? (
+            <p className="mod-editor-hint">{t("savePresetsNone")}</p>
           ) : (
-            <>
-              <div className="save-summary">
-                <span>
-                  {t("saveOrderCount", { count: plan.order.length })}
-                </span>
-                {plan.addedForDependencies.length > 0 ? (
-                  <span className="save-added">
-                    {t("saveAdded", {
-                      count: plan.addedForDependencies.length
-                    })}
-                  </span>
-                ) : null}
-                {plan.missing.length > 0 ? (
-                  <span className="save-missing">
-                    {t("saveMissing", { count: plan.missing.length })}
-                  </span>
-                ) : null}
-                {plan.unverifiable.length > 0 ? (
-                  <span className="save-unverifiable">
-                    {t("saveUnverifiable", {
-                      count: plan.unverifiable.length
-                    })}
-                  </span>
-                ) : null}
-              </div>
-
-              {plan.cycles.length > 0 ? (
-                <div className="save-issue error">
-                  <AlertCircle size={16} />
-                  <div>
-                    <strong>{t("saveCycle")}</strong>
-                    {plan.cycles.map((cycle) => (
-                      <code key={cycle.join(">")}>{cycle.join(" → ")}</code>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {plan.missing.length > 0 ? (
-                <div className="save-issue warning">
-                  <TriangleAlert size={16} />
-                  <div>
-                    <strong>{t("saveMissingTitle")}</strong>
-                    <p>{t("saveMissingHint")}</p>
-                    {(grouped.get("missing") ?? []).map((finding) => (
-                      <code key={`${finding.dependent}:${finding.declared}`}>
-                        {finding.declared} — {t("saveNeededBy", {
-                          mod: finding.dependent
-                        })}
-                      </code>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {plan.unverifiable.length > 0 ? (
-                <details className="save-issue neutral">
-                  <summary>
-                    {t("saveUnverifiableTitle", {
-                      count: plan.unverifiable.length
-                    })}
-                  </summary>
-                  <p>{t("saveUnverifiableHint")}</p>
-                  {plan.unverifiable.map((finding) => (
-                    <code key={`${finding.dependent}:${finding.declared}`}>
-                      {finding.declared}
-                    </code>
-                  ))}
-                </details>
-              ) : null}
-
-              <details className="save-order" open>
-                <summary>{t("saveOrderTitle")}</summary>
-                {plan.order.map((id, index) => (
-                  <div className="save-order-row" key={id}>
-                    <span>{index + 1}</span>
-                    <code>{id}</code>
-                    {plan.addedForDependencies.includes(id) ? (
-                      <small className="save-added">{t("saveAutoAdded")}</small>
-                    ) : null}
-                  </div>
-                ))}
-              </details>
-            </>
-          )}
-
-          <details className="save-picker">
-            <summary>{t("saveChooseMods")}</summary>
-            <div className="save-picker-list">
-              {installedMods.map((mod) => (
-                <label className="check-row" key={mod.path}>
-                  <input
-                    checked={selected.has(mod.id)}
-                    onChange={() => toggle(mod.id)}
-                    type="checkbox"
-                  />
-                  <span title={mod.path}>
-                    {mod.displayName ?? mod.id}
-                    <small> · {mod.source}</small>
-                  </span>
-                </label>
+            <div className="preset-launch-list">
+              {presets.map((preset) => (
+                <button
+                  className="save-row"
+                  key={preset.path}
+                  onClick={() => openPreset(preset)}
+                  title={copy.openPreset}
+                  type="button"
+                >
+                  <Save size={14} />
+                  <span>{preset.name}</span>
+                  <small>{copy.library}</small>
+                </button>
               ))}
             </div>
-          </details>
+          )}
         </section>
       </div>
 
       <p className="save-footnote">
-        <CheckCircle2 size={14} />
-        {t("saveSafetyNote")}
+        <Database size={14} />
+        {copy.readOnly}
       </p>
     </div>
   );
