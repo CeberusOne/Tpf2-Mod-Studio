@@ -18,7 +18,7 @@
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-dialog": "2.7.2",
     "@tpf2-mod-studio/core": "0.1.0",
-    "lucide-react": "1.27.0",
+    "lucide-react": "1.28.0",
     "monaco-editor": "0.56.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
