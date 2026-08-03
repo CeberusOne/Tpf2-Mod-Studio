@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.0-alpha.11 — 2026-08-03
+
+- Windows Steam discovery now reads registry-configured Steam locations,
+  `libraryfolders.vdf` and `appmanifest_1066780.acf` instead of assuming C:.
+- Custom Steam libraries on D:, E: and other drives are detected automatically.
+- Steam userdata discovery now follows the detected Steam client and supports
+  multiple accounts; OneDrive Documents is retained only as a fallback.
+- Mod Manager scanning is verified for local mods, `staging_area`, Steam
+  Workshop content and game-provided mods, with canonical root deduplication.
+- Manual game, userdata and mod paths remain available and override only the
+  values explicitly supplied by the user.
+
 ## 0.1.0-alpha.10 — 2026-08-02
 
 - Fixed an available update being impossible to install: the startup check

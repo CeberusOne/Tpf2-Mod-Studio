@@ -8,14 +8,13 @@ validating, editing and managing Transport Fever 2 mods on Windows and Linux.
 
 ## Current version and status
 
-**Current source version: `v0.1.0-alpha.9` — product status: PARTIAL**
+**Current source version: `v0.1.0-alpha.11` — product status: PARTIAL**
 
 The installer commands below always download the newest **published** GitHub
 release. A prepared source version or tag can temporarily be newer than the
 available installer while its release workflow is still building.
 
-Alpha.9 adds savegame mod analysis, dependency-aware load-order presets,
-expanded 3D model-viewer tools and several editor and interface fixes.
+Alpha.11 fixes Windows Steam discovery across registry-configured and custom Steam libraries, and verifies local, staging, Workshop and game-provided mod scanning on both platforms.
 
 ## Current capabilities
 

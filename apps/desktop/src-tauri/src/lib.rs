@@ -1,5 +1,6 @@
 mod library;
 mod savegame;
+mod steam;
 mod updater;
 
 use base64::Engine;
@@ -730,72 +731,8 @@ fn candidate(
     }
 }
 
-fn steam_userdata_roots() -> Vec<PathBuf> {
-    let mut roots = Vec::new();
-    #[cfg(target_os = "windows")]
-    {
-        for variable in ["ProgramFiles(x86)", "ProgramFiles"] {
-            if let Ok(base) = env::var(variable) {
-                roots.push(PathBuf::from(base).join("Steam").join("userdata"));
-            }
-        }
-        if let Ok(home) = env::var("USERPROFILE") {
-            roots.push(PathBuf::from(home).join("Steam").join("userdata"));
-        }
-    }
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(home) = env::var("HOME") {
-            let home = PathBuf::from(home);
-            roots.extend([
-                home.join(".steam").join("steam").join("userdata"),
-                home.join(".local")
-                    .join("share")
-                    .join("Steam")
-                    .join("userdata"),
-                home.join(".var")
-                    .join("app")
-                    .join("com.valvesoftware.Steam")
-                    .join(".steam")
-                    .join("steam")
-                    .join("userdata"),
-            ]);
-        }
-    }
-    roots
-}
-
-/// Prefer the most recently modified Steam user-data folder for app 1066780.
 fn find_user_data_directory() -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    for userdata_root in steam_userdata_roots() {
-        let Ok(entries) = fs::read_dir(&userdata_root) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let local = entry.path().join("1066780").join("local");
-            if local.is_dir() {
-                candidates.push(local);
-            }
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(home) = env::var("USERPROFILE") {
-            let documents = PathBuf::from(home)
-                .join("Documents")
-                .join("Transport Fever 2");
-            if documents.is_dir() {
-                candidates.push(documents);
-            }
-        }
-    }
-    candidates.into_iter().max_by_key(|path| {
-        fs::metadata(path)
-            .and_then(|meta| meta.modified())
-            .ok()
-            .unwrap_or(SystemTime::UNIX_EPOCH)
-    })
+    steam::find_user_data_directory()
 }
 
 fn resolve_mods_directory(game_root: &Path, user_data: Option<&Path>) -> Option<PathBuf> {
@@ -832,74 +769,10 @@ fn resolve_stdout_path(user_data: Option<&Path>) -> Option<PathBuf> {
 
 #[tauri::command]
 fn detect_installations() -> Vec<InstallationCandidate> {
-    let mut roots = Vec::new();
-    #[cfg(target_os = "windows")]
-    {
-        for variable in ["ProgramFiles(x86)", "ProgramFiles"] {
-            if let Ok(base) = env::var(variable) {
-                roots.push((
-                    PathBuf::from(base)
-                        .join("Steam")
-                        .join("steamapps")
-                        .join("common")
-                        .join("Transport Fever 2"),
-                    "TransportFever2.exe",
-                ));
-            }
-        }
-        if let Ok(home) = env::var("USERPROFILE") {
-            roots.push((
-                PathBuf::from(home)
-                    .join("Steam")
-                    .join("steamapps")
-                    .join("common")
-                    .join("Transport Fever 2"),
-                "TransportFever2.exe",
-            ));
-        }
-    }
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(home) = env::var("HOME") {
-            let home = PathBuf::from(home);
-            roots.extend([
-                (
-                    home.join(".steam")
-                        .join("steam")
-                        .join("steamapps")
-                        .join("common")
-                        .join("Transport Fever 2"),
-                    "TransportFever2",
-                ),
-                (
-                    home.join(".local")
-                        .join("share")
-                        .join("Steam")
-                        .join("steamapps")
-                        .join("common")
-                        .join("Transport Fever 2"),
-                    "TransportFever2",
-                ),
-                (
-                    home.join(".var")
-                        .join("app")
-                        .join("com.valvesoftware.Steam")
-                        .join(".steam")
-                        .join("steam")
-                        .join("steamapps")
-                        .join("common")
-                        .join("Transport Fever 2"),
-                    "TransportFever2",
-                ),
-            ]);
-        }
-    }
-    // Resolve the Steam user-data folder once; it is identical for every root.
     let user_data = find_user_data_directory();
     let mut seen = HashSet::new();
-    roots
+    steam::game_installations()
         .into_iter()
-        .filter(|(root, _)| root.exists())
         .filter_map(|(root, executable)| {
             let key = path_string(&root);
             if !seen.insert(key) {

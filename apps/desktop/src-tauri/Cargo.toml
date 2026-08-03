@@ -1,6 +1,6 @@
 [package]
 name = "tpf2-mod-studio"
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.11"
 description = "Standalone Transport Fever 2 mod development workbench"
 authors = ["Mike Hering"]
 license = "GPL-3.0-only"
