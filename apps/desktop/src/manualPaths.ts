@@ -72,7 +72,8 @@ function joinPath(root: string, child: string): string {
 }
 
 export function buildManualInstallation(
-  paths: ManualPaths
+  paths: ManualPaths,
+  fallback?: InstallationCandidate
 ): InstallationCandidate | undefined {
   const normalized = {
     gameRoot: cleanPath(paths.gameRoot),
@@ -87,35 +88,44 @@ export function buildManualInstallation(
     return undefined;
   }
 
+  const hasManualGame = normalized.gameRoot.length > 0;
   const windows =
     /^[A-Za-z]:[\\/]/u.test(normalized.gameRoot) ||
     normalized.gameRoot.includes("\\");
   const executableName = windows ? "TransportFever2.exe" : "TransportFever2";
   const rootPath =
-    normalized.gameRoot || normalized.userDataPath || normalized.modsPath;
+    normalized.gameRoot ||
+    fallback?.rootPath ||
+    normalized.userDataPath ||
+    normalized.modsPath;
+  const executablePath = hasManualGame
+    ? joinPath(normalized.gameRoot, executableName)
+    : (fallback?.executablePath ?? "");
+  const userDataPath = normalized.userDataPath || fallback?.userDataPath;
+  const modsPath = normalized.modsPath || fallback?.modsPath;
+  const valid = hasManualGame || fallback?.valid === true;
 
   return {
     rootPath,
-    executablePath:
-      normalized.gameRoot.length === 0
-        ? ""
-        : joinPath(normalized.gameRoot, executableName),
-    ...(normalized.userDataPath.length === 0
+    executablePath,
+    ...(userDataPath === undefined || userDataPath.length === 0
       ? {}
-      : { userDataPath: normalized.userDataPath }),
-    ...(normalized.modsPath.length === 0
+      : { userDataPath }),
+    ...(modsPath === undefined || modsPath.length === 0 ? {} : { modsPath }),
+    ...(fallback?.stdoutPath === undefined
       ? {}
-      : { modsPath: normalized.modsPath }),
+      : { stdoutPath: fallback.stdoutPath }),
     source: "manual",
-    valid: normalized.gameRoot.length > 0,
-    ...(normalized.gameRoot.length > 0
-      ? {}
-      : { reason: "Manual game directory is not configured." })
+    valid,
+    ...(valid ? {} : { reason: "Manual game directory is not configured." })
   };
 }
 
 function candidateKey(candidate: InstallationCandidate): string {
-  return candidate.rootPath.replace(/\\/gu, "/").replace(/\/$/u, "").toLowerCase();
+  return candidate.rootPath
+    .replace(/\\/gu, "/")
+    .replace(/\/$/u, "")
+    .toLowerCase();
 }
 
 export function mergeInstallationCandidates(
