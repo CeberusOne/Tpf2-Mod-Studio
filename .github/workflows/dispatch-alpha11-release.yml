@@ -1,0 +1,40 @@
+name: Dispatch alpha.11 release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  dispatch:
+    if: github.head_ref == 'release-trigger-alpha11'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Dispatch official release workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run publish-release.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            -f tag=v0.1.0-alpha.11 \
+            -f prerelease=true
+
+      - name: Close trigger pull request and delete branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr close "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" \
+            --comment "Dispatched the official v0.1.0-alpha.11 release workflow from protected main."
+          gh api --method DELETE \
+            "repos/${{ github.repository }}/git/refs/heads/release-trigger-alpha11"
