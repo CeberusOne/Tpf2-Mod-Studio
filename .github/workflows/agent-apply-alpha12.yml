@@ -1,0 +1,81 @@
+name: Apply alpha.12 library and updater changes
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-alpha12-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  apply-and-verify:
+    if: github.head_ref == 'feature/library-staging-updater-alpha12'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feature/library-staging-updater-alpha12
+          fetch-depth: 0
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xvfb
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Apply implementation
+        run: python scripts/agent-alpha12.py
+
+      - name: Format Rust
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt
+
+      - name: Verify TypeScript, tests and frontend build
+        run: npm run verify
+
+      - name: Verify Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --all-targets
+
+      - name: Verify Rust lints
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Commit verified implementation
+        run: |
+          rm scripts/agent-alpha12.py
+          rm .github/workflows/agent-apply-alpha12.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: classify staging content and add startup update dialog"
+          git push origin HEAD:feature/library-staging-updater-alpha12
