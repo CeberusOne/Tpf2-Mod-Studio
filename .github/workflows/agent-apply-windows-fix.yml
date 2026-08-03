@@ -1,0 +1,82 @@
+name: Apply Windows detection fix
+
+on:
+  push:
+    branches:
+      - agent/windows-mod-source-detection-alpha11
+    paths:
+      - tools/agent_apply_windows_fix.py
+      - .github/workflows/agent-apply-windows-fix.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: agent-windows-detection-patch
+  cancel-in-progress: true
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v7
+        with:
+          ref: agent/windows-mod-source-detection-alpha11
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libxdo-dev \
+            patchelf \
+            xvfb \
+            xdg-utils
+
+      - name: Apply repository patch
+        run: python tools/agent_apply_windows_fix.py
+
+      - name: Format Rust
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Verify TypeScript, tests and frontend build
+        run: npm run verify
+
+      - name: Run Rust tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked --all-targets
+
+      - name: Run Rust lints
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
+
+      - name: Commit verified patch
+        run: |
+          rm -f tools/agent_apply_windows_fix.py .github/workflows/agent-apply-windows-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: complete Windows TF2 and mod source discovery"
+          git push origin HEAD:agent/windows-mod-source-detection-alpha11
