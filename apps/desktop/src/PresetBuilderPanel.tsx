@@ -68,6 +68,7 @@ interface PendingAddition {
   explicitOrder: string[];
   preferredOrder: string[];
   plan: ModOrderResult;
+  promptPlan: ModOrderResult;
   newlyRequired: string[];
 }
 
@@ -499,6 +500,27 @@ export default function PresetBuilderPanel({
     const preferredOrder = insertAt(currentOrder, resolved);
     const nextPlan = planModOrder(modInfos, explicitOrder, preferredOrder);
     const currentSet = new Set(currentOrder);
+    const addedDependents = new Set(
+      nextPlan.order.filter((id) => !currentSet.has(id))
+    );
+    const promptFindings = nextPlan.findings.filter((finding) =>
+      addedDependents.has(finding.dependent)
+    );
+    const promptPlan: ModOrderResult = {
+      ...nextPlan,
+      findings: promptFindings,
+      missing: unique(
+        promptFindings
+          .filter((finding) => finding.kind === "missing")
+          .map((finding) => finding.declared)
+      ).sort((left, right) => left.localeCompare(right)),
+      unverifiable: promptFindings.filter(
+        (finding) => finding.kind === "link" || finding.kind === "unusable"
+      ),
+      cycles: nextPlan.cycles.filter((cycle) =>
+        cycle.some((id) => addedDependents.has(id))
+      )
+    };
     const newlyRequired = nextPlan.addedForDependencies.filter(
       (id) => !currentSet.has(id)
     );
@@ -506,13 +528,14 @@ export default function PresetBuilderPanel({
     const needsDialog =
       (selectedInfo?.dependencies.length ?? 0) > 0 ||
       newlyRequired.length > 0 ||
-      nextPlan.missing.length > 0 ||
-      nextPlan.unverifiable.length > 0;
+      promptPlan.missing.length > 0 ||
+      promptPlan.unverifiable.length > 0;
     const pending: PendingAddition = {
       modId: resolved,
       explicitOrder,
       preferredOrder,
       plan: nextPlan,
+      promptPlan,
       newlyRequired
     };
     if (needsDialog) {
@@ -975,12 +998,12 @@ export default function PresetBuilderPanel({
                   </div>
                 ) : null}
 
-                {pendingAddition.plan.findings.some(
+                {pendingAddition.promptPlan.findings.some(
                   (finding) => finding.kind === "satisfied"
                 ) ? (
                   <div className="dependency-dialog-group">
                     <strong>{copy.alreadyIncluded}</strong>
-                    {pendingAddition.plan.findings
+                    {pendingAddition.promptPlan.findings
                       .filter(
                         (finding) =>
                           finding.kind === "satisfied" &&
@@ -998,10 +1021,10 @@ export default function PresetBuilderPanel({
                   </div>
                 ) : null}
 
-                {pendingAddition.plan.missing.length > 0 ? (
+                {pendingAddition.promptPlan.missing.length > 0 ? (
                   <div className="dependency-dialog-group is-warning">
                     <strong>{copy.missingRequired}</strong>
-                    {pendingAddition.plan.missing.map((id) => (
+                    {pendingAddition.promptPlan.missing.map((id) => (
                       <div className="dependency-dialog-row" key={id}>
                         <TriangleAlert size={15} />
                         <code>{id}</code>
@@ -1010,10 +1033,10 @@ export default function PresetBuilderPanel({
                   </div>
                 ) : null}
 
-                {pendingAddition.plan.unverifiable.length > 0 ? (
+                {pendingAddition.promptPlan.unverifiable.length > 0 ? (
                   <div className="dependency-dialog-group is-neutral">
                     <strong>{copy.unverifiable}</strong>
-                    {pendingAddition.plan.unverifiable.map((finding) => (
+                    {pendingAddition.promptPlan.unverifiable.map((finding) => (
                       <div className="dependency-dialog-row" key={`${finding.dependent}:${finding.declared}`}>
                         <AlertCircle size={15} />
                         <code>{finding.declared}</code>
