@@ -354,9 +354,8 @@ end`;
     });
 
     expect(workshop.status).toBe("ok");
-    expect(local.diagnostics.map((item) => item.code)).toContain(
-      "MOD_FOLDER_VERSION_SUFFIX"
-    );
+    expect(local.status).toBe("ok");
+    expect(local.diagnostics).toEqual([]);
   });
 
   it("does not claim a missing suffix for a folder that plainly has one", () => {
@@ -376,7 +375,7 @@ end`;
       health.diagnostics.find(
         (item) => item.code === "MOD_FOLDER_CASE"
       )?.description
-    ).toContain("major-version suffix is valid");
+    ).toContain("Autobahn_Kreuz_1");
   });
 
   it("accepts a fully lower-case folder with a version suffix", () => {
