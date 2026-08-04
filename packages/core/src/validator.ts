@@ -394,56 +394,46 @@ function pathDiagnostics(snapshot: ProjectSnapshot): Diagnostic[] {
  */
 export function folderNameDiagnostics(folderName: string): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
-  // Report the two rules separately. Reporting a missing version suffix for a
-  // folder that plainly ends in `_1` — because it also contains upper-case
-  // letters — sent people looking for the wrong problem.
-  if (!/_[1-9][0-9]*$/u.test(folderName)) {
+  const duplicateCopySuffix = /\s*\([1-9][0-9]*\)$/u.exec(folderName);
+
+  // A major-version suffix is a convention, not a loading requirement. Real
+  // libraries contain many working local mods without `_1`, and dots in a mod
+  // id work on both Windows and Linux. Only report a suffix when it is strong
+  // evidence of an accidental duplicate created by an archive/file manager.
+  if (duplicateCopySuffix !== null) {
     diagnostics.push(
       diagnostic(
-        "MOD_FOLDER_VERSION_SUFFIX",
+        "MOD_FOLDER_DUPLICATE_COPY",
         "warning",
-        "official-guidance",
-        "Mod folder has no version suffix",
-        `\`${folderName}\` does not end in a positive major-version suffix such as \`_1\`.`,
-        "TF2 uses the mod folder's major-version suffix to distinguish installed versions.",
-        "Rename the folder to end in `_1` or another positive major version."
+        "confirmed",
+        "Mod folder looks like a duplicate copy",
+        `\`${folderName}\` ends in \`${duplicateCopySuffix[0]?.trim()}\`, the copy suffix commonly added to duplicate downloads.`,
+        "The copied folder can be indexed as a second mod id even though it contains the same mod, which makes selection and dependency resolution ambiguous.",
+        "Keep the intended copy and remove or rename the duplicate folder after comparing its contents."
       )
     );
-  } else {
-    const base = folderName.replace(/_[1-9][0-9]*$/u, "");
-    const upperCase = [...new Set(base.match(/[A-Z]/gu) ?? [])];
-    const unusual = [...new Set(base.match(/[^a-zA-Z0-9_-]/gu) ?? [])];
+  }
 
-    // Mixed case is common in established local libraries and TF2 still loads
-    // these folders. Keep the portability advice visible, but do not colour a
-    // working installed mod amber merely because its author used capitals.
-    if (upperCase.length > 0) {
-      diagnostics.push(
-        diagnostic(
-          "MOD_FOLDER_CASE",
-          "info",
-          "official-guidance",
-          "Mod folder contains upper-case letters",
-          `\`${folderName}\` contains ${upperCase.map((c) => `\`${c}\``).join(", ")}, but its major-version suffix is valid.`,
-          "Transport Fever 2 accepts mixed-case mod folder names. Exact case still matters on Linux when other files refer to this folder or its resources.",
-          "No change is required for an installed working mod. Prefer lower-case names when publishing a new mod."
-        )
-      );
-    }
+  const base = folderName
+    .replace(/\s*\([1-9][0-9]*\)$/u, "")
+    .replace(/_[1-9][0-9]*$/u, "");
+  const upperCase = [...new Set(base.match(/[A-Z]/gu) ?? [])];
 
-    if (unusual.length > 0) {
-      diagnostics.push(
-        diagnostic(
-          "MOD_FOLDER_CHARACTERS",
-          "warning",
-          "official-guidance",
-          "Mod folder name uses non-standard characters",
-          `\`${folderName}\` has the expected version suffix, but contains ${unusual.map((c) => `\`${c}\``).join(", ")}. The documented portable set is letters, digits, \`_\` and \`-\`.`,
-          "Characters such as dots or spaces can make packaging and cross-platform path handling less predictable; they do not automatically stop the mod from loading.",
-          "Keep an already working local mod unchanged if necessary. Prefer a portable folder name for newly published versions."
-        )
-      );
-    }
+  // Mixed case is common in established local libraries and TF2 still loads
+  // these folders. Keep the portability advice informational; it must never
+  // colour a working installed mod amber.
+  if (upperCase.length > 0) {
+    diagnostics.push(
+      diagnostic(
+        "MOD_FOLDER_CASE",
+        "info",
+        "official-guidance",
+        "Mod folder contains upper-case letters",
+        `\`${folderName}\` contains ${upperCase.map((c) => `\`${c}\``).join(", ")}.`,
+        "Transport Fever 2 accepts mixed-case mod folder names. Exact case still matters on Linux when files refer to resources inside the mod.",
+        "No change is required for an installed working mod. Prefer lower-case names when publishing a new mod."
+      )
+    );
   }
   return diagnostics;
 }
