@@ -883,7 +883,9 @@ mod source_tests {
         fs::create_dir_all(&directory).expect("mod directory");
         fs::write(
             directory.join("mod.lua"),
-            format!("function data() return {{ info = {{ name = \"{id}\" }} }} end"),
+            format!(
+                "function data()\n  return {{\n    info = {{\n      name = \"{id}\"\n    }}\n  }}\nend"
+            ),
         )
         .expect("mod.lua");
     }
@@ -985,7 +987,7 @@ mod source_tests {
 
         fs::write(
             mods.join("cached_mod_1").join("mod.lua"),
-            "function data() return { info = { name = \"Updated cached mod name\" } } end",
+            "function data()\n  return {\n    info = {\n      name = \"Updated cached mod name\"\n    }\n  }\nend",
         )
         .expect("updated mod.lua");
         let updated = scan_mod_library_cached(&cache, Some(path_string(&mods)), None, None);
