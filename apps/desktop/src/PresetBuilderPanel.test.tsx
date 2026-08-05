@@ -163,4 +163,41 @@ end`
     expect(content).toContain('id = "*123456"');
     expect(content).toContain('id = "!commonapi_1"');
   });
+
+  it("does not carry an existing missing dependency into later mod additions", async () => {
+    const broken = installed(
+      "broken_vehicle_1",
+      `function data()
+return { info = { dependencies = { "missing_pack_1" } } }
+end`
+    );
+    renderBuilder(builderBridge(), [broken, installed("unrelated_1")]);
+
+    requestAddToCurrentPreset("broken_vehicle_1");
+    fireEvent.change(
+      await screen.findByPlaceholderText("New preset name"),
+      { target: { value: "Dependency scope" } }
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Dependencies required" })
+    ).toBeTruthy();
+    expect(screen.getByText("missing_pack_1")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add dependencies and sort" })
+    );
+
+    requestAddToCurrentPreset("unrelated_1");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Dependencies required" })).toBeNull()
+    );
+    expect(await screen.findByText("unrelated 1")).toBeTruthy();
+    expect(screen.getAllByText("missing_pack_1")).toHaveLength(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close preset: broken vehicle 1" })
+    );
+    await waitFor(() => expect(screen.queryByText("missing_pack_1")).toBeNull());
+  });
 });

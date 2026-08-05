@@ -39,6 +39,19 @@ export interface ModelFile {
   base64?: string;
 }
 
+export interface EditorTabSession {
+  path: string;
+  content: string;
+  savedContent: string;
+}
+
+export interface EditorSession {
+  schemaVersion: 1;
+  rootPath: string;
+  tabs: EditorTabSession[];
+  activePath?: string;
+}
+
 export interface UpdateInfo {
   available: boolean;
   currentVersion: string;
@@ -89,6 +102,11 @@ export interface DesktopBridge {
     userDataPath?: string;
     gameRoot?: string;
   }): Promise<InstalledMod[]>;
+  loadCachedModLibrary(): Promise<InstalledMod[]>;
+  loadEditorSession(): Promise<EditorSession | null>;
+  saveEditorSession(session: EditorSession): Promise<void>;
+  clearEditorSession(): Promise<void>;
+  openLogFolder(logPath: string): Promise<void>;
   /** Downscaled JPEG `data:` URI for a mod's preview image. */
   readModPreview(modPath: string): Promise<string>;
   /** Read a `.mdl`/`.msh`/`.mtl`/`.ani` as text or a `.blob` as base64. */
@@ -230,6 +248,31 @@ export const tauriBridge: DesktopBridge = {
       userDataPath: input.userDataPath ?? null,
       gameRoot: input.gameRoot ?? null
     });
+  },
+
+  async loadCachedModLibrary() {
+    requireNative();
+    return invoke<InstalledMod[]>("load_mod_library_cache");
+  },
+
+  async loadEditorSession() {
+    requireNative();
+    return invoke<EditorSession | null>("load_editor_session");
+  },
+
+  async saveEditorSession(session) {
+    requireNative();
+    await invoke("save_editor_session", { session });
+  },
+
+  async clearEditorSession() {
+    requireNative();
+    await invoke("clear_editor_session");
+  },
+
+  async openLogFolder(logPath) {
+    requireNative();
+    await invoke("open_log_folder", { logPath });
   },
 
   async readModPreview(modPath) {

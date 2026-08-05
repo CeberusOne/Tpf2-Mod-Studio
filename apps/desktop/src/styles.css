@@ -1667,6 +1667,13 @@ nav {
   padding: 16px;
 }
 
+/* Large libraries can contain hundreds of cards. Let WebView2 skip layout and
+   paint work for cards that are far outside the viewport. */
+.mod-card:not(.is-maximized) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 620px;
+}
+
 .installation-heading {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;

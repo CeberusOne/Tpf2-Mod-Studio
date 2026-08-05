@@ -63,7 +63,7 @@ import {
   useState
 } from "react";
 
-import type { DesktopBridge, UpdateInfo } from "./bridge";
+import type { DesktopBridge, EditorSession, UpdateInfo } from "./bridge";
 import ErrorBoundary from "./ErrorBoundary";
 import { tauriBridge } from "./bridge";
 import PresetBuilderPanel, {
@@ -229,6 +229,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
   const [expandedLogId, setExpandedLogId] = useState<string>();
   const [installations, setInstallations] = useState<InstallationCandidate[]>([]);
   const [installedMods, setInstalledMods] = useState<InstalledMod[]>([]);
+  const [editorSessionReady, setEditorSessionReady] = useState(false);
   const [logFiles, setLogFiles] = useState<LogFileInfo[]>([]);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo>();
   const [updateState, setUpdateState] = useState<
@@ -283,6 +284,13 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     let cancelled = false;
     void (async () => {
       try {
+        const cached = await bridge.loadCachedModLibrary();
+        if (!cancelled && cached.length > 0) setInstalledMods(cached);
+      } catch {
+        // A missing/corrupt cache is rebuilt by the incremental refresh below.
+      }
+
+      try {
         const candidates = await bridge.detectInstallations();
         if (cancelled) return;
         setInstallations(candidates);
@@ -306,6 +314,22 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
           tone: "success",
           message: translateRef.current("noticeAutoDetected")
         });
+
+        // Refresh silently after rendering the cached list. The native side
+        // reuses unchanged entries and only re-reads new, changed or removed
+        // mods, so startup does not perform another full library analysis.
+        const refreshed = await bridge.scanModLibrary({
+          ...(preferred.modsPath === undefined
+            ? {}
+            : { modsPath: preferred.modsPath }),
+          ...(preferred.userDataPath === undefined
+            ? {}
+            : { userDataPath: preferred.userDataPath }),
+          ...(preferred.rootPath === undefined
+            ? {}
+            : { gameRoot: preferred.rootPath })
+        });
+        if (!cancelled) setInstalledMods(refreshed);
       } catch {
         // Silent on startup; user can rescan from Game paths.
       }
@@ -314,6 +338,74 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
       cancelled = true;
     };
   }, [bridge]);
+
+  useEffect(() => {
+    if (!bridge.isNative) {
+      setEditorSessionReady(true);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const session = await bridge.loadEditorSession();
+        if (session === null || cancelled) return;
+        const scanned = await bridge.scanProject(session.rootPath);
+        if (cancelled) return;
+        const diskFiles = new Map(
+          scanned.files.map((file) => [file.relativePath, file] as const)
+        );
+        const restoredTabs = session.tabs
+          .filter((tab) => diskFiles.get(tab.path)?.text === true)
+          .map((tab) => {
+            const diskContent = diskFiles.get(tab.path)?.content;
+            if (diskContent === undefined) return tab;
+            if (tab.content === tab.savedContent) {
+              return { ...tab, content: diskContent, savedContent: diskContent };
+            }
+            // Keep a recovered draft. If the file also changed on disk, the
+            // current disk text becomes the comparison base, so the tab stays
+            // visibly dirty instead of silently overwriting either version.
+            return diskContent === tab.savedContent
+              ? tab
+              : { ...tab, savedContent: diskContent };
+          });
+        setSnapshot(scanned);
+        setTabs(restoredTabs);
+        setActivePath(
+          restoredTabs.some((tab) => tab.path === session.activePath)
+            ? session.activePath
+            : restoredTabs.at(-1)?.path
+        );
+        setView("workspace");
+      } catch {
+        // Deleted projects or invalid cache data must not block startup.
+        await bridge.clearEditorSession().catch(() => undefined);
+      } finally {
+        if (!cancelled) setEditorSessionReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!bridge.isNative || !editorSessionReady) return undefined;
+    const timer = window.setTimeout(() => {
+      if (snapshot === undefined) {
+        void bridge.clearEditorSession().catch(() => undefined);
+        return;
+      }
+      const session: EditorSession = {
+        schemaVersion: 1,
+        rootPath: snapshot.rootPath,
+        tabs,
+        ...(activePath === undefined ? {} : { activePath })
+      };
+      void bridge.saveEditorSession(session).catch(() => undefined);
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [activePath, bridge, editorSessionReady, snapshot, tabs]);
 
   // The startup check never downloads on its own: installing and restarting
   // automatically caused endless relaunch loops when the published package
@@ -809,6 +901,18 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
     }
   }
 
+  function selectView(nextView: View): void {
+    setView(nextView);
+    if (nextView !== "logs" || !bridge.isNative) return;
+    const stdoutPath = installations.find(
+      (item) => item.stdoutPath !== undefined && item.stdoutPath.length > 0
+    )?.stdoutPath;
+    if (stdoutPath === undefined) return;
+    void bridge.openLogFolder(stdoutPath).catch((error: unknown) => {
+      setNotice({ tone: "error", message: errorMessage(error) });
+    });
+  }
+
   const navigation: Array<{
     id: View;
     label: string;
@@ -860,7 +964,7 @@ function Workbench({ bridge = tauriBridge }: AppProps) {
             <button
               className={`nav-item ${view === item.id ? "is-active" : ""}`}
               key={item.id}
-              onClick={() => setView(item.id)}
+              onClick={() => selectView(item.id)}
               type="button"
             >
               {item.icon}
@@ -1855,26 +1959,54 @@ function ModFileEditor({
   const [content, setContent] = useState("");
   const [savedContent, setSavedContent] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setBusy(true);
-    void bridge
-      .scanProject(mod.path)
-      .then((snapshot) => {
+    void Promise.all([bridge.scanProject(mod.path), bridge.loadEditorSession()])
+      .then(([snapshot, session]) => {
         if (cancelled) return;
         setFiles(snapshot.files.filter((file) => file.text));
+        if (session?.rootPath === mod.path && session.activePath !== undefined) {
+          const tab = session.tabs.find(
+            (candidate) => candidate.path === session.activePath
+          );
+          if (tab !== undefined) {
+            setActivePath(tab.path);
+            setContent(tab.content);
+            setSavedContent(tab.savedContent);
+          }
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled) onNotice({ tone: "error", message: errorMessage(error) });
       })
       .finally(() => {
-        if (!cancelled) setBusy(false);
+        if (!cancelled) {
+          setBusy(false);
+          setSessionReady(true);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [bridge, mod.path, onNotice]);
+
+  useEffect(() => {
+    if (!sessionReady || activePath === undefined) return undefined;
+    const timer = window.setTimeout(() => {
+      void bridge
+        .saveEditorSession({
+          schemaVersion: 1,
+          rootPath: mod.path,
+          activePath,
+          tabs: [{ path: activePath, content, savedContent }]
+        })
+        .catch(() => undefined);
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [activePath, bridge, content, mod.path, savedContent, sessionReady]);
 
   async function openFile(file: ProjectFile): Promise<void> {
     setBusy(true);

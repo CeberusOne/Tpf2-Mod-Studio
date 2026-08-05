@@ -12,7 +12,12 @@ use std::{
 };
 
 #[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+#[cfg(target_os = "windows")]
 use std::process::Command;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 const APP_ID: &str = "1066780";
 const DEFAULT_INSTALL_DIR: &str = "Transport Fever 2";
@@ -47,10 +52,11 @@ fn file_name_eq(path: &Path, expected: &str) -> bool {
 
 #[cfg(target_os = "windows")]
 fn registry_value(key: &str, value_name: &str) -> Option<PathBuf> {
-    let output = Command::new("reg")
+    let mut command = Command::new("reg");
+    command
         .args(["query", key, "/v", value_name])
-        .output()
-        .ok()?;
+        .creation_flags(CREATE_NO_WINDOW);
+    let output = command.output().ok()?;
     if !output.status.success() {
         return None;
     }

@@ -15,6 +15,7 @@ use std::{
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
+use tauri::Manager;
 use zip::ZipArchive;
 
 const MAX_SCANNED_FILES: usize = 20_000;
@@ -24,6 +25,7 @@ const MAX_LOG_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_MODEL_FILE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRIES: usize = 20_000;
 const MAX_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
+const MAX_EDITOR_SESSION_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -87,6 +89,24 @@ struct ProjectSnapshot {
     mode: ProjectMode,
     scanned_at: String,
     files: Vec<ProjectFile>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EditorTabSession {
+    path: String,
+    content: String,
+    saved_content: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EditorSession {
+    schema_version: u32,
+    root_path: String,
+    tabs: Vec<EditorTabSession>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    active_path: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -501,8 +521,7 @@ fn create_project(request: CreateProjectRequest) -> Result<CreatedProject, Strin
     })
 }
 
-#[tauri::command]
-fn scan_project(root_path: String) -> Result<ProjectSnapshot, String> {
+fn scan_project_sync(root_path: String) -> Result<ProjectSnapshot, String> {
     let root = canonical_directory(&root_path)?;
     let mut files = Vec::new();
     scan_directory(&root, &root, &mut files)?;
@@ -517,6 +536,13 @@ fn scan_project(root_path: String) -> Result<ProjectSnapshot, String> {
         scanned_at: format!("{}", now_millis()),
         files,
     })
+}
+
+#[tauri::command]
+async fn scan_project(root_path: String) -> Result<ProjectSnapshot, String> {
+    tauri::async_runtime::spawn_blocking(move || scan_project_sync(root_path))
+        .await
+        .map_err(|error| format!("The project scan worker failed: {error}"))?
 }
 
 #[tauri::command]
@@ -767,8 +793,7 @@ fn resolve_stdout_path(user_data: Option<&Path>) -> Option<PathBuf> {
         })
 }
 
-#[tauri::command]
-fn detect_installations() -> Vec<InstallationCandidate> {
+fn detect_installations_sync() -> Vec<InstallationCandidate> {
     let user_data = find_user_data_directory();
     let mut seen = HashSet::new();
     steam::game_installations()
@@ -784,7 +809,13 @@ fn detect_installations() -> Vec<InstallationCandidate> {
 }
 
 #[tauri::command]
-fn read_tf2_log(log_path: String) -> Result<String, String> {
+async fn detect_installations() -> Result<Vec<InstallationCandidate>, String> {
+    tauri::async_runtime::spawn_blocking(detect_installations_sync)
+        .await
+        .map_err(|error| format!("The installation detection worker failed: {error}"))
+}
+
+fn read_tf2_log_sync(log_path: String) -> Result<String, String> {
     let path = fs::canonicalize(&log_path)
         .map_err(|error| format!("Cannot access selected log: {error}"))?;
     if !path.is_file() {
@@ -812,6 +843,13 @@ fn read_tf2_log(log_path: String) -> Result<String, String> {
     file.read_to_end(&mut bytes)
         .map_err(|error| format!("Cannot read log: {error}"))?;
     Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+#[tauri::command]
+async fn read_tf2_log(log_path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || read_tf2_log_sync(log_path))
+        .await
+        .map_err(|error| format!("The log reader worker failed: {error}"))?
 }
 
 #[tauri::command]
@@ -1109,18 +1147,125 @@ fn apply_linux_runtime_workarounds() {
     }
 }
 
-#[tauri::command]
-fn scan_mod_library(
-    mods_path: Option<String>,
-    user_data_path: Option<String>,
-    game_root: Option<String>,
-) -> Vec<library::InstalledMod> {
-    library::scan_mod_library(mods_path, user_data_path, game_root)
+fn editor_session_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|error| format!("Cannot resolve the app data directory: {error}"))?
+        .join("editor-session-v1.json"))
 }
 
 #[tauri::command]
-fn read_mod_preview(mod_path: String) -> Result<String, String> {
-    library::read_mod_preview(mod_path)
+fn load_editor_session(app: tauri::AppHandle) -> Result<Option<EditorSession>, String> {
+    let path = editor_session_path(&app)?;
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(format!("Cannot read the editor session: {error}")),
+    };
+    if bytes.len() > MAX_EDITOR_SESSION_BYTES {
+        return Err("The saved editor session exceeds the safety limit.".into());
+    }
+    let session: EditorSession = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("Cannot parse the editor session: {error}"))?;
+    if session.schema_version != 1 {
+        return Ok(None);
+    }
+    Ok(Some(session))
+}
+
+#[tauri::command]
+fn save_editor_session(app: tauri::AppHandle, session: EditorSession) -> Result<(), String> {
+    if session.schema_version != 1 || session.tabs.len() > 100 {
+        return Err("The editor session is invalid or contains too many tabs.".into());
+    }
+    for tab in &session.tabs {
+        safe_relative_path(&tab.path)?;
+    }
+    let bytes = serde_json::to_vec(&session)
+        .map_err(|error| format!("Cannot serialize the editor session: {error}"))?;
+    if bytes.len() > MAX_EDITOR_SESSION_BYTES {
+        return Err("The editor session exceeds the 64 MiB safety limit.".into());
+    }
+    let path = editor_session_path(&app)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Cannot create the app data directory: {error}"))?;
+    }
+    fs::write(path, bytes).map_err(|error| format!("Cannot save the editor session: {error}"))
+}
+
+#[tauri::command]
+fn clear_editor_session(app: tauri::AppHandle) -> Result<(), String> {
+    let path = editor_session_path(&app)?;
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!("Cannot clear the editor session: {error}")),
+    }
+}
+
+#[tauri::command]
+fn open_log_folder(log_path: String) -> Result<(), String> {
+    let candidate = PathBuf::from(&log_path);
+    let folder = if candidate.is_dir() {
+        fs::canonicalize(&candidate)
+    } else {
+        let parent = candidate
+            .parent()
+            .ok_or_else(|| "The log path has no containing directory.".to_string())?;
+        fs::canonicalize(parent)
+    }
+    .map_err(|error| format!("Cannot access the log directory: {error}"))?;
+
+    #[cfg(target_os = "windows")]
+    let mut command = Command::new("explorer.exe");
+    #[cfg(target_os = "macos")]
+    let mut command = Command::new("open");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = Command::new("xdg-open");
+
+    command
+        .arg(&folder)
+        .spawn()
+        .map_err(|error| format!("Cannot open the log directory: {error}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn scan_mod_library(
+    app: tauri::AppHandle,
+    mods_path: Option<String>,
+    user_data_path: Option<String>,
+    game_root: Option<String>,
+) -> Result<Vec<library::InstalledMod>, String> {
+    let cache_path = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("Cannot resolve the app cache directory: {error}"))?
+        .join("mod-library-v1.json");
+    tauri::async_runtime::spawn_blocking(move || {
+        library::scan_mod_library_cached(&cache_path, mods_path, user_data_path, game_root)
+    })
+    .await
+    .map_err(|error| format!("The mod library scan worker failed: {error}"))
+}
+
+#[tauri::command]
+fn load_mod_library_cache(app: tauri::AppHandle) -> Result<Vec<library::InstalledMod>, String> {
+    let cache_path = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| format!("Cannot resolve the app cache directory: {error}"))?
+        .join("mod-library-v1.json");
+    Ok(library::load_mod_library_cache(&cache_path))
+}
+
+#[tauri::command]
+async fn read_mod_preview(mod_path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || library::read_mod_preview(mod_path))
+        .await
+        .map_err(|error| format!("The preview worker failed: {error}"))?
 }
 
 #[tauri::command]
@@ -1184,8 +1329,7 @@ fn write_mod_preset(
     savegame::write_mod_preset(user_data_path, name, content)
 }
 
-#[tauri::command]
-fn read_model_file(root_path: String, relative_path: String) -> Result<ModelFile, String> {
+fn read_model_file_sync(root_path: String, relative_path: String) -> Result<ModelFile, String> {
     let (_, candidate) = safe_existing_path(&root_path, &relative_path)?;
     let metadata =
         fs::metadata(&candidate).map_err(|error| format!("Cannot read model metadata: {error}"))?;
@@ -1219,6 +1363,13 @@ fn read_model_file(root_path: String, relative_path: String) -> Result<ModelFile
         text: Some(String::from_utf8_lossy(&bytes).into_owned()),
         base64: None,
     })
+}
+
+#[tauri::command]
+async fn read_model_file(root_path: String, relative_path: String) -> Result<ModelFile, String> {
+    tauri::async_runtime::spawn_blocking(move || read_model_file_sync(root_path, relative_path))
+        .await
+        .map_err(|error| format!("The model reader worker failed: {error}"))?
 }
 
 /// Resolve `<user data>/staging_area`, creating it when Transport Fever 2 has
@@ -1265,6 +1416,11 @@ pub fn run() {
             launch_game,
             inspect_mod_archive,
             import_mod_archive,
+            load_editor_session,
+            load_mod_library_cache,
+            save_editor_session,
+            clear_editor_session,
+            open_log_folder,
             scan_mod_library,
             read_mod_preview,
             read_model_file,
@@ -1345,8 +1501,8 @@ mod tests {
         })
         .expect("project should be created");
 
-        let snapshot =
-            scan_project(created.root_path.clone()).expect("created project should be scanned");
+        let snapshot = scan_project_sync(created.root_path.clone())
+            .expect("created project should be scanned");
         assert_eq!(snapshot.folder_name, "native_test_mod_1");
         assert!(snapshot
             .files
@@ -1415,13 +1571,13 @@ mod tests {
         let log = workspace.path().join("stdout.txt");
         fs::write(&log, "ERROR native test").expect("test log should be created");
         assert_eq!(
-            read_tf2_log(path_string(&log)).expect("text log should be readable"),
+            read_tf2_log_sync(path_string(&log)).expect("text log should be readable"),
             "ERROR native test"
         );
 
         let unsupported = workspace.path().join("stdout.bin");
         fs::write(&unsupported, "ERROR native test").expect("binary fixture should be created");
-        let error = read_tf2_log(path_string(&unsupported))
+        let error = read_tf2_log_sync(path_string(&unsupported))
             .expect_err("unsupported log extension should be rejected");
         assert!(error.contains("Only .txt and .log"));
     }
@@ -1606,7 +1762,7 @@ mod tests {
 
     #[test]
     fn detect_installations_finds_local_tf2_when_present() {
-        let candidates = detect_installations();
+        let candidates = detect_installations_sync();
         // On CI runners this may be empty; when TF2 is installed, paths must resolve.
         let home = env::var("HOME").unwrap_or_default();
         let expected_game =

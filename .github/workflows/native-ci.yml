@@ -124,6 +124,7 @@ jobs:
           }
           Write-Host "Found installer: $($nsis.FullName)"
           Write-Host "Binary size: $((Get-Item $exe).Length) bytes"
+          & "scripts/assert-windows-gui-subsystem.ps1" -Executable $exe
 
           # Ensure WebView2 Evergreen runtime (required by Tauri on Windows).
           $wv2Key = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"

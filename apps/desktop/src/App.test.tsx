@@ -145,6 +145,11 @@ function bridge(native = true): DesktopBridge {
     applyUpdate: vi.fn(async () => "ok"),
     restartAfterUpdate: vi.fn(async () => undefined),
     scanModLibrary: vi.fn(async (): Promise<InstalledMod[]> => []),
+    loadCachedModLibrary: vi.fn(async (): Promise<InstalledMod[]> => []),
+    loadEditorSession: vi.fn(async () => null),
+    saveEditorSession: vi.fn(async () => undefined),
+    clearEditorSession: vi.fn(async () => undefined),
+    openLogFolder: vi.fn(async () => undefined),
     readModPreview: vi.fn(async () => "data:image/jpeg;base64,AAAA"),
     readModelFile: vi.fn(async () => ({ relativePath: "m.mdl", text: "" })),
     listSavegames: vi.fn(async () => []),
@@ -179,6 +184,106 @@ describe("desktop workbench", () => {
       ).disabled
     ).toBe(true);
     expect(screen.queryByText("test_mod_1")).toBeNull();
+  });
+
+  it("shows the persistent mod-library cache without waiting for a new scan", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.loadCachedModLibrary = vi.fn(async () => [
+      {
+        id: "cached_mod_1",
+        path: "/tf2/mods/cached_mod_1",
+        source: "local",
+        hasModLua: true,
+        fileCount: 12,
+        displayName: "Cached mod"
+      }
+    ]);
+    render(<App bridge={desktopBridge} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    expect(await screen.findByText("Cached mod")).toBeTruthy();
+    expect(desktopBridge.loadCachedModLibrary).toHaveBeenCalledOnce();
+  });
+
+  it("automatically refreshes the cached library after detecting game paths", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.detectInstallations = vi.fn(
+      async (): Promise<InstallationCandidate[]> => [
+        {
+          rootPath: "/tf2",
+          executablePath: "/tf2/TransportFever2.exe",
+          userDataPath: "/tf2/userdata",
+          modsPath: "/tf2/userdata/mods",
+          source: "steam-default",
+          valid: true
+        }
+      ]
+    );
+    desktopBridge.scanModLibrary = vi.fn(async () => [
+      {
+        id: "fresh_mod_1",
+        path: "/tf2/userdata/mods/fresh_mod_1",
+        source: "local",
+        hasModLua: true,
+        fileCount: 4,
+        displayName: "Fresh mod"
+      }
+    ]);
+    render(<App bridge={desktopBridge} />);
+
+    await waitFor(() => {
+      expect(desktopBridge.scanModLibrary).toHaveBeenCalledWith({
+        modsPath: "/tf2/userdata/mods",
+        userDataPath: "/tf2/userdata",
+        gameRoot: "/tf2"
+      });
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    expect(await screen.findByText("Fresh mod")).toBeTruthy();
+  });
+
+  it("does not repeat native startup detection when switching views", async () => {
+    const desktopBridge = bridge();
+    render(<App bridge={desktopBridge} />);
+    await waitFor(() => {
+      expect(desktopBridge.detectInstallations).toHaveBeenCalledOnce();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Savegames" }));
+    fireEvent.click(screen.getByRole("button", { name: "Game paths" }));
+    fireEvent.click(screen.getByRole("button", { name: "Editor" }));
+
+    expect(desktopBridge.detectInstallations).toHaveBeenCalledOnce();
+  });
+
+  it("restores open editor tabs and unsaved code after a restart", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.loadEditorSession = vi.fn(async () => ({
+      schemaVersion: 1 as const,
+      rootPath: "/real/project/test_mod_1",
+      activePath: "mod.lua",
+      tabs: [
+        {
+          path: "mod.lua",
+          content: `${MOD_LUA}\n-- recovered unsaved line`,
+          savedContent: MOD_LUA
+        }
+      ]
+    }));
+    render(<App bridge={desktopBridge} />);
+
+    expect((await screen.findByTestId("monaco-editor")).textContent).toContain(
+      "recovered unsaved line"
+    );
+    await waitFor(() => {
+      expect(desktopBridge.saveEditorSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rootPath: "/real/project/test_mod_1",
+          activePath: "mod.lua"
+        })
+      );
+    });
   });
 
   it("opens a bridge-provided project and renders its real snapshot", async () => {
@@ -225,6 +330,35 @@ describe("desktop workbench", () => {
       expect(desktopBridge.chooseLogFile).toHaveBeenCalledWith(
         "Select stdout.txt",
         "Log files"
+      );
+    });
+  });
+
+  it("opens the detected stdout directory when the game-log navigation is clicked", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.detectInstallations = vi.fn(
+      async (): Promise<InstallationCandidate[]> => [
+        {
+          rootPath: "C:/Steam/Transport Fever 2",
+          executablePath: "C:/Steam/Transport Fever 2/TransportFever2.exe",
+          userDataPath: "C:/Steam/userdata/123/1066780/local",
+          modsPath: "C:/Steam/userdata/123/1066780/local/mods",
+          stdoutPath:
+            "C:/Steam/userdata/123/1066780/local/crash_dump/stdout.txt",
+          source: "steam-default",
+          valid: true
+        }
+      ]
+    );
+    render(<App bridge={desktopBridge} />);
+    await waitFor(() => {
+      expect(desktopBridge.scanModLibrary).toHaveBeenCalledOnce();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Game log" }));
+    await waitFor(() => {
+      expect(desktopBridge.openLogFolder).toHaveBeenCalledWith(
+        "C:/Steam/userdata/123/1066780/local/crash_dump/stdout.txt"
       );
     });
   });
@@ -452,6 +586,47 @@ describe("desktop workbench", () => {
     fireEvent.click(screen.getByText("res/scripts/init.lua"));
     expect((await screen.findByTestId("monaco-editor")).textContent).toContain(
       "return {}"
+    );
+  });
+
+  it("restores an unsaved draft opened from the mod-library editor", async () => {
+    const desktopBridge = bridge();
+    desktopBridge.scanModLibrary = vi.fn(async () => [
+      {
+        id: "draft_mod_1",
+        path: "/tf2/mods/draft_mod_1",
+        source: "local",
+        hasModLua: true,
+        fileCount: 1,
+        modLua: MOD_LUA
+      }
+    ]);
+    desktopBridge.scanProject = vi.fn(async () => ({
+      ...projectSnapshot(),
+      rootPath: "/tf2/mods/draft_mod_1"
+    }));
+    desktopBridge.loadEditorSession = vi.fn(async () => ({
+      schemaVersion: 1 as const,
+      rootPath: "/tf2/mods/draft_mod_1",
+      activePath: "mod.lua",
+      tabs: [
+        {
+          path: "mod.lua",
+          content: `${MOD_LUA}\n-- library draft`,
+          savedContent: MOD_LUA
+        }
+      ]
+    }));
+    render(<App bridge={desktopBridge} />);
+
+    await screen.findByTestId("monaco-editor");
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mod library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Scan mod library" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit files" }));
+
+    expect((await screen.findByTestId("monaco-editor")).textContent).toContain(
+      "library draft"
     );
   });
 
