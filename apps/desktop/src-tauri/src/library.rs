@@ -482,259 +482,523 @@ fn scan_cached_directory(
             push_cached_entry(
                 &entry.path(),
                 source,
-     ×v¶‰ËkºwµçH›Û\‹Yˆ[K‚™›ˆš[™Û[ÙÜ™]šY]Ê[ÙÙ\ˆ	”]
-HOˆÜ[Û]YˆÂˆ]]]™\İˆÜ[Û
-Nİš[™ÊOˆH›Û™NÂˆ›Üˆ[H[ˆœÎœ™XYÙ\Š[ÙÙ\ŠK›ÚÊ
-OË™›][Š
-HÂˆYˆY[K™š[Wİ\J
-Kš\×ÛÚ×Ø[™
-Ú[™Ú[™š\×Ùš[J
-JHÂˆÛÛ[YNÂˆBˆ]˜[YHH[K™š[WÛ˜[YJ
-NÂˆ]ÛÛYJ˜[YJHH˜[YK×ÜİŠ
-H[ÙHÈÛÛ[YHNÂˆ]ÛÛYJ˜[šÊHH™]šY]×Ü˜[šÊ˜[YJH[ÙHÂˆÛÛ[YNÂˆNÂˆËÈY\È™\ÛÛ™HH˜[YHÛÈHÚÚXÙH\ÈİX›H™]ÙY[ˆØØ[œË‚ˆYˆ™\İ˜\×Ü™YŠ
-K›X\ÛÜŠYK
-Üİ\œ™[
-_Âˆ˜[šÈ
-Ü
-˜[šÈOH
-Ü	‰ˆ˜[YHİ\œ™[˜\×ÜİŠ
-JBˆJHÂˆ™\İHÛÛYJ
-˜[šË˜[YK×Üİš[™Ê
-JJNÂˆBˆBˆ™\İ›X\
-
-Ë˜[YJ_[ÙÙ\‹š›Ú[Š˜[YJJBŸB‚‹ËËÈXÛÙHH[Ù™]šY]È[™™]\›ˆHİÛœØØ[Y”QÈ\ÈH]N˜T’K‚‹ËËÂ‹ËËÈĞHØ[››İ™H™[™\™YHHÙX•šY]È][[™H˜]Èš[\È\™H˜\ˆÛÂ‹ËËÈ\™ÙHÈ[™İ™\‹ÛÈXÛÙ[™È[™[X›˜Z[[™È\[ˆ˜]]™[K‚œXˆ›ˆ™XYÛ[ÙÜ™]šY]Ê[ÙÜ]ˆİš[™ÊHOˆ™\İ[İš[™Ëİš[™ÏˆÂˆ][ÙÙ\ˆHœÎ˜Ø[›ÛšXØ[^™J	›[ÙÜ]
-Bˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İXØÙ\ÜÈ[Ù›Û\ˆÙ\œ›ÜŸHŠJOÎÂˆYˆ[[ÙÙ\‹š\×Ù\Š
-HÂˆ™]\›ˆ\œŠ•HÙ[XİY[Ù]\È›İH\™XİÜKˆ‹š[Ê
-JNÂˆBˆ]Ûİ\˜ÙHHš[™Û[ÙÜ™]šY]Ê	›[ÙÙ\ŠK›Ú×ÛÜ—Ù[ÙJ“›È™]šY]È[XYÙH›İ[™ˆ‹×Üİš[™Ê
-JOÎÂˆ]Y]Y]HBˆœÎ›Y]Y]J	œÛİ\˜ÙJK›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İ™XY™]šY]ÈY]Y]NˆÙ\œ›ÜŸHŠJOÎÂˆYˆY]Y]K›[Š
-Hˆ‘U’QU×ÓPVÔÓÕTÑWĞ–UTÈÂˆ™]\›ˆ\œŠ•H™]šY]È[XYÙH^ÙYYÈHXÛÙH[Z]ˆ‹š[Ê
-JNÂˆB‚ˆ]^[œÚ[ÛˆHÛİ\˜ÙBˆ™^[œÚ[ÛŠ
-Bˆ˜[™İ[Š˜[Y_˜[YK×ÜİŠ
-JBˆ›X\
-İ×Ø\ØÚZWÛİÙ\˜Ø\ÙJBˆ[Ü˜\ÛÜ—ÙY˜][
+                file_type.is_dir(),
+                previous,
+                items,
+                next_cache,
+            );
+        }
+    }
+}
 
-NÂˆËÈXÚYHH^[œÚ[ÛˆĞHØ\œšY\È›ÈXY[™ÈXYÚXÈ]\ËÛÈÛÛ[ˆËÈÛšY™š[™ÈZ\ÚY[YšY\È]‚ˆ]›Ü›X]HX]Ú^[œÚ[Û‹˜\×ÜİŠ
-HÂˆØHˆOˆ[XYÙN’[XYÙQ›Ü›X]•ØKˆœ™ÈˆOˆ[XYÙN’[XYÙQ›Ü›X]”™ËˆšœÈˆšœYÈˆOˆ[XYÙN’[XYÙQ›Ü›X]’œYËˆÈOˆ™]\›ˆ\œŠ•[œİ\ÜY™]šY]È[XYÙH›Ü›X]ˆ‹š[Ê
-JKˆNÂˆ]™XY\ˆHY”™XY\›™]ÊˆœÎ‘š[N›Ü[Š	œÛİ\˜ÙJK›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İÜ[ˆ™]šY]È[XYÙNˆÙ\œ›ÜŸHŠJOËˆ
-NÂˆ]XÛÙYH[XYÙN›ØY
-™XY\‹›Ü›X]
-Bˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İXÛÙH™]šY]È[XYÙNˆÙ\œ›ÜŸHŠJOÎÂ‚ˆËÈ”QÈ\È›È[HÚ[›™[ÛÈ›Ü]™Y›Ü™H[˜ÛÙ[™Ë‚ˆ][X›˜Z[H[XYÙN‘[˜[ZXÒ[XYÙN’[XYÙT™Ø
-ˆXÛÙYˆ[X›˜Z[
-‘U’QU×ÓPVÑQÑK‘U’QU×ÓPVÑQÑJBˆ×Ü™Ø
+fn finalize_library(mut mods: Vec<InstalledMod>) -> Vec<InstalledMod> {
+    let mut seen: HashMap<String, String> = HashMap::new();
+    for item in &mut mods {
+        item.duplicate_of = None;
+        if item.kind != "mod" {
+            continue;
+        }
+        let key = mod_id_key(&item.id);
+        if let Some(first) = seen.get(&key) {
+            item.duplicate_of = Some(first.clone());
+        } else {
+            seen.insert(key, item.path.clone());
+        }
+    }
+    mods.sort_by(|left, right| left.id.cmp(&right.id).then(left.source.cmp(&right.source)));
+    mods
+}
 
-Kˆ
-NÂˆ]]][˜ÛÙYH™XÎ›™]Ê
-NÂˆ[X›˜Z[ˆÜš]WİÊ	›]]İ\œÛÜ›™]Ê	›]][˜ÛÙY
-K[XYÙN’[XYÙQ›Ü›X]’œYÊBˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İ[˜ÛÙH™]šY]È[X›˜Z[ˆÙ\œ›ÜŸHŠJOÎÂ‚ˆÚÊ›Ü›X]Jˆ™]Nš[XYÙKÚœYÎØ˜\ÙMßH‹ˆ˜\ÙM™[™Ú[™N™Ù[™\˜[Ü\œÜÙN”ÕS‘T‘™[˜ÛÙJ	™[˜ÛÙY
-Bˆ
-JBŸB‚œXˆ›ˆ\İÛÙ×Ùš[\Ê\Ù\—Ù]WÜ]ˆİš[™ÊHOˆ™\İ[™XÏÙÑš[R[™›Ï‹İš[™ÏˆÂˆ]\Ù\—Ù]HH]Y™œ›ÛJ\Ù\—Ù]WÜ]
-NÂˆYˆ]\Ù\—Ù]Kš\×Ù\Š
-HÂˆ™]\›ˆ\œŠ•\Ù\ˆ]H\™XİÜHÙ\È›İ^\İˆ‹š[Ê
-JNÂˆBˆ]]]š[\ÈH™XÎ›™]Ê
-NÂˆ]Ø[™Y]\ÈHÂˆ
-\Ù\—Ù]Kš›Ú[Š˜Ü˜\ÚÙ[\ŠKš›Ú[Šœİİ]ŠKœİİ]ŠKˆ
-\Ù\—Ù]Kš›Ú[Š˜Ü˜\ÚÙ[\ŠKš›Ú[Šœİ\œ‹ŠKœİ\œˆŠKˆ
-\Ù\—Ù]Kš›Ú[Šœİİ]ŠKœİİ]ŠKˆ
-\Ù\—Ù]Kš›Ú[Šœİ\œ‹ŠKœİ\œˆŠKˆNÂˆ›Üˆ
-]Ú[™
-H[ˆØ[™Y]\ÈÂˆYˆ]š\×Ùš[J
-HÂˆ]Y]Y]HHœÎ›Y]Y]J	œ]
-Bˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İ™XYÙÈY]Y]NˆÙ\œ›ÜŸHŠJOÎÂˆš[\Ëœ\Ú
-ÙÑš[R[™›ÈÂˆ]ˆ]Üİš[™Ê	œ]
-KˆÚ[™ˆÚ[™×Üİš[™Ê
-KˆÚ^™NˆY]Y]K›[Š
-Kˆ[ÙYšYYÛ\ÎˆY]Y]Bˆ›[ÙYšYY
+/// Return the last complete library immediately while an incremental refresh
+/// runs in the background. Missing or corrupt cache files are simply empty.
+pub fn load_mod_library_cache(cache_path: &Path) -> Vec<InstalledMod> {
+    finalize_library(
+        load_library_cache_file(cache_path)
+            .entries
+            .into_iter()
+            .map(|entry| entry.item)
+            .collect(),
+    )
+}
 
-Bˆ›ÚÊ
-Bˆ˜[™İ[Š[Y_[YK™\˜][Û—ÜÚ[˜ÙJS’VÑTĞÒ
-K›ÚÊ
-JBˆ›X\
-\˜][ÛŸ\˜][Û‹˜\×ÛZ[\Ê
-JBˆ[Ü˜\ÛÜŠ
-KˆJNÂˆBˆBˆ]Ü˜\ÚÙ[\H\Ù\—Ù]Kš›Ú[Š˜Ü˜\ÚÙ[\ŠNÂˆYˆÜ˜\ÚÙ[\š\×Ù\Š
-HÂˆYˆ]ÚÊ[šY\ÊHHœÎœ™XYÙ\Š	˜Ü˜\ÚÙ[\
-HÂˆ›Üˆ[H[ˆ[šY\Ë™›][Š
-HÂˆ]]H[Kœ]
+/// Refresh the persistent library cache. Only new or changed top-level mod
+/// entries are recursively inspected; unchanged entries reuse their file
+/// count, display name and parsed `mod.lua` data from the previous launch.
+pub fn scan_mod_library_cached(
+    cache_path: &Path,
+    mods_path: Option<String>,
+    user_data_path: Option<String>,
+    game_root: Option<String>,
+) -> Vec<InstalledMod> {
+    let previous: HashMap<_, _> = load_library_cache_file(cache_path)
+        .entries
+        .into_iter()
+        .map(|entry| {
+            (
+                cached_entry_key(Path::new(&entry.item.path), &entry.item.source),
+                entry,
+            )
+        })
+        .collect();
+    let mut items = Vec::new();
+    let mut next_cache = Vec::new();
+    let mut scanned_roots = HashSet::new();
 
-NÂˆ]˜[YHH]ˆ™š[WÛ˜[YJ
-Bˆ˜[™İ[Š˜[Y_˜[YK×ÜİŠ
-JBˆ[Ü˜\ÛÜ—ÙY˜][
+    if let Some(path) = mods_path {
+        scan_cached_directory(
+            &PathBuf::from(path),
+            "local",
+            false,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+    }
+    if let Some(user_data) = user_data_path {
+        let user_data = PathBuf::from(user_data);
+        scan_cached_directory(
+            &user_data.join("mods"),
+            "local",
+            false,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+        scan_cached_directory(
+            &user_data.join("staging_area"),
+            "staging",
+            true,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+    }
+    if let Some(game) = game_root {
+        let game = PathBuf::from(game);
+        if let Some(workshop) = crate::steam::workshop_root_from_game_root(&game) {
+            scan_cached_directory(
+                &workshop,
+                "workshop",
+                false,
+                &mut scanned_roots,
+                &previous,
+                &mut items,
+                &mut next_cache,
+            );
+        }
+        scan_cached_directory(
+            &game.join("mods"),
+            "builtin",
+            false,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+    }
 
-Bˆ×Ø\ØÚZWÛİÙ\˜Ø\ÙJ
-NÂˆYˆ]š\×Ùš[J
-Bˆ	‰ˆ
-˜[YK™[™×İÚ]
-œİİ]ŠBˆ˜[YK™[™×İÚ]
-‹›ÙÈŠBˆ˜[YK™[™×İÚ]
-‹™\ŠJBˆ	‰ˆYš[\Ëš]\Š
-K˜[J][_][Kœ]OH]Üİš[™Ê	œ]
-JBˆÂˆ]Y]Y]HHœÎ›Y]Y]J	œ]
-K›ÚÊ
-NÂˆš[\Ëœ\Ú
-ÙÑš[R[™›ÈÂˆ]ˆ]Üİš[™Ê	œ]
-KˆÚ[™ˆYˆ˜[YK˜ÛÛZ[œÊœİİ]ŠHÂˆœİİ]X\˜Ú]™H‹š[Ê
-BˆH[ÙHYˆ˜[YK™[™×İÚ]
-‹™\ŠHÂˆ˜Ü˜\ÚY[\‹š[Ê
-BˆH[ÙHÂˆ›ÙÈ‹š[Ê
-BˆKˆÚ^™NˆY]Y]K˜\×Ü™YŠ
-K›X\
-Y]_Y]K›[Š
-JK[Ü˜\ÛÜŠ
-Kˆ[ÙYšYYÛ\ÎˆY]Y]Bˆ˜[™İ[ŠY]_Y]K›[ÙYšYY
+    write_library_cache_file(cache_path, next_cache);
+    finalize_library(items)
+}
 
-K›ÚÊ
-JBˆ˜[™İ[Š[Y_[YK™\˜][Û—ÜÚ[˜ÙJS’VÑTĞÒ
-K›ÚÊ
-JBˆ›X\
-\˜][ÛŸ\˜][Û‹˜\×ÛZ[\Ê
-JBˆ[Ü˜\ÛÜŠ
-KˆJNÂˆBˆBˆBˆBˆš[\ËœÛÜØWÚÙ^J[_İ˜Û\”™]™\œÙJ[K›[ÙYšYYÛ\ÊJNÂˆÚÊš[\ÊBŸB‚‹ËËÈÛÜHİ\œ™[İİ][È[ˆ\˜Ú]™H›Û\ˆ™Y›Ü™HH™]È\İ[ˆİ™\Üš]\È]‚œXˆ›ˆ\˜Ú]™WÜİİ]
-\Ù\—Ù]WÜ]ˆİš[™ÊHOˆ™\İ[İš[™Ëİš[™ÏˆÂˆ]\Ù\—Ù]HH]Y™œ›ÛJ\Ù\—Ù]WÜ]
-NÂˆ]Ûİ\˜ÙHHÂˆ]š[X\HH\Ù\—Ù]Kš›Ú[Š˜Ü˜\ÚÙ[\ŠKš›Ú[Šœİİ]ŠNÂˆYˆš[X\Kš\×Ùš[J
-HÂˆš[X\BˆH[ÙHÂˆ]˜[˜XÚÈH\Ù\—Ù]Kš›Ú[Šœİİ]ŠNÂˆYˆ˜[˜XÚËš\×Ùš[J
-HÂˆ˜[˜XÚÂˆH[ÙHÂˆ™]\›ˆ\œŠ“›Èİİ]›İ[™È\˜Ú]™Kˆ‹š[Ê
-JNÂˆBˆBˆNÂˆ]\˜Ú]™WÙ\ˆH\Ù\—Ù]Kš›Ú[Š˜Ü˜\ÚÙ[\ŠKš›Ú[Š˜\˜Ú]™HŠNÂˆœÎ˜Ü™X]WÙ\—Ø[
-	˜\˜Ú]™WÙ\ŠBˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İÜ™X]HÙÈ\˜Ú]™H\™XİÜNˆÙ\œ›ÜŸHŠJOÎÂˆ]\İ[˜][ÛˆH\˜Ú]™WÙ\‹š›Ú[Š›Ü›X]Jœİİ]^ßK‹›İ×ÛZ[\Ê
-JJNÂˆœÎ˜ÛÜJ	œÛİ\˜ÙK	™\İ[˜][ÛŠBˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İ\˜Ú]™Hİİ]ˆÙ\œ›ÜŸHŠJOÎÂˆÚÊ]Üİš[™Ê	™\İ[˜][ÛŠJBŸB‚™›ˆÛÛXİÙš[\×Ù›Ü—Şš\
-›Ûİˆ	”]
-HOˆ™\İ[™XÏ]Y‹İš[™ÏˆÂˆ]]]š[\ÈH™XÎ›™]Ê
-NÂˆ]]]İXÚÈH™XÈVÜ›Ûİ×Ü]ØYŠ
-WNÂˆÚ[H]ÛÛYJ\ŠHHİXÚËœÜ
+/// Rank a mod-root image by how cheap and how representative it is.
+///
+/// Steam and mod.io drop a ready-to-display JPEG next to the mod, so prefer
+/// those. `image_00.tga` is the mod's own thumbnail and the only image for
+/// roughly a fifth of installed mods, but it needs decoding and re-encoding.
+fn preview_rank(file_name: &str) -> Option<u8> {
+    let lower = file_name.to_ascii_lowercase();
+    let displayable =
+        lower.ends_with(".jpg") || lower.ends_with(".jpeg") || lower.ends_with(".png");
+    if lower.starts_with("workshop_preview") && displayable {
+        return Some(0);
+    }
+    if lower.starts_with("modio_preview") && displayable {
+        return Some(1);
+    }
+    if lower == "image_00.tga" {
+        return Some(2);
+    }
+    if displayable {
+        return Some(3);
+    }
+    if lower.starts_with("image_") && lower.ends_with(".tga") {
+        return Some(4);
+    }
+    None
+}
 
-HÂˆ][šY\ÈHœÎœ™XYÙ\Š	™\ŠBˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İ™XY›Ú™Xİ\™XİÜNˆÙ\œ›ÜŸHŠJOÎÂˆ›Üˆ[H[ˆ[šY\Ë™›][Š
-HÂˆ]]H[Kœ]
+/// Best preview image directly inside the mod folder, if any.
+fn find_mod_preview(mod_dir: &Path) -> Option<PathBuf> {
+    let mut best: Option<(u8, String)> = None;
+    for entry in fs::read_dir(mod_dir).ok()?.flatten() {
+        if !entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            continue;
+        }
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        let Some(rank) = preview_rank(name) else {
+            continue;
+        };
+        // Ties resolve by name so the choice is stable between scans.
+        if best.as_ref().map_or(true, |(top, current)| {
+            rank < *top || (rank == *top && name < current.as_str())
+        }) {
+            best = Some((rank, name.to_string()));
+        }
+    }
+    best.map(|(_, name)| mod_dir.join(name))
+}
 
-NÂˆ]˜[YHH]ˆ™š[WÛ˜[YJ
-Bˆ˜[™İ[Š˜[Y_˜[YK×ÜİŠ
-JBˆ[Ü˜\ÛÜ—ÙY˜][
+/// Decode a mod preview and return a downscaled JPEG as a `data:` URI.
+///
+/// TGA cannot be rendered by the WebView at all, and the raw files are far too
+/// large to hand over, so decoding and thumbnailing happen natively.
+pub fn read_mod_preview(mod_path: String) -> Result<String, String> {
+    let mod_dir = fs::canonicalize(&mod_path)
+        .map_err(|error| format!("Cannot access mod folder: {error}"))?;
+    if !mod_dir.is_dir() {
+        return Err("The selected mod path is not a directory.".into());
+    }
+    let source = find_mod_preview(&mod_dir).ok_or_else(|| "No preview image found.".to_string())?;
+    let metadata =
+        fs::metadata(&source).map_err(|error| format!("Cannot read preview metadata: {error}"))?;
+    if metadata.len() > PREVIEW_MAX_SOURCE_BYTES {
+        return Err("The preview image exceeds the decode limit.".into());
+    }
 
-NÂˆYˆ˜[YHOH‹Œ‹\İY[Èˆ˜[YHOH‹™Ú]ˆ˜[YKœİ\×İÚ]
-‹Œ‹HŠHÂˆÛÛ[YNÂˆBˆYˆ]š\×Ù\Š
-HÂˆİXÚËœ\Ú
-]
-NÂˆH[ÙHÂˆš[\Ëœ\Ú
-]
-NÂˆBˆBˆBˆÚÊš[\ÊBŸB‚‹ËËÈ^ÜHÛX[ˆ’TXÚØYÙH›ÜˆØØ[ÕÛÜšÜÚÜÓ[Ùš[È™\
-›ÈQHY]Y]JK‚œXˆ›ˆ^ÜÜ›Ú™XİŞš\
-›ÛİÜ]ˆİš[™Ë\İ[˜][Û—Ü]ˆİš[™ÊHOˆ™\İ[İš[™Ëİš[™ÏˆÂˆ]›ÛİBˆœÎ˜Ø[›ÛšXØ[^™J	œ›ÛİÜ]
-K›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İXØÙ\ÜÈ›Ú™XİˆÙ\œ›ÜŸHŠJOÎÂˆYˆ\›Ûİš›Ú[Š›[Ù›XHŠKš\×Ùš[J
-HÂˆ™]\›ˆ\œŠ”›Ú™Xİ›Ûİ]\İÛÛZ[ˆ[Ù›XH™Y›Ü™H^Üˆ‹š[Ê
-JNÂˆBˆ]\İ[˜][ÛˆH]Y™œ›ÛJ\İ[˜][Û—Ü]
-NÂˆYˆ]ÛÛYJ\™[
-HH\İ[˜][Û‹œ\™[
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .unwrap_or_default();
+    // Decide by extension: TGA carries no leading magic bytes, so content
+    // sniffing misidentifies it.
+    let format = match extension.as_str() {
+        "tga" => image::ImageFormat::Tga,
+        "png" => image::ImageFormat::Png,
+        "jpg" | "jpeg" => image::ImageFormat::Jpeg,
+        _ => return Err("Unsupported preview image format.".into()),
+    };
+    let reader = BufReader::new(
+        fs::File::open(&source).map_err(|error| format!("Cannot open preview image: {error}"))?,
+    );
+    let decoded = image::load(reader, format)
+        .map_err(|error| format!("Cannot decode preview image: {error}"))?;
 
-HÂˆœÎ˜Ü™X]WÙ\—Ø[
-\™[
-Bˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İÜ™X]H^Ü\™XİÜNˆÙ\œ›ÜŸHŠJOÎÂˆBˆ]š[HHœÎ‘š[N˜Ü™X]J	™\İ[˜][ÛŠBˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İÜ™X]H’Tš[NˆÙ\œ›ÜŸHŠJOÎÂˆ]]]š\Hš\Üš]\›™]Êš[JNÂˆ]Ü[ÛœÈHÚ[\Qš[SÜ[ÛœÎ™Y˜][
+    // JPEG has no alpha channel, so drop it before encoding.
+    let thumbnail = image::DynamicImage::ImageRgb8(
+        decoded
+            .thumbnail(PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE)
+            .to_rgb8(),
+    );
+    let mut encoded = Vec::new();
+    thumbnail
+        .write_to(&mut Cursor::new(&mut encoded), image::ImageFormat::Jpeg)
+        .map_err(|error| format!("Cannot encode preview thumbnail: {error}"))?;
 
-K˜ÛÛ\™\ÜÚ[Û—ÛY]Ù
-š\ÛÛ\™\ÜÚ[Û“Y]Ù‘Y›]Y
-NÂˆ]š[\ÈHÛÛXİÙš[\×Ù›Ü—Şš\
-	œ›Ûİ
-OÎÂˆ›Üˆ][ˆš[\ÈÂˆ]™[]]™HH]ˆœİš\Ü™Yš^
-	œ›Ûİ
-Bˆ›X\Ù\œŠß’[\›˜[]\œ›ÜˆÚ[H^Ü[™Ëˆ‹×Üİš[™Ê
-JOÂˆ×Üİš[™×ÛÜÜŞJ
-Bˆœ™\XÙJ	×	Ë‹ÈŠNÂˆš\œİ\Ùš[J™[]]™KÜ[ÛœÊBˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İÜš]H’T[NˆÙ\œ›ÜŸHŠJOÎÂˆ]]][œ]HœÎ‘š[N›Ü[Š	œ]
-Bˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İ™XYš[H›Üˆ^ÜˆÙ\œ›ÜŸHŠJOÎÂˆËÈİ™X[H[œİXYÙˆY™™\š[™Îˆ[ÙY\Ú\È[™^\™\ÈØ[ˆ™H\™ÙK‚ˆ[Î˜ÛÜJ	›]][œ]	›]]š\
-K›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İÛÛ\™\ÜÈš[NˆÙ\œ›ÜŸHŠJOÎÂˆBˆš\™š[š\Ú
+    Ok(format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&encoded)
+    ))
+}
 
-Bˆ›X\Ù\œŠ\œ›ÜŸ›Ü›X]JØ[››İš[˜[^™H’TˆÙ\œ›ÜŸHŠJOÎÂˆÚÊ]Üİš[™Ê	™\İ[˜][ÛŠJBŸBˆÖØÙ™Ê\İ
-WB›[ÙÛİ\˜ÙWİ\İÈÂˆ\ÙHİ\\ŠÂˆ\ÙHİ™[Â‚ˆ›ˆ[š\]YWİ[\Ü›Ûİ
+pub fn list_log_files(user_data_path: String) -> Result<Vec<LogFileInfo>, String> {
+    let user_data = PathBuf::from(user_data_path);
+    if !user_data.is_dir() {
+        return Err("User data directory does not exist.".into());
+    }
+    let mut files = Vec::new();
+    let candidates = [
+        (user_data.join("crash_dump").join("stdout.txt"), "stdout"),
+        (user_data.join("crash_dump").join("stderr.txt"), "stderr"),
+        (user_data.join("stdout.txt"), "stdout"),
+        (user_data.join("stderr.txt"), "stderr"),
+    ];
+    for (path, kind) in candidates {
+        if path.is_file() {
+            let metadata = fs::metadata(&path)
+                .map_err(|error| format!("Cannot read log metadata: {error}"))?;
+            files.push(LogFileInfo {
+                path: path_string(&path),
+                kind: kind.to_string(),
+                size: metadata.len(),
+                modified_ms: metadata
+                    .modified()
+                    .ok()
+                    .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                    .map(|duration| duration.as_millis())
+                    .unwrap_or(0),
+            });
+        }
+    }
+    let crash_dump = user_data.join("crash_dump");
+    if crash_dump.is_dir() {
+        if let Ok(entries) = fs::read_dir(&crash_dump) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                let name = path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                if path.is_file()
+                    && (name.ends_with("stdout.txt")
+                        || name.ends_with(".log")
+                        || name.ends_with(".dmp"))
+                    && !files.iter().any(|item| item.path == path_string(&path))
+                {
+                    let metadata = fs::metadata(&path).ok();
+                    files.push(LogFileInfo {
+                        path: path_string(&path),
+                        kind: if name.contains("stdout") {
+                            "stdout-archive".into()
+                        } else if name.ends_with(".dmp") {
+                            "crash-dump".into()
+                        } else {
+                            "log".into()
+                        },
+                        size: metadata.as_ref().map(|meta| meta.len()).unwrap_or(0),
+                        modified_ms: metadata
+                            .and_then(|meta| meta.modified().ok())
+                            .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                            .map(|duration| duration.as_millis())
+                            .unwrap_or(0),
+                    });
+                }
+            }
+        }
+    }
+    files.sort_by_key(|entry| std::cmp::Reverse(entry.modified_ms));
+    Ok(files)
+}
 
-HOˆ]YˆÂˆ]˜[›ÜÈHŞ\İ[U[YN››İÊ
-Bˆ™\˜][Û—ÜÚ[˜ÙJS’VÑTĞÒ
-Bˆ™^Xİ
-˜ÛØÚÈŠBˆ˜\×Û˜[›ÜÊ
-NÂˆ]›ÛİH[[\Ù\Š
-Kš›Ú[Š›Ü›X]JˆŒ‹[Xœ˜\K\Ûİ\˜Ù\Ë^ßK^Û˜[›ÜßH‹ˆİœ›ØÙ\ÜÎšY
+/// Copy current stdout.txt into an archive folder before a new test run overwrites it.
+pub fn archive_stdout(user_data_path: String) -> Result<String, String> {
+    let user_data = PathBuf::from(user_data_path);
+    let source = {
+        let primary = user_data.join("crash_dump").join("stdout.txt");
+        if primary.is_file() {
+            primary
+        } else {
+            let fallback = user_data.join("stdout.txt");
+            if fallback.is_file() {
+                fallback
+            } else {
+                return Err("No stdout.txt found to archive.".into());
+            }
+        }
+    };
+    let archive_dir = user_data.join("crash_dump").join("archive");
+    fs::create_dir_all(&archive_dir)
+        .map_err(|error| format!("Cannot create log archive directory: {error}"))?;
+    let destination = archive_dir.join(format!("stdout-{}.txt", now_millis()));
+    fs::copy(&source, &destination)
+        .map_err(|error| format!("Cannot archive stdout.txt: {error}"))?;
+    Ok(path_string(&destination))
+}
 
-Bˆ
-JNÂˆœÎ˜Ü™X]WÙ\—Ø[
-	œ›Ûİ
-K™^Xİ
-[\›ÛİŠNÂˆ›ÛİˆB‚ˆ›ˆÜ™X]WÛ[Ù
-›Ûİˆ	”]Yˆ	œİŠHÂˆ]\™XİÜHH›Ûİš›Ú[ŠY
-NÂˆœÎ˜Ü™X]WÙ\—Ø[
-	™\™XİÜJK™^Xİ
-›[Ù\™XİÜHŠNÂˆœÎÜš]Jˆ\™XİÜKš›Ú[Š›[Ù›XHŠKˆ›Ü›X]J™[˜İ[Ûˆ]J
-H™]\›ˆŞÈ[™›ÈHŞÈ˜[YHHÚYWˆ_H_H[™ŠKˆ
-Bˆ™^Xİ
-›[Ù›XHŠNÂˆB‚ˆÖİ\İBˆ›ˆØØ[œ×Ù]™\WÜİ\ÜYÜÛİ\˜ÙWİÚ]İ]ÙİX›WÜØØ[›š[™×ÛØØ[Û[ÙÊ
-HÂˆ]›ÛİH[š\]YWİ[\Ü›Ûİ
+fn collect_files_for_zip(root: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(dir) = stack.pop() {
+        let entries = fs::read_dir(&dir)
+            .map_err(|error| format!("Cannot read project directory: {error}"))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let name = path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or_default();
+            if name == ".tpf2-studio" || name == ".git" || name.starts_with(".tpf2-") {
+                continue;
+            }
+            if path.is_dir() {
+                stack.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    Ok(files)
+}
 
-NÂˆ]İX[X\ÈH›Ûİš›Ú[Š”İX[SXœ˜\HŠKš›Ú[ŠœİX[X\ÈŠNÂˆ]Ø[YHHİX[X\Ëš›Ú[Š˜ÛÛ[[ÛˆŠKš›Ú[Š•˜[œÜÜ™]™\ˆˆŠNÂˆ]\Ù\—Ù]HH›Ûİˆš›Ú[Š\Ù\™]HŠBˆš›Ú[ŠŒLŒÈŠBˆš›Ú[ŠŒLÎŠBˆš›Ú[Š›ØØ[ŠNÂˆ]ØØ[H\Ù\—Ù]Kš›Ú[Š›[ÙÈŠNÂˆ]İYÚ[™ÈH\Ù\—Ù]Kš›Ú[ŠœİYÚ[™×Ø\™XHŠNÂˆ]ÛÜšÜÚÜHİX[X\Ëš›Ú[ŠÛÜšÜÚÜŠKš›Ú[Š˜ÛÛ[ŠKš›Ú[ŠŒLÎŠNÂˆ]Z[[ˆHØ[YKš›Ú[Š›[ÙÈŠNÂ‚ˆÜ™X]WÛ[Ù
-	›ØØ[›ØØ[Û[ÙÌHŠNÂˆÜ™X]WÛ[Ù
-	œİYÚ[™ËœİYÚ[™×Û[ÙÌHŠNÂˆÜ™X]WÛ[Ù
-	ÛÜšÜÚÜÛÜšÜÚÜÛ[ÙÌHŠNÂˆÜ™X]WÛ[Ù
-	˜Z[[‹˜Z[[—Û[ÙÌHŠNÂ‚ˆ][ÙÈHØØ[—Û[ÙÛXœ˜\JˆÛÛYJ]Üİš[™Ê	›ØØ[
-JKˆÛÛYJ]Üİš[™Ê	\Ù\—Ù]JJKˆÛÛYJ]Üİš[™Ê	™Ø[YJJKˆ
-NÂˆ]Ûİ\˜Ù\Îˆ\ÚÙ]ÏˆH[ÙËš]\Š
-K›X\
-][_][KœÛİ\˜ÙK˜\×ÜİŠ
-JK˜ÛÛXİ
+/// Export a clean ZIP package for local/Workshop/Mod.io prep (no IDE metadata).
+pub fn export_project_zip(root_path: String, destination_path: String) -> Result<String, String> {
+    let root =
+        fs::canonicalize(&root_path).map_err(|error| format!("Cannot access project: {error}"))?;
+    if !root.join("mod.lua").is_file() {
+        return Err("Project root must contain mod.lua before export.".into());
+    }
+    let destination = PathBuf::from(destination_path);
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("Cannot create export directory: {error}"))?;
+    }
+    let file = fs::File::create(&destination)
+        .map_err(|error| format!("Cannot create ZIP file: {error}"))?;
+    let mut zip = ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let files = collect_files_for_zip(&root)?;
+    for path in files {
+        let relative = path
+            .strip_prefix(&root)
+            .map_err(|_| "Internal path error while exporting.".to_string())?
+            .to_string_lossy()
+            .replace('\\', "/");
+        zip.start_file(relative, options)
+            .map_err(|error| format!("Cannot write ZIP entry: {error}"))?;
+        let mut input = fs::File::open(&path)
+            .map_err(|error| format!("Cannot read file for export: {error}"))?;
+        // Stream instead of buffering: mod meshes and textures can be large.
+        io::copy(&mut input, &mut zip).map_err(|error| format!("Cannot compress file: {error}"))?;
+    }
+    zip.finish()
+        .map_err(|error| format!("Cannot finalize ZIP: {error}"))?;
+    Ok(path_string(&destination))
+}
+#[cfg(test)]
+mod source_tests {
+    use super::*;
+    use std::env;
 
-NÂ‚ˆ\ÜÙ\Ù\HJ[ÙË›[Š
-K
-NÂˆ\ÜÙ\Ù\HJˆÛİ\˜Ù\Ëˆ\ÚÙ]™œ›ÛJÈ›ØØ[‹œİYÚ[™È‹ÛÜšÜÚÜ‹˜Z[[ˆ—JBˆ
-NÂˆ\ÜÙ\Ù\HJ[ÙËš]\Š
-K™š[\Š][_][KœÛİ\˜ÙHOH›ØØ[ŠK˜Ûİ[
+    fn unique_temp_root() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = env::temp_dir().join(format!(
+            "tpf2-library-sources-{}-{nanos}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("temp root");
+        root
+    }
 
-KJNÂ‚ˆœÎœ™[[İ™WÙ\—Ø[
-›Ûİ
-K™^Xİ
-˜ÛX[\ŠNÂˆB‚ˆÖİ\İBˆ›ˆİYÚ[™×ØÛÛ[Ú\×ØÛ\ÜÚYšYYİÚ]İ]Û[ÙÛXWÜ™\]Z\™[Y[
+    fn create_mod(root: &Path, id: &str) {
+        let directory = root.join(id);
+        fs::create_dir_all(&directory).expect("mod directory");
+        fs::write(
+            directory.join("mod.lua"),
+            format!("function data() return {{ info = {{ name = \"{id}\" }} }} end"),
+        )
+        .expect("mod.lua");
+    }
 
-HÂˆ]›ÛİH[š\]YWİ[\Ü›Ûİ
+    #[test]
+    fn scans_every_supported_source_without_double_scanning_local_mods() {
+        let root = unique_temp_root();
+        let steamapps = root.join("SteamLibrary").join("steamapps");
+        let game = steamapps.join("common").join("Transport Fever 2");
+        let user_data = root
+            .join("userdata")
+            .join("123")
+            .join("1066780")
+            .join("local");
+        let local = user_data.join("mods");
+        let staging = user_data.join("staging_area");
+        let workshop = steamapps.join("workshop").join("content").join("1066780");
+        let builtin = game.join("mods");
 
-NÂˆ]\Ù\—Ù]HH›Ûİš›Ú[Š\Ù\™]HŠKš›Ú[ŠŒLÎŠKš›Ú[Š›ØØ[ŠNÂˆ]İYÚ[™ÈH\Ù\—Ù]Kš›Ú[ŠœİYÚ[™×Ø\™XHŠNÂˆœÎ˜Ü™X]WÙ\—Ø[
-	œİYÚ[™ÊK™^Xİ
-œİYÚ[™È›ÛİŠNÂ‚ˆ]›Ú™XİHİYÚ[™Ëš›Ú[Š’[\›˜[ÛÛÈŠNÂˆœÎ˜Ü™X]WÙ\—Ø[
-›Ú™Xİš›Ú[Šœ™\ËÜØÜš\ÈŠJK™^Xİ
-œ›Ú™XİØÜš\ÈŠNÂˆœÎÜš]J›Ú™Xİš›Ú[Šœ™\ËÜØÜš\ËØ›Ûİİ˜\›XHŠKœ™]\›ˆßHŠK™^Xİ
-œ›Ú™XİØÜš\ŠNÂˆœÎÜš]JİYÚ[™Ëš›Ú[Š›ÛÜÙWØ›Ûİİ˜\›XHŠKœ™]\›ˆßHŠK™^Xİ
-›ÛÜÙHØÜš\ŠNÂˆ]ÛÛ[HİYÚ[™Ëš›Ú[Š”™Y™\™[˜ÙQ]HŠNÂˆœÎ˜Ü™X]WÙ\—Ø[
-	˜ÛÛ[
-K™^Xİ
-˜ÛÛ[›Û\ˆŠNÂˆœÎÜš]JÛÛ[š›Ú[Š”‘PQQKŠKš[\›˜[]HŠK™^Xİ
-˜ÛÛ[š[HŠNÂ‚ˆ]][\ÈHØØ[—Û[ÙÛXœ˜\J›Û™KÛÛYJ]Üİš[™Ê	\Ù\—Ù]JJK›Û™JNÂˆ]›Ú™XİÚ][HH][\Âˆš]\Š
-Bˆ™š[™
-][_][KšYOH’[\›˜[ÛÛÈŠBˆ™^Xİ
-œ›Ú™XİŠNÂˆ]ØÜš\Ú][HH][\Âˆš]\Š
-Bˆ™š[™
-][_][KšYOH›ÛÜÙWØ›Ûİİ˜\›XHŠBˆ™^Xİ
-œØÜš\ŠNÂˆ]ÛÛ[Ú][HH][\Âˆš]\Š
-Bˆ™š[™
-][_][KšYOH”™Y™\™[˜ÙQ]HŠBˆ™^Xİ
-˜ÛÛ[ŠNÂ‚ˆ\ÜÙ\Ù\HJ›Ú™XİÚ][KšÚ[™œİYÚ[™Ë\›Ú™XİŠNÂˆ\ÜÙ\Ù\HJ›Ú™XİÚ][K™[Wİ\K™\™XİÜHŠNÂˆ\ÜÙ\J\›Ú™XİÚ][Kš\×Û[ÙÛXJNÂˆ\ÜÙ\Ù\HJØÜš\Ú][KšÚ[™œİYÚ[™Ë\ØÜš\ŠNÂˆ\ÜÙ\Ù\HJØÜš\Ú][K™[Wİ\K™š[HŠNÂˆ\ÜÙ\J\ØÜš\Ú][Kš\×Û[ÙÛXJNÂˆ\ÜÙ\Ù\HJÛÛ[Ú][KšÚ[™œİYÚ[™ËXÛÛ[ŠNÂˆ\ÜÙ\Ù\HJÛÛ[Ú][K™[Wİ\K™\™XİÜHŠNÂˆ\ÜÙ\J][\Ëš]\Š
-K˜[
-][_][K™\XØ]WÛÙ‹š\×Û›Û™J
-JJNÂ‚ˆœÎœ™[[İ™WÙ\—Ø[
-›Ûİ
-K™^Xİ
-˜ÛX[\ŠNÂˆB‚ˆÖİ\İBˆ›ˆ\œÚ\İ[ØØXÚWÜ™\İÜ™\×İ[—Ú[˜Ü™[Y[[Wİ\]\×ÛXœ˜\WÙ[šY\Ê
-HÂˆ]›ÛİH[š\]YWİ[\Ü›Ûİ
+        create_mod(&local, "local_mod_1");
+        create_mod(&staging, "staging_mod_1");
+        create_mod(&workshop, "workshop_mod_1");
+        create_mod(&builtin, "builtin_mod_1");
 
-NÂˆ][ÙÈH›Ûİš›Ú[Š›[ÙÈŠNÂˆ]ØXÚHH›Ûİš›Ú[Š˜ØXÚHŠKš›Ú[Š›[Ù[Xœ˜\K]ŒKšœÛÛˆŠNÂˆœÎ˜Ü™X]WÙ\—Ø[
-	›[ÙÊK™^Xİ
-›[ÙÈ›ÛİŠNÂˆÜ™X]WÛ[Ù
-	›[ÙË˜ØXÚYÛ[ÙÌHŠNÂ‚ˆ]š\œİHØØ[—Û[ÙÛXœ˜\WØØXÚY
-	˜ØXÚKÛÛYJ]Üİš[™Ê	›[ÙÊJK›Û™K›Û™JNÂˆ\ÜÙ\Ù\HJš\œİ›[Š
-KJNÂˆ\ÜÙ\Ù\HJš\œİÌK™\Ü^WÛ˜[YK˜\×Ù\™YŠ
-KÛÛYJ˜ØXÚYÛ[ÙÌHŠJNÂ‚ˆ]™\İÜ™YHØYÛ[ÙÛXœ˜\WØØXÚJ	˜ØXÚJNÂˆ\ÜÙ\Ù\HJ™\İÜ™Y›[Š
-KJNÂˆ\ÜÙ\Ù\HJ™\İÜ™YÌKœ]š\œİÌKœ]
-NÂ‚ˆœÎÜš]Jˆ[ÙËš›Ú[Š˜ØXÚYÛ[ÙÌHŠKš›Ú[Š›[Ù›XHŠKˆ™[˜İ[Ûˆ]J
-H™]\›ˆÈ[™›ÈHÈ˜[YHH•\]YØXÚY[Ù˜[YWˆHH[™‹ˆ
-Bˆ™^Xİ
-\]Y[Ù›XHŠNÂˆ]\]YHØØ[—Û[ÙÛXœ˜\WØØXÚY
-	˜ØXÚKÛÛYJ]Üİš[™Ê	›[ÙÊJK›Û™K›Û™JNÂˆ\ÜÙ\Ù\HJˆ\]YÌK™\Ü^WÛ˜[YK˜\×Ù\™YŠ
-KˆÛÛYJ•\]YØXÚY[Ù˜[YHŠBˆ
-NÂ‚ˆœÎœ™[[İ™WÙ\—Ø[
-[ÙËš›Ú[Š˜ØXÚYÛ[ÙÌHŠJK™^Xİ
-œ™[[İ™H[ÙŠNÂˆ]™[[İ™YHØØ[—Û[ÙÛXœ˜\WØØXÚY
-	˜ØXÚKÛÛYJ]Üİš[™Ê	›[ÙÊJK›Û™K›Û™JNÂˆ\ÜÙ\J™[[İ™Yš\×Ù[\J
-JNÂˆ\ÜÙ\JØYÛ[ÙÛXœ˜\WØØXÚJ	˜ØXÚJKš\×Ù[\J
-JNÂ‚ˆœÎœ™[[İ™WÙ\—Ø[
-›Ûİ
-K™^Xİ
-˜ÛX[\ŠNÂˆBŸB
+        let mods = scan_mod_library(
+            Some(path_string(&local)),
+            Some(path_string(&user_data)),
+            Some(path_string(&game)),
+        );
+        let sources: HashSet<_> = mods.iter().map(|item| item.source.as_str()).collect();
+
+        assert_eq!(mods.len(), 4);
+        assert_eq!(
+            sources,
+            HashSet::from(["local", "staging", "workshop", "builtin"])
+        );
+        assert_eq!(mods.iter().filter(|item| item.source == "local").count(), 1);
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn staging_content_is_classified_without_mod_lua_requirement() {
+        let root = unique_temp_root();
+        let user_data = root.join("userdata").join("1066780").join("local");
+        let staging = user_data.join("staging_area");
+        fs::create_dir_all(&staging).expect("staging root");
+
+        let project = staging.join("InternalTools");
+        fs::create_dir_all(project.join("res/scripts")).expect("project scripts");
+        fs::write(project.join("res/scripts/bootstrap.lua"), "return {}").expect("project script");
+        fs::write(staging.join("loose_bootstrap.lua"), "return {}").expect("loose script");
+        let content = staging.join("ReferenceData");
+        fs::create_dir_all(&content).expect("content folder");
+        fs::write(content.join("README.txt"), "internal data").expect("content file");
+
+        let items = scan_mod_library(None, Some(path_string(&user_data)), None);
+        let project_item = items
+            .iter()
+            .find(|item| item.id == "InternalTools")
+            .expect("project");
+        let script_item = items
+            .iter()
+            .find(|item| item.id == "loose_bootstrap.lua")
+            .expect("script");
+        let content_item = items
+            .iter()
+            .find(|item| item.id == "ReferenceData")
+            .expect("content");
+
+        assert_eq!(project_item.kind, "staging-project");
+        assert_eq!(project_item.entry_type, "directory");
+        assert!(!project_item.has_mod_lua);
+        assert_eq!(script_item.kind, "staging-script");
+        assert_eq!(script_item.entry_type, "file");
+        assert!(!script_item.has_mod_lua);
+        assert_eq!(content_item.kind, "staging-content");
+        assert_eq!(content_item.entry_type, "directory");
+        assert!(items.iter().all(|item| item.duplicate_of.is_none()));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn persistent_cache_restores_then_incrementally_updates_library_entries() {
+        let root = unique_temp_root();
+        let mods = root.join("mods");
+        let cache = root.join("cache").join("mod-library-v1.json");
+        fs::create_dir_all(&mods).expect("mods root");
+        create_mod(&mods, "cached_mod_1");
+
+        let first = scan_mod_library_cached(&cache, Some(path_string(&mods)), None, None);
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].display_name.as_deref(), Some("cached_mod_1"));
+
+        let restored = load_mod_library_cache(&cache);
+        assert_eq!(restored.len(), 1);
+        assert_eq!(restored[0].path, first[0].path);
+
+        fs::write(
+            mods.join("cached_mod_1").join("mod.lua"),
+            "function data() return { info = { name = \"Updated cached mod name\" } } end",
+        )
+        .expect("updated mod.lua");
+        let updated = scan_mod_library_cached(&cache, Some(path_string(&mods)), None, None);
+        assert_eq!(
+            updated[0].display_name.as_deref(),
+            Some("Updated cached mod name")
+        );
+
+        fs::remove_dir_all(mods.join("cached_mod_1")).expect("remove mod");
+        let removed = scan_mod_library_cached(&cache, Some(path_string(&mods)), None, None);
+        assert!(removed.is_empty());
+        assert!(load_mod_library_cache(&cache).is_empty());
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+}
