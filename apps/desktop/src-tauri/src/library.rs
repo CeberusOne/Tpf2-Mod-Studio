@@ -2,7 +2,7 @@
 //! Aligns with the Entwicklungsplan: Mod Manager, Log Center archive, Build export.
 
 use base64::Engine;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -20,7 +20,7 @@ const PREVIEW_MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
 /// Upper bound for a `mod.lua` shipped to the UI for health classification.
 const MAX_MOD_LUA_BYTES: u64 = 512 * 1024;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstalledMod {
     pub id: String,
@@ -38,6 +38,33 @@ pub struct InstalledMod {
     /// second round trip. Already read here for the display name.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mod_lua: Option<String>,
+}
+
+const LIBRARY_CACHE_SCHEMA: u32 = 1;
+
+#[derive(Debug, Clone, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LibraryEntryFingerprint {
+    source: String,
+    entry_type: String,
+    modified_ms: u64,
+    size: u64,
+    mod_lua_modified_ms: u64,
+    mod_lua_size: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CachedLibraryEntry {
+    fingerprint: LibraryEntryFingerprint,
+    item: InstalledMod,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LibraryCache {
+    schema_version: u32,
+    entries: Vec<CachedLibraryEntry>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -58,6 +85,39 @@ fn now_millis() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|value| value.as_millis())
         .unwrap_or_default()
+}
+
+fn metadata_modified_ms(metadata: &fs::Metadata) -> u64 {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+        .and_then(|value| u64::try_from(value.as_millis()).ok())
+        .unwrap_or_default()
+}
+
+fn library_entry_fingerprint(
+    path: &Path,
+    source: &str,
+    is_directory: bool,
+) -> Option<LibraryEntryFingerprint> {
+    let metadata = fs::metadata(path).ok()?;
+    let mod_lua = if is_directory {
+        fs::metadata(path.join("mod.lua")).ok()
+    } else {
+        None
+    };
+    Some(LibraryEntryFingerprint {
+        source: source.to_string(),
+        entry_type: if is_directory { "directory" } else { "file" }.to_string(),
+        modified_ms: metadata_modified_ms(&metadata),
+        size: metadata.len(),
+        mod_lua_modified_ms: mod_lua
+            .as_ref()
+            .map(metadata_modified_ms)
+            .unwrap_or_default(),
+        mod_lua_size: mod_lua.as_ref().map(fs::Metadata::len).unwrap_or_default(),
+    })
 }
 
 fn count_files(root: &Path) -> usize {
@@ -324,6 +384,219 @@ pub fn scan_mod_library(
 
     mods.sort_by(|left, right| left.id.cmp(&right.id).then(left.source.cmp(&right.source)));
     mods
+}
+
+fn cached_entry_key(path: &Path, source: &str) -> String {
+    format!("{source}|{}", directory_key(path))
+}
+
+fn load_library_cache_file(cache_path: &Path) -> LibraryCache {
+    fs::read(cache_path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<LibraryCache>(&bytes).ok())
+        .filter(|cache| cache.schema_version == LIBRARY_CACHE_SCHEMA)
+        .unwrap_or_default()
+}
+
+fn write_library_cache_file(cache_path: &Path, entries: Vec<CachedLibraryEntry>) {
+    let cache = LibraryCache {
+        schema_version: LIBRARY_CACHE_SCHEMA,
+        entries,
+    };
+    let Ok(bytes) = serde_json::to_vec(&cache) else {
+        return;
+    };
+    if let Some(parent) = cache_path.parent() {
+        if fs::create_dir_all(parent).is_err() {
+            return;
+        }
+    }
+    // A cache is recoverable. A partially written file is ignored on the next
+    // launch and rebuilt from the real mod directories.
+    let _ = fs::write(cache_path, bytes);
+}
+
+fn push_cached_entry(
+    path: &Path,
+    source: &str,
+    is_directory: bool,
+    previous: &HashMap<String, CachedLibraryEntry>,
+    items: &mut Vec<InstalledMod>,
+    next_cache: &mut Vec<CachedLibraryEntry>,
+) {
+    let Some(fingerprint) = library_entry_fingerprint(path, source, is_directory) else {
+        return;
+    };
+    let key = cached_entry_key(path, source);
+    let item = previous
+        .get(&key)
+        .filter(|cached| cached.fingerprint == fingerprint)
+        .map(|cached| cached.item.clone())
+        .unwrap_or_else(|| {
+            let mut scanned = Vec::with_capacity(1);
+            push_library_entry(path, source, is_directory, &mut scanned);
+            scanned.pop().unwrap_or_else(|| InstalledMod {
+                id: path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default()
+                    .to_string(),
+                path: path_string(path),
+                source: source.to_string(),
+                kind: "mod".to_string(),
+                entry_type: if is_directory { "directory" } else { "file" }.to_string(),
+                has_mod_lua: false,
+                file_count: usize::from(!is_directory),
+                display_name: None,
+                duplicate_of: None,
+                mod_lua: None,
+            })
+        });
+    next_cache.push(CachedLibraryEntry {
+        fingerprint,
+        item: item.clone(),
+    });
+    items.push(item);
+}
+
+fn scan_cached_directory(
+    root: &Path,
+    source: &str,
+    include_files: bool,
+    scanned_roots: &mut HashSet<String>,
+    previous: &HashMap<String, CachedLibraryEntry>,
+    items: &mut Vec<InstalledMod>,
+    next_cache: &mut Vec<CachedLibraryEntry>,
+) {
+    if !root.is_dir() || !scanned_roots.insert(directory_key(root)) {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if file_type.is_dir() || (include_files && file_type.is_file()) {
+            push_cached_entry(
+                &entry.path(),
+                source,
+                file_type.is_dir(),
+                previous,
+                items,
+                next_cache,
+            );
+        }
+    }
+}
+
+fn finalize_library(mut mods: Vec<InstalledMod>) -> Vec<InstalledMod> {
+    let mut seen: HashMap<String, String> = HashMap::new();
+    for item in &mut mods {
+        item.duplicate_of = None;
+        if item.kind != "mod" {
+            continue;
+        }
+        let key = mod_id_key(&item.id);
+        if let Some(first) = seen.get(&key) {
+            item.duplicate_of = Some(first.clone());
+        } else {
+            seen.insert(key, item.path.clone());
+        }
+    }
+    mods.sort_by(|left, right| left.id.cmp(&right.id).then(left.source.cmp(&right.source)));
+    mods
+}
+
+/// Return the last complete library immediately while an incremental refresh
+/// runs in the background. Missing or corrupt cache files are simply empty.
+pub fn load_mod_library_cache(cache_path: &Path) -> Vec<InstalledMod> {
+    finalize_library(
+        load_library_cache_file(cache_path)
+            .entries
+            .into_iter()
+            .map(|entry| entry.item)
+            .collect(),
+    )
+}
+
+/// Refresh the persistent library cache. Only new or changed top-level mod
+/// entries are recursively inspected; unchanged entries reuse their file
+/// count, display name and parsed `mod.lua` data from the previous launch.
+pub fn scan_mod_library_cached(
+    cache_path: &Path,
+    mods_path: Option<String>,
+    user_data_path: Option<String>,
+    game_root: Option<String>,
+) -> Vec<InstalledMod> {
+    let previous: HashMap<_, _> = load_library_cache_file(cache_path)
+        .entries
+        .into_iter()
+        .map(|entry| (cached_entry_key(Path::new(&entry.item.path), &entry.item.source), entry))
+        .collect();
+    let mut items = Vec::new();
+    let mut next_cache = Vec::new();
+    let mut scanned_roots = HashSet::new();
+
+    if let Some(path) = mods_path {
+        scan_cached_directory(
+            &PathBuf::from(path),
+            "local",
+            false,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+    }
+    if let Some(user_data) = user_data_path {
+        let user_data = PathBuf::from(user_data);
+        scan_cached_directory(
+            &user_data.join("mods"),
+            "local",
+            false,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+        scan_cached_directory(
+            &user_data.join("staging_area"),
+            "staging",
+            true,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+    }
+    if let Some(game) = game_root {
+        let game = PathBuf::from(game);
+        if let Some(workshop) = crate::steam::workshop_root_from_game_root(&game) {
+            scan_cached_directory(
+                &workshop,
+                "workshop",
+                false,
+                &mut scanned_roots,
+                &previous,
+                &mut items,
+                &mut next_cache,
+            );
+        }
+        scan_cached_directory(
+            &game.join("mods"),
+            "builtin",
+            false,
+            &mut scanned_roots,
+            &previous,
+            &mut items,
+            &mut next_cache,
+        );
+    }
+
+    write_library_cache_file(cache_path, next_cache);
+    finalize_library(items)
 }
 
 /// Rank a mod-root image by how cheap and how representative it is.
@@ -685,6 +958,53 @@ mod source_tests {
         assert_eq!(content_item.kind, "staging-content");
         assert_eq!(content_item.entry_type, "directory");
         assert!(items.iter().all(|item| item.duplicate_of.is_none()));
+
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn persistent_cache_restores_then_incrementally_updates_library_entries() {
+        let root = unique_temp_root();
+        let mods = root.join("mods");
+        let cache = root.join("cache").join("mod-library-v1.json");
+        fs::create_dir_all(&mods).expect("mods root");
+        create_mod(&mods, "cached_mod_1");
+
+        let first = scan_mod_library_cached(
+            &cache,
+            Some(path_string(&mods)),
+            None,
+            None,
+        );
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].display_name.as_deref(), Some("cached_mod_1"));
+
+        let restored = load_mod_library_cache(&cache);
+        assert_eq!(restored.len(), 1);
+        assert_eq!(restored[0].path, first[0].path);
+
+        fs::write(
+            mods.join("cached_mod_1").join("mod.lua"),
+            "function data() return { info = { name = \"Updated cached mod name\" } } end",
+        )
+        .expect("updated mod.lua");
+        let updated = scan_mod_library_cached(
+            &cache,
+            Some(path_string(&mods)),
+            None,
+            None,
+        );
+        assert_eq!(updated[0].display_name.as_deref(), Some("Updated cached mod name"));
+
+        fs::remove_dir_all(mods.join("cached_mod_1")).expect("remove mod");
+        let removed = scan_mod_library_cached(
+            &cache,
+            Some(path_string(&mods)),
+            None,
+            None,
+        );
+        assert!(removed.is_empty());
+        assert!(load_mod_library_cache(&cache).is_empty());
 
         fs::remove_dir_all(root).expect("cleanup");
     }
