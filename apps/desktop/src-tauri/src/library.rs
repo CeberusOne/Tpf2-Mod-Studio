@@ -254,6 +254,7 @@ fn push_library_entry(path: &Path, source: &str, is_directory: bool, into: &mut 
     });
 }
 
+#[cfg(test)]
 fn scan_mod_directory(root: &Path, source: &str, into: &mut Vec<InstalledMod>) {
     let Ok(entries) = fs::read_dir(root) else {
         return;
@@ -266,6 +267,7 @@ fn scan_mod_directory(root: &Path, source: &str, into: &mut Vec<InstalledMod>) {
     }
 }
 
+#[cfg(test)]
 fn scan_staging_directory(root: &Path, into: &mut Vec<InstalledMod>) {
     let Ok(entries) = fs::read_dir(root) else {
         return;
@@ -309,6 +311,7 @@ fn mod_id_key(id: &str) -> String {
     }
 }
 
+#[cfg(test)]
 fn scan_mod_directory_once(
     root: &Path,
     source: &str,
@@ -320,6 +323,7 @@ fn scan_mod_directory_once(
     }
 }
 
+#[cfg(test)]
 fn scan_staging_directory_once(
     root: &Path,
     scanned_roots: &mut HashSet<String>,
@@ -331,6 +335,7 @@ fn scan_staging_directory_once(
 }
 
 /// Scan local mods, staging area, Steam Workshop content and game-provided mods.
+#[cfg(test)]
 pub fn scan_mod_library(
     mods_path: Option<String>,
     user_data_path: Option<String>,
