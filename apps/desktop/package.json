@@ -26,6 +26,6 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.4",
-    "@types/three": "^0.185.3"
+    "@types/three": "^0.185.4"
   }
 }
